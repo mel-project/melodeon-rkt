@@ -42,7 +42,14 @@
     ;; a program is a single expression right now
     (<program> ((<expr>) (pos-lift 1 1 $1)))
     ;; different kinds of exprs
-    (<expr> ((<add-bexpr>) (pos-lift 1 1 $1)))
+    (<expr> ((<add-bexpr>) (pos-lift 1 1 $1))
+            ((<let-expr>) (pos-lift 1 1 $1))
+            )
+    ;; let x = y in expr
+    (<let-expr> ((LET <comma-separated-defs> IN <expr>) (pos-lift 1 4
+                                                                  `(@let ,$2 ,$4))))
+    (<comma-separated-defs> ((VAR = <expr> COMMA <comma-separated-defs>) (hash-set $5 $1 $3))
+                            ((VAR = <expr>) (hash $1 $3)))
     ;; low-associativity (add-like) binary operators
     (<add-bexpr> ((<add-bexpr> + <mult-bexpr>) (pos-lift 1 3 `(@+ ,$1 ,$3)))
                  ((<add-bexpr> - <mult-bexpr>) (pos-lift 1 3 `(@- ,$1 ,$3)))
@@ -84,4 +91,8 @@
        ))))
 
 (module+ main
-  (melo-parse-port (open-input-string "2 * (3 + 4 + 5)")))
+  (melo-parse-port (open-input-string "
+let x = 123,
+    y = 456 in
+    x + y
+")))

@@ -9,7 +9,8 @@
          syntax-tokens)
 
 (define-tokens value-tokens (NUM VAR))
-(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN + - * / EOF NEG))
+(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN COMMA + - * / EOF NEG
+                                      LET IN))
 
 (define-lex-abbrevs
   (lower-letter (:/ "a" "z"))
@@ -22,6 +23,10 @@
   (lexer-src-pos
    ;; if we're at the end we're at the end
    [(eof) 'EOF]
+   ;; keywords
+   ["let" 'LET]
+   ["in" 'IN]
+   ["," 'COMMA]
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations
@@ -43,4 +48,3 @@
   (match (melo-lex-once input-port)
     [(position-token 'EOF _ _) '()]
     [val (cons val (melo-lex-all input-port #f))]))
-

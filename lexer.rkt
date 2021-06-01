@@ -1,14 +1,15 @@
 #lang racket
 (require parser-tools/lex
          (prefix-in : parser-tools/lex-sre))
-(require test-engine/racket-tests)
 
 (provide (contract-out
           (melo-lex-once (-> input-port? position-token?))
-          (melo-lex-all (-> input-port? (listof position-token?)))))
+          (melo-lex-all (-> input-port? (listof position-token?))))
+         value-tokens
+         syntax-tokens)
 
 (define-tokens value-tokens (NUM VAR))
-(define-empty-tokens op-tokens (= OPEN-PAREN CLOSE-PAREN + - * / EOF NEG))
+(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN + - * / EOF NEG))
 
 (define-lex-abbrevs
   (lower-letter (:/ "a" "z"))

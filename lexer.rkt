@@ -9,7 +9,7 @@
          syntax-tokens)
 
 (define-tokens value-tokens (NUM VAR))
-(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN COMMA + - * / EOF NEG
+(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN OPEN-BRACKET CLOSE-BRACKET COMMA + - * / EOF NEG
                                       LET IN))
 
 (define-lex-abbrevs
@@ -34,6 +34,8 @@
    ;; parentheses
    ["(" 'OPEN-PAREN]
    [")" 'CLOSE-PAREN]
+   ["[" 'OPEN-BRACKET]
+   ["]" 'CLOSE-BRACKET]
    [(concatenation (:+ (:or lower-letter upper-letter))
                    (:* (:or lower-letter upper-letter "_" digit))) (token-VAR (string->symbol lexeme))]
    [(:+ digit) (token-NUM (string->number lexeme))]

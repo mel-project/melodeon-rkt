@@ -1,17 +1,42 @@
-#lang racket
+#lang typed/racket
+(require "parser.rkt"
+         "typecheck.rkt"
+         "types.rkt")
 
-;; @-ast->mil: @-Ast -> Mil
-(define (@-ast->mil @-ast)
+
+(: generate-mil (-> @-Ast Mil))
+(define (generate-mil @-ast)
+  (: strip-@ (-> Symbol Symbol))
   (define (strip-@ @-sym)
-    (string->symbol (substring (symbol->string @-sym) 2)))
+    (string->symbol (substring (symbol->string @-sym) 1)))
 
   (match @-ast
     ;; let bindings 
     [`(@let (,var-name ,var-value) ,body)
-     `(let (,var-name ,(@-ast->mil var-value)) ,(@-ast->mil body))]
+     `(let (,var-name ,(generate-mil var-value)) ,(generate-mil body))]
     ;; binary ops
-    [`(,(? (lambda(op) (member op '(@+ @- @* @/))) op) ,x ,y) `(,(strip-@ op) ,(@-ast->mil x)
-                                                                              ,(@-ast->mil y))]
+    [`(,(? (lambda(op) (member op '(@+ @- @* @/))) op) ,x ,y) (cast `(,(strip-@ op) ,(generate-mil x)
+                                                                                    ,(generate-mil y))
+                                                                    Mil)]
     [`(@var ,(? symbol? varname)) varname]
     [`(@lit-num ,(? exact-integer? number)) number]
     [other (error "invalid @-ast" other)]))
+
+
+;; demo compiler flow
+(module+ main
+  (define ast (parameterize ([FILENAME "whatever.melo"])
+                (melo-parse-port (open-input-string "
+let x = 123 in
+let y = 456 in
+    x + (let y = y*y*123545 in y * x + y+(((((((((((((y))))))))))))))
+"))))
+  (displayln "@-Ast:")
+  (pretty-display ast)
+  (displayln "")
+  ;; type check
+  (void (@-ast->type ast (hash)))
+  ;; generate the mil
+  (displayln "Mil:")
+  (pretty-display
+   (generate-mil ast)))

@@ -10,7 +10,7 @@
   (define (strip-@ @-sym)
     (string->symbol (substring (symbol->string @-sym) 1)))
 
-  (match @-ast
+  (match (dectx @-ast)
     ;; let bindings 
     [`(@let (,var-name ,var-value) ,body)
      `(let (,var-name ,(generate-mil var-value)) ,(generate-mil body))]
@@ -20,6 +20,7 @@
                                                                     Mil)]
     [`(@var ,(? symbol? varname)) varname]
     [`(@lit-num ,(? exact-integer? number)) number]
+    [`(@lit-vec ,vv) (list->vector (map generate-mil vv))]
     [other (error "invalid @-ast" other)]))
 
 
@@ -33,6 +34,7 @@ let y = 456 in
 "))))
   (displayln "@-Ast:")
   (pretty-display ast)
+  (pretty-print (get-context ast))
   (displayln "")
   ;; type check
   (void (@-ast->type ast (hash)))

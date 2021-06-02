@@ -7,7 +7,7 @@
 (define-type Type
   (U 'Nat
      ; "tuple" types
-     (Listof Type)))
+     (Pair 'Vector (Listof Type))))
 
 ;; typechecks an @-ast
 (: @-ast->type (-> @-Ast (HashTable Symbol Type) Type))
@@ -33,7 +33,7 @@
              real-type)))
            
   
-  (match @-ast
+  (match (dectx @-ast)
     [`(,(? (lambda(op) (member op '(@+ @- @* @/)))) ,x ,y)
      (assert-type x 'Nat)
      (assert-type y 'Nat)
@@ -43,14 +43,11 @@
      (@-ast->type body (hash-set scope val expr-type))]
     [`(@lit-num ,_) 'Nat]
     [`(@var ,variable) (lookup-binding variable)]
-    [`(@lit-vec ,vars) (map (λ ((x : @-Ast)) (@-ast->type x scope)) vars)]))
+    [`(@lit-vec ,vars) `(Vector . ,(map (λ ((x : @-Ast)) (@-ast->type x scope)) vars))]))
 
 (module+ main
   (@-ast->type
    (melo-parse-port (open-input-string "
-[let x = 123 in
-let y = 456 in
-let z = [x, y] in
-    x + x + (let y = y*y*123545 in y * x + y+(((((((((((((y))))))))))))))]
+[1, 2, [3,4], [5 * (let x = 2 in x + 6)]]
 "))
    (hash)))

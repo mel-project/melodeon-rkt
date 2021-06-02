@@ -1,48 +1,28 @@
 #lang typed/racket
+(require typed/racket/unsafe)
 (require "types.rkt")
 ;; untyped internal impl
 (module untyped racket
   (require "lexer.rkt")
+  (require (prefix-in T "types.rkt"))
   (require parser-tools/lex)
   (require parser-tools/yacc)
   (require compatibility/defmacro)
   ;; we only provide melo-parse-port because it has a much saner API
   (provide melo-parse-port
-           (struct-out context)
-           with-context
-           get-context
-           with-context-of
            context->string
            FILENAME)
   
-  ;; context structure that may be attached to @-Asts
-  (struct context (filename
-                   start-pos
-                   end-pos)
-    #:transparent)
-  
-  ;; may or may not return a context
-  (define CONTEXT-WEAKMAP (make-weak-hasheq))
-  (define (get-context @-ast)
-    (hash-ref CONTEXT-WEAKMAP @-ast #f))
   
   (define (context->string ctx)
     (if ctx
         (format "~a, ~a:~a-~a:~a"
-                (context-filename ctx)
-                (position-line (context-start-pos ctx))
-                (position-col (context-start-pos ctx))
-                (position-line (context-end-pos ctx))
-                (position-col (context-end-pos ctx)))
+                (Tcontext-filename ctx)
+                (position-line (Tcontext-start-pos ctx))
+                (position-col (Tcontext-start-pos ctx))
+                (position-line (Tcontext-end-pos ctx))
+                (position-col (Tcontext-end-pos ctx)))
         "NO CONTEXT"))
-  
-  (define (with-context ctx @-ast)
-    (when ctx
-      (hash-set! CONTEXT-WEAKMAP @-ast ctx))
-    @-ast)
-  
-  (define (with-context-of a b)
-    (with-context (get-context a) b))
   
   ;; melo-parse-port: Input-Port -> @-Ast
   (define (melo-parse-port x)
@@ -108,16 +88,11 @@
   
   ;; parameter that maybe contains a filename
   (define FILENAME (make-parameter "<<unknown file>>"))
-  
-  (define-macro (liftpsn comb a b . rst)
-    `(,comb (psn ,(string->symbol (format "$~a-start-pos" a)))
-            (psn ,(string->symbol (format "$~a-end-pos" b)))
-            . ,rst))
-  
+
   (define-macro (pos-lift a b expr)
     `(let ([poz-a ,(string->symbol (format "$~a-start-pos" a))]
            [poz-b ,(string->symbol (format "$~a-end-pos" b))])
-       (with-context (context (FILENAME)
+       (Twith-context (Tcontext (FILENAME)
                               poz-a
                               poz-b)
          ,expr))))
@@ -125,23 +100,15 @@
 ;; typed interface
 (require/typed 'untyped
                [melo-parse-port (-> Input-Port @-Ast)]
-               [#:opaque Context context?]
-               [get-context (-> Any (Option Context))]
-               [with-context (All (a) (-> Context a a))]
-               [with-context-of (All (a) (-> Any a a))]
-               [context->string (-> (Option Context) String)]
+               [context->string (-> Any String)]
                [FILENAME (Parameter String)]
                )
 (provide melo-parse-port
-         Context
-         get-context
-         with-context
-         with-context-of
          context->string
          FILENAME)
 
 (module+ main
   (pretty-print
    (melo-parse-port (open-input-string "
-1 + 2 + y
+((((1 + 2 + 3))))
 ")))) 

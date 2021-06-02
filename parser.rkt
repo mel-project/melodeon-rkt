@@ -6,7 +6,36 @@
 ;; we only provide melo-parse-port because it has a much saner API
 (provide (contract-out
           (melo-parse-port (-> input-port? any)))
+         (struct-out context)
+         with-context
+         get-context
+         context->string
          FILENAME)
+
+;; context structure that may be attached to @-Asts
+(struct context (filename
+                 start-pos
+                 end-pos)
+  #:transparent)
+
+;; may or may not return a context
+(define CONTEXT-WEAKMAP (make-weak-hasheq))
+(define (get-context @-ast)
+  (hash-ref CONTEXT-WEAKMAP @-ast #f))
+
+(define (context->string ctx)
+  (if ctx
+      (format "~a, ~a:~a-~a:~a"
+              (context-filename ctx)
+              (position-line (context-start-pos ctx))
+              (position-col (context-start-pos ctx))
+              (position-line (context-end-pos ctx))
+              (position-col (context-end-pos ctx)))
+      "NO CONTEXT"))
+
+(define (with-context ctx @-ast)
+  (hash-set! CONTEXT-WEAKMAP @-ast ctx)
+  @-ast)
 
 ;; melo-parse-port: Input-Port -> @-Ast
 (define (melo-parse-port x)
@@ -46,10 +75,8 @@
             ((<let-expr>) (pos-lift 1 1 $1))
             )
     ;; let x = y in expr
-    (<let-expr> ((LET <comma-separated-defs> IN <expr>) (pos-lift 1 4
-                                                                  `(@let ,$2 ,$4))))
-    (<comma-separated-defs> ((VAR = <expr> COMMA <comma-separated-defs>) (hash-set $5 $1 $3))
-                            ((VAR = <expr>) (hash $1 $3)))
+    (<let-expr> ((LET VAR = <expr> IN <expr>) (pos-lift 1 6
+                                                       `(@let (,$2 ,$4) ,$6))))
     ;; low-associativity (add-like) binary operators
     (<add-bexpr> ((<add-bexpr> + <mult-bexpr>) (pos-lift 1 3 `(@+ ,$1 ,$3)))
                  ((<add-bexpr> - <mult-bexpr>) (pos-lift 1 3 `(@- ,$1 ,$3)))
@@ -78,21 +105,15 @@
 (define-macro (pos-lift a b expr)
   `(let ([poz-a ,(string->symbol (format "$~a-start-pos" a))]
          [poz-b ,(string->symbol (format "$~a-end-pos" b))])
-     (datum->syntax
-      #f
-      ,expr
-      (vector
-       (FILENAME)
-       (position-line poz-a)
-       (position-col poz-b)
-       (position-offset poz-a)
-       (- (position-offset poz-b)
-          (position-offset poz-a))
-       ))))
+     (with-context (context (FILENAME)
+                            poz-a
+                            poz-b)
+       ,expr)))
 
 (module+ main
-  (melo-parse-port (open-input-string "
-let x = 123,
-    y = 456 in
-    x + y
-")))
+  (pretty-print
+   (melo-parse-port (open-input-string "
+let x = 123 in
+let y = 456 in
+    x + (let y = 1 in y * x + y)
+"))))

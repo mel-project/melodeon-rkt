@@ -64,11 +64,3 @@
      (List '@type-vec (Listof Type-Expr))))
 
 (define-type @-Binop (U '@+ '@- '@* '@/))
-
-;; Mil format
-(define-type Mil
-  (U (List 'let (List Symbol Mil) Mil)
-     (List (U '+ '- '* '/) Mil Mil)
-     (Vectorof Mil)
-     Integer
-     Symbol))

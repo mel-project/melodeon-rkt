@@ -51,7 +51,7 @@
   (define (resolve-type texpr)
     (match texpr
       [`(@type-var ,var) var]
-      [`(@type-vec ,vec) `(Vector ,(map resolve-type vec))]))
+      [`(@type-vec ,vec) `(Vector . ,(map resolve-type vec))]))
            
   
   (match (dectx @-ast)
@@ -60,9 +60,15 @@
                                   (match binding
                                     [`(@def-var ,var ,expr) (hash-set accum var (@-ast->type expr accum))]
                                     [`(@def-fun ,fun ,args ,rettype ,expr)
-                                     (hash-set accum fun `(Function ,(map second
-                                                                          (resolve-type args))
-                                                                    ,(@-ast->type expr accum)))]))
+                                     (define inner-scope
+                                       (foldl (λ ((pair : (List Symbol Type-Expr)) (accum : (HashTable Symbol Type)))
+                                                (hash-set accum (first pair) (resolve-type (second pair))))
+                                              accum
+                                              args))
+                                     (hash-set accum fun
+                                               `(Function ,(map resolve-type (map (inst second Symbol Type-Expr Any)
+                                                                                  args))
+                                                          ,(@-ast->type expr inner-scope)))]))
                                 scope
                                 definitions))
      (@-ast->type body new-mapping)]
@@ -75,12 +81,32 @@
      (@-ast->type body (hash-set scope val expr-type))]
     [`(@lit-num ,_) 'Nat]
     [`(@var ,variable) (lookup-var-binding variable)]
-    [`(@lit-vec ,vars) `(Vector . ,(map (λ ((x : @-Ast)) (@-ast->type x scope)) vars))]))
+    [`(@lit-vec ,vars) `(Vector . ,(map (λ ((x : @-Ast)) (@-ast->type x scope)) vars))]
+    [`(@apply ,fun ,args)
+     (match (lookup-binding fun)
+       [`(Function ,arg-types ,result)
+        (unless (equal? (length arg-types) (length args))
+          (error '@-ast->type "[~a] calling function ~a with ~a arguments instead of the expected ~a"
+                 (context->string (get-context @-ast))
+                 fun
+                 (length args)
+                 (length arg-types)))
+        (for ([arg-expr (in-list args)]
+              [arg-type (in-list arg-types)])
+          (assert-type arg-expr arg-type))
+        result]
+       [_ (error '@-ast->type "[~a] undefined function ~a"
+             (context->string (get-context @-ast)) fun)])]
+    ))
 
 (module+ main
   (@-ast->type
    (melo-parse-port (open-input-string "
-def @f (x:Nat y:Nat) = x + y
-@f(x y)
+def @f (x:Nat y:Nat) =
+  [x+y y*x]
+def @g (x:Nat) =
+  [@f(x x) x @f(x x)]
+
+@g(123)
 "))
    (hash)))

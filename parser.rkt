@@ -1,11 +1,11 @@
 #lang typed/racket
-(require typed/racket/unsafe)
 (require "types.rkt")
 ;; untyped internal impl
 (module untyped racket
   (require "lexer.rkt")
   (require (prefix-in T "types.rkt"))
   (require parser-tools/lex)
+  (require parser-tools/cfg-parser)
   (require parser-tools/yacc)
   (require compatibility/defmacro)
   ;; we only provide melo-parse-port because it has a much saner API
@@ -39,7 +39,7 @@
      (src-pos)
      (error (lambda (tok-ok? tok-name tok-value start-pos end-pos)
               (raise-syntax-error
-               'mir-parse
+               'melo-parse
                (if tok-value (format "Unexpected ~a \"~a\"" tok-name tok-value)
                    (format "Unexpected ~a" tok-name))
                (datum->syntax
@@ -55,32 +55,56 @@
      
      ;; CFG grammar
      (grammar
-      ;; a program is a single expression right now
-      (<program> ((<expr>) (pos-lift 1 1 $1)))
+      ;; a program is a series of toplevels 
+      (<program> ((<definitions> <expr>) `(@program ,$1 ,$2))
+                 ((<expr>) `(@program () ,$1)))
+      (<definitions> ((<definition> <definitions>) (cons $1 $2))
+                     ((<definition>) (list $1)))
+      (<definition> ((DEF VAR = <expr>) `(@def-var ,$2 ,$4))
+                    ((DEF FUN OPEN-PAREN <fun-args> CLOSE-PAREN = <expr>)
+                     `(@def-fun ,$2 ,$4 #f ,$7))
+                    ((DEF FUN OPEN-PAREN <fun-args> CLOSE-PAREN ARROW <type-expr> = <expr>)
+                     `(@def-fun ,$2 ,$4 ,$7 ,$9))
+                    )
+      (<fun-args> ((<type-dec>) (list $1))
+                  ((<type-dec> <fun-args>) (cons $1 $2)))
+      (<type-dec> ((VAR COLON <type-expr>) (list $1 $3)))
+      (<type-expr> ((TYPE) `(@type-var ,$1))
+                   ((OPEN-BRACKET <type-exprs> CLOSE-BRACKET) `(@type-vec ,$2)))
+      (<type-exprs> ((<type-expr>) (list $1))
+                    ((<type-expr> <type-exprs>) (cons $1 $2)))
       ;; different kinds of exprs
-      (<expr> ((<add-bexpr>) (pos-lift 1 1 $1))
-              ((<let-expr>) (pos-lift 1 1 $1))
-              ((<vector-expr>) (pos-lift 1 1 $1))
+      (<expr> ((<add-expr>) $1)
+              ((<let-expr>) $1)
+              ((<block-expr>) $1)
               )
+      ;; function application
+      (<apply-expr> ((FUN OPEN-PAREN <multi-exprs> CLOSE-PAREN) (pos-lift 1 4 `(@apply ,$1 ,$3))))
       ;; vectors
-      (<vector-expr> ((OPEN-BRACKET <comma-exprs> CLOSE-BRACKET) (pos-lift 1 3 `(@lit-vec ,$2))))
-      (<comma-exprs> ((<expr>) (pos-lift 1 1 (list $1)))
-                     ((<expr> COMMA <comma-exprs>) (pos-lift 1 3 (cons $1 $3))))
+      (<vector-expr> ((OPEN-BRACKET <multi-exprs> CLOSE-BRACKET) (pos-lift 1 3 `(@lit-vec ,$2))))
+      ;; blocks
+      (<block-expr> ((BEGIN <multi-exprs> END) (pos-lift 1 3 `(@block ,$2))))
+      (<multi-exprs> ((<expr>) (list $1))
+                     ((<expr> <multi-exprs>) (cons $1 $2)))
       ;; let x = y in expr
       (<let-expr> ((LET VAR = <expr> IN <expr>) (pos-lift 1 6
                                                           `(@let (,$2 ,$4) ,$6))))
-      ;; low-associativity (add-like) binary operators
-      (<add-bexpr> ((<add-bexpr> + <mult-bexpr>) (pos-lift 1 3 `(@+ ,$1 ,$3)))
-                   ((<add-bexpr> - <mult-bexpr>) (pos-lift 1 3 `(@- ,$1 ,$3)))
-                   ((<mult-bexpr>) $1))
+
+      
+      ;; low-associativity (add-like) operators
+      (<add-expr> ((<add-expr> + <mult-expr>) (pos-lift 1 3 `(@+ ,$1 ,$3)))
+                   ((<add-expr> - <mult-expr>) (pos-lift 1 3 `(@- ,$1 ,$3)))
+                   ((<mult-expr>) $1))
       ;; high-associativity (mult-like) binary operators
-      (<mult-bexpr> ((<mult-bexpr> * <terminal-expr>) (pos-lift 1 3 `(@* ,$1 ,$3)))
-                    ((<mult-bexpr> / <terminal-expr>) (pos-lift 1 3 `(@/ ,$1 ,$3)))
+      (<mult-expr> ((<mult-expr> * <terminal-expr>) (pos-lift 1 3 `(@* ,$1 ,$3)))
+                    ((<mult-expr> / <terminal-expr>) (pos-lift 1 3 `(@/ ,$1 ,$3)))
                     ((<terminal-expr>) $1))
       ;; terminal expressions
       (<terminal-expr> ((NUM) (pos-lift 1 1 `(@lit-num ,$1)))
                        ((VAR) (pos-lift 1 1 `(@var ,$1)))
-                       ((OPEN-PAREN <expr> CLOSE-PAREN) (pos-lift 1 3 $2)))
+                       ((OPEN-PAREN <expr> CLOSE-PAREN) (pos-lift 1 3 $2))
+                       ((<vector-expr>) $1)
+                       ((<apply-expr>) $1))
       )))
   
   
@@ -96,11 +120,10 @@
                               poz-a
                               poz-b)
          ,expr))))
-
 ;; typed interface
 (require/typed 'untyped
                [melo-parse-port (-> Input-Port @-Ast)]
-               [context->string (-> Any String)]
+               [context->string (-> (Option context) String)]
                [FILENAME (Parameter String)]
                )
 (provide melo-parse-port
@@ -108,7 +131,11 @@
          FILENAME)
 
 (module+ main
-  (pretty-print
-   (melo-parse-port (open-input-string "
-((((1 + 2 + 3))))
-")))) 
+  (pretty-display
+   (dectx*
+    (melo-parse-port (open-input-string "
+def @f (x:Nat y:Nat) = x +y
+def @g (x:Nat y:Nat) -> [Nat Nat] = [x*2 y*3]
+
+x + @g (y)
+")))))

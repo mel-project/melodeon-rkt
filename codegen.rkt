@@ -33,8 +33,7 @@ let y = 456 in
     x + (let y = y*y*123545 in y * x + y+(((((((((((((y))))))))))))))
 "))))
   (displayln "@-Ast:")
-  (pretty-display ast)
-  (pretty-print (get-context ast))
+  (pretty-display (dectx* ast))
   (displayln "")
   ;; type check
   (void (@-ast->type ast (hash)))

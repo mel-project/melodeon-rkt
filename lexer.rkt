@@ -9,13 +9,10 @@
          syntax-tokens)
 
 (define-tokens value-tokens (NUM VAR FUN TYPE))
-(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN OPEN-BRACKET CLOSE-BRACKET OPEN-BRACE CLOSE-BRACE COMMA + - * / EOF NEG
+(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN OPEN-BRACKET CLOSE-BRACKET OPEN-BRACE CLOSE-BRACE COMMA ++ + - * / EOF NEG
                                       LET IN
                                       COLON
-                                      SEMICOLON
-                                      ARROW
-                                      BEGIN END
-                                      THEN
+                                      WHERE
                                       DEF))
 
 (define-lex-abbrevs
@@ -33,17 +30,14 @@
    ["let" 'LET]
    ["in" 'IN]
    ["def" 'DEF]
-   ["begin" 'BEGIN]
    [":" 'COLON]
-   ["end" 'END]
+   ["where" 'WHERE]
    ;; punctuation
    ["," 'COMMA]
-   [";" 'SEMICOLON]
-   ["->" 'ARROW]
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations
-   [(:or "=" "+" "-" "*" "/") (string->symbol lexeme)]
+   [(:or "=" "+" "-" "*" "/" "++") (string->symbol lexeme)]
    ;; parentheses
    ["(" 'OPEN-PAREN]
    [")" 'CLOSE-PAREN]
@@ -54,7 +48,7 @@
    ;; literals
    [(concatenation upper-letter
                    (:* (:or lower-letter upper-letter digit))) (token-TYPE (string->symbol lexeme))]
-   [(concatenation "@"
+   #;[(concatenation "@"
                    lower-letter
                    (:* (:or lower-letter upper-letter "_" digit))) (token-FUN (string->symbol lexeme))]
    [(concatenation lower-letter

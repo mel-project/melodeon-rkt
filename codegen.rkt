@@ -1,7 +1,7 @@
 #lang typed/racket
 (require "parser.rkt"
-         "typecheck.rkt"
-         "types.rkt")
+         "type-sys/typecheck.rkt"
+         "common.rkt")
 
 
 (: generate-mil (-> @-Ast Any))
@@ -38,19 +38,15 @@
 (module+ main
   (define ast (parameterize ([FILENAME "whatever.melo"])
                 (melo-parse-port (open-input-string "
-def @f (x:Nat y:Nat) =
-  [x+y y*x]
-def @g (x:Nat) =
-  [@f(x x) x @f(x x)]
-def @v (x:[Nat Nat]) -> Nat = 3
+def h(x Nat) = x
 
-@v(@f(1 2))
+[h(1) + h(h(1)), 2, [3, 4]]
 "))))
   (displayln "@-Ast:")
   (pretty-display (dectx* ast))
   (displayln "")
   ;; type check
-  (void (@-ast->type ast (hash)))
+  (void (@-ast->type ast))
   ;; generate the mil
   (displayln "Mil:")
   (pretty-display

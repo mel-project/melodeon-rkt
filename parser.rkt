@@ -61,7 +61,7 @@
       (<type-dec> ((VAR <type-expr>) (list $1 $2)))
       (<type-expr> ((TYPE) `(@type-var ,$1))
                    ((OPEN-BRACKET <type-exprs> CLOSE-BRACKET) `(@type-vec ,$2))
-                   ((OPEN-BRACKET <type-expr> NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$3)))
+                   ((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4)))
       (<type-exprs> ((<type-expr>) (list $1))
                     ((<type-expr> COMMA <type-exprs>) (cons $1 $3)))
       ;; different kinds of exprs

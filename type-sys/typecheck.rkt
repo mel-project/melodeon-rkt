@@ -1,18 +1,9 @@
 #lang typed/racket
-(require "../common.rkt")
+(require "../common.rkt"
+         "types.rkt")
 (provide Type
          @-ast->type)
 
-;; Base types 
-(struct TNat () #:prefab)
-
-;; Composite types
-(struct TVector ((lst : (Listof Type))) #:prefab)
-(struct TVectorof ((inner : Type)
-                   (count : Nonnegative-Integer)
-                   ) #:prefab)
-
-(define TVectorU? (make-predicate (U TVectorof TVector)))
 
 ;; Converts from TVector to TVectorof
 (: to-tvector (-> (U TVectorof TVector) TVector))
@@ -47,11 +38,6 @@
                     left
                     right)]
     ))
-
-;; Type
-(define-type Type (U TNat
-                     TVector
-                     TVectorof))
 
 ;; A function
 (struct TFunction ((arg-types : (Listof Type))

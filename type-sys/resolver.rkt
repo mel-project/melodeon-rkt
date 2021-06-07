@@ -1,10 +1,7 @@
-#lang racket
-(require racklog)
-(require "../common.rkt")
+#lang typed/racket
 
-;; Prolog-style type resolver
+(require "types.rkt")
+(require/typed "resolver-inner.rkt"
+               [subtype-of? (-> Type Type Boolean)])
 
-(define %lt
-  (%rel (x y)
-    [(x (sub1 y))]
-    [(x (%lt x (sub1 y)))]))
+(provide (all-from-out "resolver-inner.rkt"))

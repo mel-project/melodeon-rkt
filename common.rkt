@@ -78,6 +78,13 @@
      (List '@program (Listof Definition) @-Ast)
      (List '@apply Symbol (Listof @-Ast))
      (List '@block (Listof @-Ast))
+     (List '@index @-Ast @-Ast)
+     (List '@update @-Ast @-Ast @-Ast)
+     (List '@unsafe-cast @-Ast Type-Expr)
+     (List '@ann @-Ast Type-Expr)
+     (List '@if @-Ast @-Ast @-Ast)
+     (List '@lit-bytes Bytes)
+     (List '@set! Symbol @-Ast)
      (with-context @-Ast)))
 
 (define-type Definition
@@ -90,6 +97,8 @@
 (define-type Type-Expr
   (U (List '@type-var Symbol)
      (List '@type-vec (Listof Type-Expr))
-     (List '@type-vecof Type-Expr Nonnegative-Integer)))
+     (List '@type-vecof Type-Expr Nonnegative-Integer)
+     (List '@type-union Type-Expr Type-Expr)
+     (List '@type-bytes Nonnegative-Integer)))
 
 (define-type @-Binop (U '@+ '@- '@* '@/ '@append))

@@ -1,7 +1,11 @@
 #lang typed/racket
 (require "parser.rkt"
          "type-sys/typecheck.rkt"
+         "type-sys/types.rkt"
          "common.rkt")
+(require/typed file/sha1
+               (bytes->hex-string (-> Bytes String)))
+(provide generate-mil)
 
 
 (: generate-mil (-> @-Ast Any))
@@ -22,8 +26,28 @@
                                                                               ,(generate-mil y))]
     [`(@var ,(? symbol? varname)) varname]
     [`(@lit-num ,(? exact-integer? number)) number]
-    [`(@lit-vec ,vv) (list->vector (map generate-mil vv))]
+    [`(@lit-vec ,vv) `(vector . ,(map generate-mil vv))]
     [`(@apply ,fun ,args) `(,fun . ,(map generate-mil args))]
+    [`(@append ,x ,y) `(,(match (memoized-type x)
+                           [(TVectorof _ _) 'vappend]
+                           [(TVector _) 'vappend]
+                           [(TBytes _) 'bappend])
+                        ,(generate-mil x)
+                        ,(generate-mil y))]
+    [`(@index ,vec ,idx) `(,(match (memoized-type vec)
+                              [(TVectorof _ _) 'vref]
+                              [(TVector _) 'vref]
+                              [(TBytes _) 'bappend]) ,(generate-mil vec)
+                                                     ,(generate-mil idx))]
+    [`(@if ,x ,y ,z) `(if ,(generate-mil x)
+                          ,(generate-mil y)
+                          ,(generate-mil z))]
+    [`(@lit-bytes ,bts) (string->symbol
+                         (string-append "0x"
+                                        (bytes->hex-string bts)))]
+    [`(@ann ,inner ,_) (generate-mil inner)]
+    [`(@block ,inner) `(let () ,(map generate-mil inner))]
+    [`(@set! ,x ,y) `(set! ,x ,(generate-mil y))]
     [other (error "invalid @-ast" other)]))
 
 (: generate-mil-defs (-> Definition Any))
@@ -37,13 +61,16 @@
 ;; demo compiler flow
 (module+ main
   (define ast (parameterize ([FILENAME "whatever.melo"])
-                (melo-parse-port (open-input-string "
-def h(x Nat) = x
+                (melo-parse-port (open-input-string #<<EOF
+def laboo(yah : [Nat * 6]) = [yah[0]] ++ [yah[1]]
 
-[h(1) + h(h(1)), 2, [3, 4]]
-"))))
+
+if 1 then 2 else "labooyah" ++ "hello world" ++ x"deadbeef"
+
+EOF
+                                                    ))))
   (displayln "@-Ast:")
-  (pretty-display (dectx* ast))
+  (pretty-print (dectx* ast))
   (displayln "")
   ;; type check
   (void (@-ast->type ast))

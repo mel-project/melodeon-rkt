@@ -160,6 +160,7 @@
   (define retval
     (parameterize ([current-context (context-of @-ast)])
     (match (dectx @-ast)
+      [`(@loop ,_ ,body) (@-ast->type/inner body scope)]
       [`(@block ,body)
        (car (reverse (map (λ((x : @-Ast)) (@-ast->type/inner x scope)) body)))]
       [`(@program ,definitions ,body)

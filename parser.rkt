@@ -87,6 +87,8 @@
       ;; let x = y in expr
       (<let-expr> ((LET VAR = <expr> IN <expr>) (pos-lift 1 6
                                                           `(@let (,$2 ,$4) ,$6)))
+                  ((LOOP NUM IN <expr>) (pos-lift 1 4
+                                              `(@loop ,$2 ,$4)))
                   ((IF <expr> THEN <expr> ELSE <expr>) (pos-lift 1 6
                                                                  `(@if ,$2 ,$4 ,$6))))
       ;; expr where x = y
@@ -151,6 +153,7 @@
   (dectx*
    (melo-parse-port (open-input-string #<<EOF
 
+(loop 123 in
 do
   1;
   2;
@@ -159,7 +162,7 @@ do
     [(1 + 2)];
   set! x = [1, 2, 3, 4, 5];
   set! x = x[1 => 2]
-done
+done) + 123
 
 EOF
                                        ))))

@@ -23,6 +23,7 @@
                                       DOT
                                       DONE
                                       DEF
+                                      LOOP
                                       FAT-ARROW
                                       IF
                                       THEN
@@ -51,6 +52,7 @@
    ["where" 'WHERE]
    ["unsafe" 'UNSAFE]
    ["cast" 'CAST]
+   ["loop" 'LOOP]
    ["ann" 'ANN]
    ["if" 'IF]
    ["then" 'THEN]

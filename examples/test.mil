@@ -2,8 +2,10 @@
 (if 1
   (laboo (vector 1 2 3 4 5 6))
   (let (stupid 0)
-    (let ()
-      ((set! stupid (* stupid stupid))
+    (loop
+     500
+     (let ()
+       (set! stupid (* stupid stupid))
        (set! stupid (* stupid stupid))
        (set! stupid (* stupid stupid))
        (set! stupid (* stupid stupid))

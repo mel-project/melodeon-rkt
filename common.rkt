@@ -85,6 +85,8 @@
      (List '@if @-Ast @-Ast @-Ast)
      (List '@lit-bytes Bytes)
      (List '@set! Symbol @-Ast)
+     (List '@set! Symbol @-Ast)
+     (List '@loop Nonnegative-Integer @-Ast)
      (with-context @-Ast)))
 
 (define-type Definition

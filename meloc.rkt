@@ -34,5 +34,9 @@
   (eprintf "main type: ~a\n" (type->string type))
   (eprintf "generating...\n")
   (define output (generate-mil ast))
-  (for ([output (in-list output)])
-    (pretty-write output)))
+  (define output-filename (or (output-file) (path-replace-extension (input-file) ".mil")))
+  (with-output-to-file output-filename
+    #:exists 'replace
+    (lambda()
+      (for ([output (in-list output)])
+        (pretty-write output)))))

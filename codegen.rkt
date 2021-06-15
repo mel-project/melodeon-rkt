@@ -46,8 +46,9 @@
                          (string-append "0x"
                                         (bytes->hex-string bts)))]
     [`(@ann ,inner ,_) (generate-mil inner)]
-    [`(@block ,inner) `(let () ,(map generate-mil inner))]
+    [`(@block ,inner) `(let () . ,(map generate-mil inner))]
     [`(@set! ,x ,y) `(set! ,x ,(generate-mil y))]
+    [`(@loop ,n ,body) `(loop ,n ,(generate-mil body))]
     [other (error "invalid @-ast" other)]))
 
 (: generate-mil-defs (-> Definition Any))

@@ -29,14 +29,14 @@
     [`(@lit-vec ,vv) `(vector . ,(map generate-mil vv))]
     [`(@apply ,fun ,args) `(,fun . ,(map generate-mil args))]
     [`(@append ,x ,y) `(,(match (memoized-type x)
-                           [(TVectorof _ _) 'vappend]
-                           [(TVector _) 'vappend]
-                           [(TBytes _) 'bappend])
+                           [(TVectorof _ _) 'v-concat]
+                           [(TVector _) 'v-concat]
+                           [(TBytes _) 'b-concat])
                         ,(generate-mil x)
                         ,(generate-mil y))]
     [`(@index ,vec ,idx) `(,(match (memoized-type vec)
-                              [(TVectorof _ _) 'vref]
-                              [(TVector _) 'vref]
+                              [(TVectorof _ _) 'v-get]
+                              [(TVector _) 'v-get]
                               [(TBytes _) 'bappend]) ,(generate-mil vec)
                                                      ,(generate-mil idx))]
     [`(@if ,x ,y ,z) `(if ,(generate-mil x)

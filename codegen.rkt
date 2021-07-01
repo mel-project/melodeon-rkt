@@ -42,7 +42,6 @@
     [`(@if ,x ,y ,z) `(if ,(generate-mil x)
                           ,(generate-mil y)
                           ,(generate-mil z))]
-    ; TODO mangle i using @
     [`(@for ,expr ,var-name ,vec-val)
       (let ([count (match (memoized-type vec-val)
                      [(TVectorof _ count) count]
@@ -54,18 +53,6 @@
                        (let (,var-name (v-get v iter))
                          ,(generate-mil expr)))))
            v))]
-        ;`(let (res ,vec-val
-        ;       i 0)
-        ;   (loop ,count
-        ;     (set-let ()
-               ;,(generate-mil (list-replace expr var-name '(v-get res i)))
-;               ,(generate-mil (list-replace
-;                                expr
-;                                `(@var ,var-name)
-;                                `(@index (@var 'res) (@var 'i))))
-        ;       (set! res (v-from res i (v-get res i)))
-        ;       (set! i (+ i 1))))))]
-
     [`(@lit-bytes ,bts) (string->symbol
                          (string-append "0x"
                                         (bytes->hex-string bts)))]
@@ -81,58 +68,6 @@
     [`(@def-var ,var ,expr) `(gl ,var ,(generate-mil expr))]
     [`(@def-fun ,var ,args ,_ ,expr)
      `(fn ,var ,(map (inst car Symbol Any) args) ,(generate-mil expr))]))
-
-#|
-(: list-replace (-> (Listof Any) (Listof Any) (Listof Any) (Listof Any)))
-(define (list-replace l old-sym new-sym)
-  (map
-    (lambda (x) (if (eq? x old-sym) new-sym x))
-    ;(lambda (x) (match x
-      ;[`(@var ,sym) (if (eq? sym old-sym) `(@var ,new-sym) `(@var ,old-sym))]
-      ;[(var a) a]))
-    l))
-|#
-
-
-#|
-;(map-ast expr (lambda (x)
-;                (match x
-;                  [`(@var ,x) `(@index (@var ,vec) (@var ,i))]
-;                  [(var a) a])))
-
-;(: subst-var (-> @-Ast Symbol Symbol @-Ast))
-(: map-ast (-> @-Ast (-> @-Ast @-Ast) @-Ast))
-;(define (subst-var expr old-sym new-sym)
-(define (map-ast expr f)
-  ; f is applied to an ast without context, but context is preserved
-  (define (f (lambda (x)
-               (let ([ctx (get-context x)])
-                 (if ctx
-                   (with-context ctx (f (dectx x)))
-                   (f x))))))
-  (define (fmap-ast (compose-app f map-ast)))
-  (match expr
-    [`(@let (_ ,e) ,body) `(@let (_ ,(fmap-ast e)) ,(fmap-ast body))]
-    [`(@-Binop ,l ,r) `(@-Binop ,(fmap-ast l) ,(fmap-ast r))]
-    [`(@lit-vec ,v) `(@lit-vec ,(map fmap-ast v))]
-    ;[`(@program (Listof Definition) @-Ast)]
-    [`(@apply ,sym ,exprs) `(@apply ,sym ,(map fmap-ast exprs))]
-    [`(@block ,exprs) `(@block ,(map fmap-ast exprs))]
-    [`(@index vec i) `(@index ,(fmap-ast vec) ,(fmap-ast i))]
-;     [`(@update @-Ast @-Ast @-Ast)]
-;     [`(@unsafe-cast @-Ast Type-Expr)]
-;     [`(@ann @-Ast Type-Expr)]
-;     [`(@if @-Ast @-Ast @-Ast)]
-;     [`(@for @-Ast Symbol @-Ast)]
-;     [`(@lit-bytes Bytes)]
-;     [`(@set! Symbol @-Ast)]
-;     [`(@set! Symbol @-Ast)]
-;     [`(@loop Nonnegative-Integer @-Ast)]
-    ;[`(@lit-num Nonnegative-Integer)]
-    ;[`(@var ,(? symbol? varname)) `(@var ,new-sym)]
-     ; (with-context @-Ast)))
-    [(var x) x]))
-|#
 
 ;; demo compiler flow
 (module+ main

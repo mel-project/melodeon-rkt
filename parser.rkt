@@ -86,7 +86,7 @@
       (<multi-exprs> ((<expr>) (list $1))
                      ((<expr> COMMA <multi-exprs>) (cons $1 $3)))
       ; Vector comprehension
-      (<vector-compreh> ((OPEN-BRACKET <expr> FOR VAR IN <vector-expr> CLOSE-BRACKET)
+      (<vector-compreh> ((OPEN-BRACKET <expr> FOR VAR IN <expr> CLOSE-BRACKET)
                          (pos-lift 1 3 `(@for ,$2 ,$4 ,$6))))
       ;; let x = y in expr
       (<let-expr> ((LET VAR = <expr> IN <expr>) (pos-lift 1 6

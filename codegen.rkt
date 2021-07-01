@@ -48,11 +48,13 @@
                      [(TVector v) (length v)]
                      [(TBytes b) b])])
         `(let (iter 0 v ,(generate-mil vec-val))
-           (loop ,count
+           (loop ,count (set-let ()
              (set! v (v-from v iter
                        (let (,var-name (v-get v iter))
-                         ,(generate-mil expr)))))
-           v))]
+                         ,(generate-mil expr))))
+             (set! iter (+ iter 1))))
+           v)
+        )]
     [`(@lit-bytes ,bts) (string->symbol
                          (string-append "0x"
                                         (bytes->hex-string bts)))]

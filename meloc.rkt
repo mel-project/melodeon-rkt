@@ -33,6 +33,7 @@
   (define type (@-ast->type ast))
   (eprintf "main type: ~a\n" (type->string type))
   (eprintf "generating...\n")
+  (printf "~a" (dectx ast))
   (define output (generate-mil ast))
   (define output-filename (or (output-file) (path-replace-extension (input-file) ".mil")))
   (with-output-to-file output-filename

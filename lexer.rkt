@@ -22,6 +22,7 @@
                                       DO
                                       DOT
                                       DONE
+                                      FOR
                                       DEF
                                       LOOP
                                       FAT-ARROW
@@ -59,6 +60,7 @@
    ["else" 'ELSE]
    ["do" 'DO]
    ["done" 'DONE]
+   ["for" 'FOR]
    ["set!" 'SET!]
    ;; punctuation
    ["," 'COMMA]

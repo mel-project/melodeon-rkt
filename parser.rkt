@@ -72,6 +72,7 @@
               ((<let-expr>) $1)
               ((<where-expr>) $1)
               ((<block-expr>) $1)
+              ((<vector-compreh>) $1)
               ((<set!-expr>) $1)
               )
       ;; set! var = expr
@@ -84,6 +85,9 @@
       (<vector-expr> ((OPEN-BRACKET <multi-exprs> CLOSE-BRACKET) (pos-lift 1 3 `(@lit-vec ,$2))))
       (<multi-exprs> ((<expr>) (list $1))
                      ((<expr> COMMA <multi-exprs>) (cons $1 $3)))
+      ; Vector comprehension
+      (<vector-compreh> ((OPEN-BRACKET <expr> FOR VAR IN <vector-expr> CLOSE-BRACKET)
+                         (pos-lift 1 3 `(@for ,$2 ,$4 ,$6))))
       ;; let x = y in expr
       (<let-expr> ((LET VAR = <expr> IN <expr>) (pos-lift 1 6
                                                           `(@let (,$2 ,$4) ,$6)))

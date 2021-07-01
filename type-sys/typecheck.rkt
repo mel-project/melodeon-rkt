@@ -4,6 +4,7 @@
          "resolver.rkt")
 (provide Type
          @-ast->type
+         to-tvector
          memoized-type)
 
 
@@ -204,6 +205,14 @@
                         [(= n 0) (TBin)]
                         [(= n 1) (TBin)]
                         [else (TNat)])]
+      [`(@for ,expr ,var ,vec)
+        (let ([len (match (@-ast->type/inner vec scope)
+                     [(TVectorof _ count) count]
+                     [(TVector v) (length v)]
+                     [(var t) (context-error "vector comprehension needs to iterate
+                                              over a vector, but a ~a was
+                                              provided" t)])])
+          (TVectorof (@-ast->type/inner expr (bind-var scope var (TNat))) len))]
       [`(@var ,variable) (lookup-var scope variable)]
       [`(@lit-vec ,vars) (TVector (map (λ ((x : @-Ast)) (@-ast->type/inner x scope)) vars))]
       [`(@lit-bytes ,bts) (TBytes (bytes-length bts))]

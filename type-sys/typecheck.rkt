@@ -50,22 +50,29 @@
 
 ;; A type scope
 (struct Type-Scope ((vars : (HashTable Symbol Type))
+                    (type-vars : (HashTable Symbol Type))
                     (funs : (HashTable Symbol TFunction))) #:prefab)
 
 (: empty-ts Type-Scope)
-(define empty-ts (Type-Scope (hash) (hash)))
+(define empty-ts (Type-Scope (hash) (hash) (hash)))
 
 (: bind-var (-> Type-Scope Symbol Type Type-Scope))
 (define (bind-var ts var-name var-type)
   (match ts
-    [(Type-Scope vars funs)
-     (Type-Scope (hash-set vars var-name var-type) funs)]))
+    [(Type-Scope vars type-vars funs)
+     (Type-Scope (hash-set vars var-name var-type) type-vars funs)]))
 
 (: bind-fun (-> Type-Scope Symbol TFunction Type-Scope))
 (define (bind-fun ts fun-name fun-type)
   (match ts
-    [(Type-Scope vars funs)
-     (Type-Scope vars (hash-set funs fun-name fun-type))]))
+    [(Type-Scope vars type-vars funs)
+     (Type-Scope vars type-vars (hash-set funs fun-name fun-type))]))
+
+(: bind-type-var (-> Type-Scope Symbol Type Type-Scope))
+(define (bind-type-var ts var-name var-type)
+  (match ts
+    [(Type-Scope vars type-vars funs)
+     (Type-Scope vars (hash-set type-vars var-name var-type) funs)]))
 
 (: lookup-var (-> Type-Scope Symbol Type))
 (define (lookup-var ts var-name)
@@ -73,10 +80,16 @@
       (context-error "undefined variable ~v"
                      (symbol->string var-name))))
 
+(: lookup-type-var (-> Type-Scope Symbol Type))
+(define (lookup-type-var ts var-name)
+  (or (hash-ref (Type-Scope-type-vars ts) var-name #f)
+      (context-error "undefined type ~v"
+                     (symbol->string var-name))))
+
 (: lookup-fun (-> Type-Scope Symbol TFunction))
 (define (lookup-fun ts var-name)
   (or (hash-ref (Type-Scope-funs ts) var-name #f)
-      (context-error "undefined variable ~v"
+      (context-error "undefined function ~v"
                      (symbol->string var-name))))
 
 (: resolve-type (-> Type-Expr Type))
@@ -85,7 +98,8 @@
     [`(@type-var Any) (TAny)]
     [`(@type-var Bin) (TBin)]
     [`(@type-var Nat) (TNat)]
-    [`(@type-var ,var) (context-error "cannot resolve type names yet")]
+    ;[`(@type-var ,var) (lookup-type-var 
+    ;[`(@type-var ,var) (context-error "cannot resolve type names yet")]
     [`(@type-vec ,vec) (TVector (map resolve-type vec))]
     [`(@type-vecof ,var ,count) (TVectorof (resolve-type var) count)]
     [`(@type-union ,x ,y) (TUnion (resolve-type x)

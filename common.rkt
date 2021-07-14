@@ -92,6 +92,11 @@
 
 (define-type Definition
   (U (List '@def-var Symbol @-Ast)
+     (List '@def-generic-fun Symbol
+           (Listof Symbol)
+           (Listof (List Symbol Type-Expr))
+           (Option Type-Expr)
+           @-Ast)
      (List '@def-fun Symbol
            (Listof (List Symbol Type-Expr))
            (Option Type-Expr)

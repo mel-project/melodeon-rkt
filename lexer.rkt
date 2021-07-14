@@ -10,7 +10,9 @@
          syntax-tokens)
 
 (define-tokens value-tokens (NUM VAR FUN TYPE BYTES))
-(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN OPEN-BRACKET CLOSE-BRACKET OPEN-BRACE CLOSE-BRACE COMMA ++ + - * / EOF NEG
+(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN OPEN-BRACKET
+                                      CLOSE-BRACKET LESS-THAN GREATER-THAN
+                                      OPEN-BRACE CLOSE-BRACE COMMA ++ + - * / EOF NEG
                                       LET IN
                                       COLON HASH
                                       SEMICOLON
@@ -65,6 +67,8 @@
    ;; punctuation
    ["," 'COMMA]
    ["." 'DOT]
+   ["<" 'LESS-THAN]
+   [">" 'GREATER-THAN]
    ["#" 'HASH]
    [";" 'SEMICOLON]
    ["|" 'PIPE]

@@ -3,6 +3,7 @@
          "type-sys/typecheck.rkt"
          "type-sys/types.rkt"
          "common.rkt"
+         "monomorphize.rkt"
          "codegen.rkt")
 
 (: input-file (Parameter String))

@@ -22,7 +22,7 @@
     [`(@type-var ,t) #:when (eq? t inner-typ) #t]
     [`(@type-vec ,v)
       ; check that inner-typ exists at least once in type vector
-      (foldl (lambda ([acc : Boolean] [x : Type-Expr])
+      (foldl (lambda ([x : Type-Expr] [acc : Boolean])
                (or acc (type-contains x inner-typ)))
              #f
              v)]
@@ -52,6 +52,12 @@
              [`(@def-generic-fun _ ,syms _ _ _) syms]
              [_ (error "BUG: ast should already be checked to be
                        @def-generic-fun") (list)])]
+         [param-types : (Listof Type-Expr)
+           (match gen-def
+             [`(@def-generic-fun _ _ ,binds _ _)
+                 (map (lambda ([bind : (List Symbol Type-Expr)]) (cadr bind)) )]
+             [_ (error "BUG: ast should already be checked to be
+                       @def-generic-fun") (list)])]
          [arg-types : (Listof Type)
            (match app
              [`(@apply _ ,args)
@@ -64,6 +70,6 @@
                (filter (lambda ([pair : (List Index Type-Expr)])
                          (let ([i (car pair)] [t (cadr pair)])
                            (type-contains t (sym->type-var generic-sym))))
-                       (zip (range (length arg-types)) arg-types)))
+                       (zip (range (length param-types)) param-types)))
              generic-syms))])
         #f)]))

@@ -72,7 +72,6 @@
               ((<let-expr>) $1)
               ((<where-expr>) $1)
               ((<block-expr>) $1)
-              ((<vector-compreh>) $1)
               ((<set!-expr>) $1)
               )
       ;; set! var = expr
@@ -124,6 +123,7 @@
                        ((VAR) (pos-lift 1 1 `(@var ,$1)))
                        ((OPEN-PAREN <expr> CLOSE-PAREN) (pos-lift 1 3 $2))
                        ((<vector-expr>) $1)
+                       ((<vector-compreh>) $1)
                        ((UNSAFE CAST <expr> COLON <type-expr>) (pos-lift 1 5
                                                                          `(@unsafe-cast ,$3 ,$5)))
                        ((ANN <expr> COLON <type-expr>) (pos-lift 1 4

@@ -225,7 +225,8 @@
                      [(TVector v) (length v)]
                      [(var t) (context-error "vector comprehension needs to iterate
                                               over a vector, but a ~a was
-                                              provided" t)])])
+                                              provided"
+                                             (type->string t))])])
           (TVectorof (@-ast->type/inner expr (bind-var scope var (TNat))) len))]
       [`(@var ,variable) (lookup-var scope variable)]
       [`(@lit-vec ,vars) (TVector (map (λ ((x : @-Ast)) (@-ast->type/inner x scope)) vars))]

@@ -75,10 +75,10 @@
 (module+ main
   (define ast (parameterize ([FILENAME "whatever.melo"])
                 (melo-parse-port (open-input-string #<<EOF
-def laboo(yah : [Nat * 6]) = [yah[0]] ++ [yah[1]]
+def laboo(yah : [Nat * 6]) = [i * 2 for i in yah] ++ [1, 2, 3]
 
 
-if 1 then 2 else "labooyah" ++ "hello world" ++ x"deadbeef"
+laboo([1, 2, 3, 4, 5, 6])
 
 EOF
                                                     ))))

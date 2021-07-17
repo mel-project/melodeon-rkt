@@ -19,11 +19,16 @@
 (struct TUnion ((x : Type)
                 (y : Type)) #:prefab)
 
+; Represents a custom defined product type that is distinct by its name
+(struct TTagged ((name : Symbol)
+                 (lst : (Listof Type))) #:prefab)
+
 
 ;; Type
 (define-type Type (U TNat
                      TBin
                      TAny
+                     TTagged
                      TVector
                      TVectorof
                      TUnion
@@ -38,6 +43,11 @@
     [(TNat) "Nat"]
     [(TBin) "Bin"]
     [(TAny) "Any"]
+    [(TTagged tag types) (define type-strs (map type->string types))
+                           (string-append "["
+                                          (symbol->string tag)
+                                          (string-join type-strs ", ")
+                                          "]")]
     [(TVector lst) (define inner-names (map type->string lst))
                    (string-append "["
                                   (string-join inner-names ", ")

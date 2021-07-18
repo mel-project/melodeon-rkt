@@ -88,6 +88,7 @@
     [`(@type-var ,var) (context-error "cannot resolve type names yet")]
     [`(@type-vec ,vec) (TVector (map resolve-type vec))]
     [`(@type-vecof ,var ,count) (TVectorof (resolve-type var) count)]
+    [`(@type-bytes ,count) (TBytes count)]
     [`(@type-union ,x ,y) (TUnion (resolve-type x)
                                   (resolve-type y))]
     ))
@@ -160,100 +161,107 @@
          (type->string real-type)))))
   (define retval
     (parameterize ([current-context (context-of @-ast)])
-    (match (dectx @-ast)
-      [`(@loop ,_ ,body) (@-ast->type/inner body scope)]
-      [`(@block ,body)
-       (car (reverse (map (λ((x : @-Ast)) (@-ast->type/inner x scope)) body)))]
-      [`(@program ,definitions ,body)
-       (define new-mapping (definitions->scope definitions))
-       (@-ast->type/inner body new-mapping)]
-      [`(,(? (lambda(op) (member op '(@+ @- @* @/)))) ,x ,y)
-       (assert-type x (TNat))
-       (assert-type y (TNat))
-       (TNat)]
-      [`(@append ,x ,y)
-       (tappend (@-ast->type/inner x scope)
-                       (@-ast->type/inner y scope))]
-      [`(@let (,val ,expr) ,body)
-       (define expr-type (@-ast->type/inner expr scope))
-       (@-ast->type/inner body (bind-var scope val expr-type))]
-      [`(@set! ,var ,val)
-       (define inner-type (@-ast->type/inner val scope))
-       (unless (subtype-of? inner-type
-                            (lookup-var scope var))
-         (context-error "cannot assign value of type ~a to variable of type ~a"
-                        (type->string inner-type)
-                        (type->string (lookup-var scope var))))
-       (lookup-var scope var)]
-      [`(@unsafe-cast ,inner ,type)
-       (define actual-inner-type (@-ast->type/inner inner scope))
-       (define new-type (resolve-type type))
-       (unless (subtype-of? new-type actual-inner-type)
-         (context-error "cannot downcast ~a to ~a"
-                        (type->string actual-inner-type)
-                        (type->string new-type)))
-       new-type]
-      [`(@ann ,inner ,type)
-       (define actual-inner-type (@-ast->type/inner inner scope))
-       (define new-type (resolve-type type))
-       (unless (subtype-of? actual-inner-type new-type)
-         (context-error "cannot annotate ~a as incompatible type ~a"
-                        (type->string actual-inner-type)
-                        (type->string new-type)))
-       new-type]
-      [`(@lit-num ,n) (cond
-                        [(= n 0) (TBin)]
-                        [(= n 1) (TBin)]
-                        [else (TNat)])]
-      [`(@for ,expr ,var ,vec)
-        (let ([len (match (@-ast->type/inner vec scope)
-                     [(TVectorof _ count) count]
-                     [(TVector v) (length v)]
-                     [(var t) (context-error "vector comprehension needs to iterate
+      (match (dectx @-ast)
+        [`(@eq ,x ,y) (@-ast->type/inner x scope)
+                      (@-ast->type/inner y scope)
+                      (TBin)]
+        [`(@extern ,_) (TAny)]
+        [`(@loop ,_ ,body) (@-ast->type/inner body scope)]
+        [`(@block ,body)
+         (car (reverse (map (λ((x : @-Ast)) (@-ast->type/inner x scope)) body)))]
+        [`(@program ,definitions ,body)
+         (define new-mapping (definitions->scope definitions))
+         (@-ast->type/inner body new-mapping)]
+        [`(,(? (lambda(op) (member op '(@+ @- @* @/)))) ,x ,y)
+         (assert-type x (TNat))
+         (assert-type y (TNat))
+         (TNat)]
+        [`(,(or '@and '@or) ,x ,y) (smart-union (@-ast->type/inner x scope)
+                                                (@-ast->type/inner y scope))]
+        [`(@append ,x ,y)
+         (tappend (@-ast->type/inner x scope)
+                  (@-ast->type/inner y scope))]
+        [`(@let (,val ,expr) ,body)
+         (define expr-type (@-ast->type/inner expr scope))
+         (@-ast->type/inner body (bind-var scope val expr-type))]
+        [`(@set! ,var ,val)
+         (define inner-type (@-ast->type/inner val scope))
+         (unless (subtype-of? inner-type
+                              (lookup-var scope var))
+           (context-error "cannot assign value of type ~a to variable of type ~a"
+                          (type->string inner-type)
+                          (type->string (lookup-var scope var))))
+         (lookup-var scope var)]
+        [`(@unsafe-cast ,inner ,type)
+         (define actual-inner-type (@-ast->type/inner inner scope))
+         (define new-type (resolve-type type))
+         (unless (subtype-of? new-type actual-inner-type)
+           (context-error "cannot downcast ~a to ~a"
+                          (type->string actual-inner-type)
+                          (type->string new-type)))
+         new-type]
+        [`(@ann ,inner ,type)
+         (define actual-inner-type (@-ast->type/inner inner scope))
+         (define new-type (resolve-type type))
+         (unless (subtype-of? actual-inner-type new-type)
+           (context-error "cannot annotate ~a as incompatible type ~a"
+                          (type->string actual-inner-type)
+                          (type->string new-type)))
+         new-type]
+        [`(@lit-num ,n) (cond
+                          [(= n 0) (TBin)]
+                          [(= n 1) (TBin)]
+                          [else (TNat)])]
+        [`(@for ,expr ,var ,vec)
+         (let ([len (match (@-ast->type/inner vec scope)
+                      [(TVectorof _ count) count]
+                      [(TVector v) (length v)]
+                      [(var t) (context-error "vector comprehension needs to iterate
                                               over a vector, but a ~a was
                                               provided"
-                                             (type->string t))])])
-          (TVectorof (@-ast->type/inner expr (bind-var scope var (TNat))) len))]
-      [`(@var ,variable) (lookup-var scope variable)]
-      [`(@lit-vec ,vars) (TVector (map (λ ((x : @-Ast)) (@-ast->type/inner x scope)) vars))]
-      [`(@lit-bytes ,bts) (TBytes (bytes-length bts))]
-      [`(@index ,val ,idx-expr)
-       (: idx Integer)
-       (define idx
-         (match (dectx idx-expr)
-           [`(@lit-num ,x) x]
-           [other (context-error "non-literal index ~a not yet supported" other)]))
-       (match (@-ast->type/inner val scope)
-         [(TVector lst) (unless (< idx (length lst))
-                           (context-error "index ~a out of bounds for vector of ~a elements"
-                                          idx
-                                          (length lst)))
-                         (list-ref lst idx)]
-         [(TVectorof t n) (unless (< idx n)
+                                              (type->string t))])])
+           (TVectorof (@-ast->type/inner expr (bind-var scope var (TNat))) len))]
+        [`(@var ,variable) (lookup-var scope variable)]
+        [`(@lit-vec ,vars) (TVector (map (λ ((x : @-Ast)) (@-ast->type/inner x scope)) vars))]
+        [`(@lit-bytes ,bts) (TBytes (bytes-length bts))]
+        [`(@index ,val ,idx-expr)
+         (: idx Integer)
+         (define idx
+           (match (dectx idx-expr)
+             [`(@lit-num ,x) x]
+             [other (context-error "non-literal index ~a not yet supported" other)]))
+         (match (@-ast->type/inner val scope)
+           [(TVector lst) (unless (< idx (length lst))
+                            (context-error "index ~a out of bounds for vector of ~a elements"
+                                           idx
+                                           (length lst)))
+                          (list-ref lst idx)]
+           [(TVectorof t n) (unless (< idx n)
                               (context-error "index ~a out of bounds for vector of ~a elements"
                                              idx
                                              n))
                             t]
-         [other (context-error "cannot index into a value of type ~a" other)])]
-      [`(@apply ,fun ,args)
-       (match (lookup-fun scope fun)
-         [(TFunction arg-types result)
-          (unless (equal? (length arg-types) (length args))
-            (error '@-ast->type "[~a] calling function ~a with ~a arguments instead of the expected ~a"
-                   (context->string (get-context @-ast))
-                   fun
-                   (length args)
-                   (length arg-types)))
-          (for ([arg-expr (in-list args)]
-                [arg-type (in-list arg-types)])
-            (assert-type arg-expr arg-type))
-          result]
-         [_ (error '@-ast->type "[~a] undefined function ~a"
-                   (context->string (get-context @-ast)) fun)])]
-      [`(@if ,cond ,happy ,sad)
-       (smart-union (@-ast->type/inner happy scope)
-                    (@-ast->type/inner sad scope))]
-      )))
+           [other (context-error "cannot index into a value of type ~a" other)])]
+        [`(@apply ,fun ,args)
+         (match (lookup-fun scope fun)
+           [(TFunction arg-types result)
+            (unless (equal? (length arg-types) (length args))
+              (error '@-ast->type "[~a] calling function ~a with ~a arguments instead of the expected ~a"
+                     (context->string (get-context @-ast))
+                     fun
+                     (length args)
+                     (length arg-types)))
+            (for ([arg-expr (in-list args)]
+                  [arg-type (in-list arg-types)])
+              (assert-type arg-expr arg-type))
+            result]
+           [_ (error '@-ast->type "[~a] undefined function ~a"
+                     (context->string (get-context @-ast)) fun)])]
+        [`(@if ,cond ,happy ,sad)
+         (@-ast->type/inner cond scope) ; just to check
+         (smart-union (@-ast->type/inner happy scope)
+                      (@-ast->type/inner sad scope))]
+        )))
   (hash-set! TYPE-MEMOIZER @-ast retval)
   retval)
 

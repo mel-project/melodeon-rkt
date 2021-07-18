@@ -57,7 +57,8 @@
                      `(@def-fun ,$2 ,$4 ,$7 ,$9))
                     )
       (<fun-args> ((<type-dec>) (list $1))
-                  ((<type-dec> COMMA <fun-args>) (cons $1 $3)))
+                  ((<type-dec> COMMA <fun-args>) (cons $1 $3))
+                  (() empty))
       (<type-dec> ((VAR COLON <type-expr>) (list $1 $3)))
       (<type-expr> ((<type-expr> PIPE <type-expr-2>) `(@type-union ,$1 ,$3))
                    ((<type-expr-2>) $1))
@@ -68,7 +69,7 @@
       (<type-exprs> ((<type-expr>) (list $1))
                     ((<type-expr> COMMA <type-exprs>) (cons $1 $3)))
       ;; different kinds of exprs
-      (<expr> ((<add-expr>) $1)
+      (<expr> ((<or-expr>) $1)
               ((<let-expr>) $1)
               ((<where-expr>) $1)
               ((<block-expr>) $1)
@@ -83,7 +84,8 @@
       ;; vectors
       (<vector-expr> ((OPEN-BRACKET <multi-exprs> CLOSE-BRACKET) (pos-lift 1 3 `(@lit-vec ,$2))))
       (<multi-exprs> ((<expr>) (list $1))
-                     ((<expr> COMMA <multi-exprs>) (cons $1 $3)))
+                     ((<expr> COMMA <multi-exprs>) (cons $1 $3))
+                     (() empty))
       ; Vector comprehension
       (<vector-compreh> ((OPEN-BRACKET <expr> FOR VAR IN <expr> CLOSE-BRACKET)
                          (pos-lift 1 3 `(@for ,$2 ,$4 ,$6))))
@@ -100,7 +102,13 @@
                     ((<where-expr> WHERE VAR = <add-expr>) (pos-lift 1 5
                                                                      `(@let (,$3 ,$5) ,$1))))
       
-      
+      ;; lowest-associativity (logical) operators
+      (<or-expr> ((<or-expr> OR <and-expr>) (pos-lift 1 3 `(@or ,$1 ,$3)))
+                 ((<and-expr>) $1))
+      (<and-expr> ((<and-expr> AND <eq-expr>) (pos-lift 1 3 `(@and ,$1 ,$3)))
+                  ((<eq-expr>) $1))
+      (<eq-expr> ((<eq-expr> == <add-expr>) (pos-lift 1 3 `(@eq ,$1 ,$3)))
+                 ((<add-expr>) $1))
       ;; low-associativity (add-like) operators
       (<add-expr> ((<add-expr> + <mult-expr>) (pos-lift 1 3 `(@+ ,$1 ,$3)))
                   ((<add-expr> - <mult-expr>) (pos-lift 1 3 `(@- ,$1 ,$3)))
@@ -115,7 +123,8 @@
                     ;; vector indexing
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> CLOSE-BRACKET) (pos-lift 1 4 `(@index ,$1 ,$3)))
                     ;; vector update
-                    ((<apply-expr> OPEN-BRACKET <terminal-expr> FAT-ARROW <terminal-expr> CLOSE-BRACKET) (pos-lift 1 6 `(@update ,$1 ,$3 ,$5)))
+                    ((<apply-expr> OPEN-BRACKET <terminal-expr> FAT-ARROW <terminal-expr> CLOSE-BRACKET)
+                     (pos-lift 1 6 `(@update ,$1 ,$3 ,$5)))
                     ((<terminal-expr>) $1))
       ;; terminal expressions
       (<terminal-expr> ((NUM) (pos-lift 1 1 `(@lit-num ,$1)))
@@ -128,6 +137,8 @@
                                                                          `(@unsafe-cast ,$3 ,$5)))
                        ((ANN <expr> COLON <type-expr>) (pos-lift 1 4
                                                                  `(@ann ,$2 ,$4)))
+                       ((EXTERN BYTES) (pos-lift 1 2
+                                                 `(@extern ,(bytes->string/utf-8 $2))))
                        )
       )))
   
@@ -166,7 +177,7 @@ do
     [(1 + 2)];
   set! x = [1, 2, 3, 4, 5];
   set! x = x[1 => 2]
-done) + 123
+done) + 123 == 456 and 4 + 5 == 9
 
 EOF
                                        ))))

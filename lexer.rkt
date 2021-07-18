@@ -10,7 +10,7 @@
          syntax-tokens)
 
 (define-tokens value-tokens (NUM VAR FUN TYPE BYTES))
-(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN OPEN-BRACKET CLOSE-BRACKET OPEN-BRACE CLOSE-BRACE COMMA ++ + - * / EOF NEG
+(define-empty-tokens syntax-tokens (== = OPEN-PAREN CLOSE-PAREN OPEN-BRACKET CLOSE-BRACKET OPEN-BRACE CLOSE-BRACE COMMA ++ + - * / OR AND NOT EOF NEG
                                       LET IN
                                       COLON HASH
                                       SEMICOLON
@@ -21,6 +21,7 @@
                                       ANN
                                       DO
                                       DOT
+                                      EXTERN
                                       DONE
                                       FOR
                                       DEF
@@ -52,6 +53,9 @@
    ["=>" 'FAT-ARROW]
    ["where" 'WHERE]
    ["unsafe" 'UNSAFE]
+   ["||" 'OR]
+   ["&&" 'AND]
+   ["not" 'NOT]
    ["cast" 'CAST]
    ["loop" 'LOOP]
    ["ann" 'ANN]
@@ -62,6 +66,7 @@
    ["done" 'DONE]
    ["for" 'FOR]
    ["set!" 'SET!]
+   ["extern" 'EXTERN]
    ;; punctuation
    ["," 'COMMA]
    ["." 'DOT]
@@ -71,7 +76,7 @@
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations
-   [(:or "=" "+" "-" "*" "/" "++") (string->symbol lexeme)]
+   [(:or "=" "+" "-" "*" "/" "++" "==") (string->symbol lexeme)]
    ;; parentheses
    ["(" 'OPEN-PAREN]
    [")" 'CLOSE-PAREN]

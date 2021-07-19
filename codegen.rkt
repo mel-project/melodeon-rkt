@@ -137,10 +137,10 @@
     [(TVectorof t n)
      (TVector (make-list n t))]
     [(TBytes n)
-     (unless (<= n 32)
-       (error "cannot compare bytestrings of length greater than 32"))
-     `(= (btoi ,x-sym)
-         (btoi ,y-sym))]
+     (unless (= n 32)
+       (error "cannot compare bytestrings of length other than 32"))
+     `(= (bytes->u256 ,x-sym)
+         (bytes->u256 ,y-sym))]
     [(? Type? t) (error "cannot compare values of non-concrete type"
                         (type->string t))]))
 
@@ -148,8 +148,10 @@
 (module+ main
   (define ast (parameterize ([FILENAME "whatever.melo"])
                 (melo-parse-port (open-input-string #<<EOF
-[1, 2, 3] == [1, 2] ++ [3]
 
+let bb = btoi("hello world goodbye world foobar") in
+let cc = itob(bb * bb) in
+cc == cc
 EOF
                                                     ))))
   (displayln "@-Ast:")

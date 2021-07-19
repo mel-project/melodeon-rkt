@@ -21,6 +21,7 @@
                                       ANN
                                       DO
                                       DOT
+                                      IS
                                       EXTERN
                                       DONE
                                       FOR
@@ -67,6 +68,7 @@
    ["for" 'FOR]
    ["set!" 'SET!]
    ["extern" 'EXTERN]
+   ["is" 'IS]
    ;; punctuation
    ["," 'COMMA]
    ["." 'DOT]

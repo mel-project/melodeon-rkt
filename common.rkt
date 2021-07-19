@@ -89,6 +89,7 @@
      (List '@set! Symbol @-Ast)
      (List '@loop Nonnegative-Integer @-Ast)
      (List '@extern String)
+     (List '@is @-Ast Type-Expr)
      (with-context @-Ast)))
 
 (define-type Definition

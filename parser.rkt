@@ -125,6 +125,8 @@
                     ;; vector update
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> FAT-ARROW <terminal-expr> CLOSE-BRACKET)
                      (pos-lift 1 6 `(@update ,$1 ,$3 ,$5)))
+                    ;; type guards
+                    ((<apply-expr> IS <type-expr>) (pos-lift 1 3 `(@is ,$1 ,$3)))
                     ((<terminal-expr>) $1))
       ;; terminal expressions
       (<terminal-expr> ((NUM) (pos-lift 1 1 `(@lit-num ,$1)))
@@ -177,7 +179,7 @@ do
     [(1 + 2)];
   set! x = [1, 2, 3, 4, 5];
   set! x = x[1 => 2]
-done) + 123 == 456 and 4 + 5 == 9
+done) + 123 == 456 && 4 + 5 == 9
 
 EOF
                                        ))))

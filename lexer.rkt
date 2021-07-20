@@ -23,6 +23,8 @@
                                       ANN
                                       DO
                                       DOT
+                                      IS
+                                      EXTERN
                                       DONE
                                       FOR
                                       DEF
@@ -54,6 +56,9 @@
    ["=>" 'FAT-ARROW]
    ["where" 'WHERE]
    ["unsafe" 'UNSAFE]
+   ["||" 'OR]
+   ["&&" 'AND]
+   ["not" 'NOT]
    ["cast" 'CAST]
    ["loop" 'LOOP]
    ["ann" 'ANN]
@@ -64,6 +69,8 @@
    ["done" 'DONE]
    ["for" 'FOR]
    ["set!" 'SET!]
+   ["extern" 'EXTERN]
+   ["is" 'IS]
    ;; punctuation
    ["," 'COMMA]
    ["." 'DOT]
@@ -75,7 +82,7 @@
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations
-   [(:or "=" "+" "-" "*" "/" "++") (string->symbol lexeme)]
+   [(:or "=" "+" "-" "*" "/" "++" "==") (string->symbol lexeme)]
    ;; parentheses
    ["(" 'OPEN-PAREN]
    [")" 'CLOSE-PAREN]

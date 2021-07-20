@@ -7,7 +7,8 @@
 (provide Type
          @-ast->type
          to-tvector
-         memoized-type)
+         memoized-type
+         resolve-type)
 
 
 ;; Converts from TVector to TVectorof
@@ -326,7 +327,10 @@
   (parameterize ([FILENAME "test.melo"])
     (@-ast->type/inner
      (melo-parse-port (open-input-string "
-let x = ann 1 : Any in
-if x is Nat && x == 10 then x*x else 123
+(let x = ann 1 : Any in
+if x is Nat && x == 10 then
+    x*x
+else
+    123) / 2
 "))
      empty-ts)))

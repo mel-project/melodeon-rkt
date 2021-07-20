@@ -89,6 +89,8 @@
      (List '@set! Symbol @-Ast)
      (List '@set! Symbol @-Ast)
      (List '@loop Nonnegative-Integer @-Ast)
+     (List '@extern String)
+     (List '@is @-Ast Type-Expr)
      (with-context @-Ast)))
 
 (define-type Definition
@@ -118,4 +120,4 @@
      (List '@type-union Type-Expr Type-Expr)
      (List '@type-bytes Nonnegative-Integer)))
 
-(define-type @-Binop (U '@+ '@- '@* '@/ '@append))
+(define-type @-Binop (U '@+ '@- '@* '@/ '@append '@or '@and '@eq))

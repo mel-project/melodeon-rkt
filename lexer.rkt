@@ -10,29 +10,32 @@
          syntax-tokens)
 
 (define-tokens value-tokens (NUM VAR FUN TYPE BYTES))
-(define-empty-tokens syntax-tokens (= OPEN-PAREN CLOSE-PAREN OPEN-BRACKET
-                                      CLOSE-BRACKET LESS-THAN GREATER-THAN
-                                      OPEN-BRACE CLOSE-BRACE COMMA ++ + - * / EOF NEG
-                                      LET IN
-                                      COLON HASH
-                                      SEMICOLON
-                                      UNSAFE
-                                      CAST
-                                      WHERE
-                                      PIPE
-                                      ANN
-                                      DO
-                                      DOT
-                                      DONE
-                                      FOR
-                                      DEF
-                                      STRUCT
-                                      LOOP
-                                      FAT-ARROW
-                                      IF
-                                      THEN
-                                      ELSE
-                                      SET!))
+(define-empty-tokens syntax-tokens (OPEN-PAREN CLOSE-PAREN OPEN-BRACKET
+                                    CLOSE-BRACKET LESS-THAN GREATER-THAN
+                                    OPEN-BRACE CLOSE-BRACE COMMA EOF NEG
+                                    = == ++ + - * / OR AND
+                                    LET IN
+                                    COLON HASH
+                                    SEMICOLON
+                                    UNSAFE
+                                    CAST
+                                    WHERE
+                                    PIPE
+                                    ANN
+                                    DO
+                                    DOT
+                                    IS
+                                    EXTERN
+                                    DONE
+                                    FOR
+                                    DEF
+                                    STRUCT
+                                    LOOP
+                                    FAT-ARROW
+                                    IF
+                                    THEN
+                                    ELSE
+                                    SET!))
 
 (define-lex-abbrevs
   (lower-letter (:/ "a" "z"))
@@ -56,6 +59,9 @@
    ["=>" 'FAT-ARROW]
    ["where" 'WHERE]
    ["unsafe" 'UNSAFE]
+   ["||" 'OR]
+   ["&&" 'AND]
+   ["not" 'NOT]
    ["cast" 'CAST]
    ["loop" 'LOOP]
    ["ann" 'ANN]
@@ -66,6 +72,8 @@
    ["done" 'DONE]
    ["for" 'FOR]
    ["set!" 'SET!]
+   ["extern" 'EXTERN]
+   ["is" 'IS]
    ;; punctuation
    ["," 'COMMA]
    ["." 'DOT]
@@ -77,7 +85,7 @@
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations
-   [(:or "=" "+" "-" "*" "/" "++") (string->symbol lexeme)]
+   [(:or "=" "+" "-" "*" "/" "++" "==") (string->symbol lexeme)]
    ;; parentheses
    ["(" 'OPEN-PAREN]
    [")" 'CLOSE-PAREN]

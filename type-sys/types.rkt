@@ -20,7 +20,7 @@
                 (y : Type)) #:prefab)
 
 ; Represents a custom defined product type that is distinct by its name
-(struct TTagged ((name : Symbol)
+(struct TTagged ((tag : Symbol)
                  (lst : (Listof Type))) #:prefab)
 
 

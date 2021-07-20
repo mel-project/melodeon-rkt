@@ -36,6 +36,7 @@
 ; and returns a @def-fun definition where the generic types are replaced
 ; with types inferred by the application; or nothing if inference is not
 ; possible.
+#|
 (: generic->concrete (-> Definition @-Ast Definition))
 (define (generic->concrete gen-def app)
   (cond
@@ -98,3 +99,4 @@
                ,concrete-binds
                ,concrete-return-type,
                ,concrete-body)])))]))
+|#

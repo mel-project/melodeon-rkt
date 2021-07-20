@@ -112,12 +112,22 @@
   (foldl (λ ((binding : Definition) (accum : Type-Scope))
            (match binding
              [`(@def-var ,var ,expr) (bind-var accum var (@-ast->type/inner expr accum))]
+             [`(@def-struct ,name ,fields)
+               (bind-type-var
+                 accum
+                 name
+                 (TTagged
+                   name
+                   (map (lambda ([x : (List Symbol Type)]) (cadr x))
+                        fields)))]
+             #|
              [`(@def-alias ,name ,fields)
                (bind-type-var
                  accum
                  name
                  (TVector (map (lambda ([x : (List Symbol Type)]) (cadr x))
                                fields)))]
+             |#
              [`(@def-fun ,fun ,args ,rettype ,expr)
               (define inner-scope
                 (foldl (λ ((pair : (List Symbol Type-Expr)) (accum : Type-Scope))

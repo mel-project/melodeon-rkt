@@ -21,16 +21,16 @@ jobs:
         run: sudo apt update
 
       - name: Install TzData
-        run: env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata
+        run: env DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends tzdata
 
       - name: Install Debian Tools
-        run: apt -y install software-properties-common
+        run: sudo apt -y install software-properties-common
 
       - name: Add Racket PPA
-        run: add-apt-repository -y ppa:plt/racket
+        run: sudo add-apt-repository -y ppa:plt/racket
 
       - name: Install Racket
-        run: apt install -y racket
+        run: sudo apt install -y racket
 
       - name: Compile
         run: raco make -v meloc.rkt

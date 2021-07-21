@@ -33,7 +33,7 @@ jobs:
         run: sudo apt install -y racket
 
       - name: Install Memo
-        run: raco pkg install memo
+        run: sudo raco pkg install memo
 
       - name: Compile
         run: raco make -v meloc.rkt

@@ -35,8 +35,5 @@ jobs:
       - name: Install Memo
         run: raco pkg install --auto memo
 
-      - name: Install JSON Type Provider
-        run: raco pkg install --auto json-type-provider
-
       - name: Compile
         run: raco make -v meloc.rkt

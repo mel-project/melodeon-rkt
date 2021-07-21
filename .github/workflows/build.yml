@@ -1,4 +1,4 @@
-name: TestAndBuild
+name: Build
 
 on:
   push:

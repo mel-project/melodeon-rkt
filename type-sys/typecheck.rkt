@@ -1,5 +1,6 @@
 #lang typed/racket
 (require "../common.rkt"
+         "../ast-utils.rkt"
          "types.rkt"
          "resolver.rkt")
 (require racket/hash)
@@ -54,9 +55,6 @@
 (struct Type-Scope ((vars : (HashTable Symbol Type))
                     (type-vars : (HashTable Symbol Type))
                     (funs : (HashTable Symbol TFunction))) #:prefab)
-
-; An environment for type variable mappings to types
-(define-type Type-Map (HashTable Symbol Type))
 
 (: empty-ts Type-Scope)
 (define empty-ts (Type-Scope (hash) (hash) (hash)))
@@ -120,40 +118,58 @@
     [`(@type-var Nat) (TNat)]
     ;[`(@type-var ,var) (lookup-type-var 
     ;[`(@type-var ,var) (context-error "cannot resolve type names yet")]
-    [`(@type-vec ,vec) (TVector (map (lambda (x) (resolve-type x env)) vec))]
-    [`(@type-vecof ,var ,count) (TVectorof (resolve-type var env) count)]
+    ;[`(@type-vec ,vec) (TVector (map (lambda (x) (resolve-type x env)) vec))]
+    [`(@type-vec ,vec)
+      (let ([type-vec (resolve-type* vec env)])
+        (match type-vec
+          [(? list? l) (TVector l)]
+          [#f #f]))]
+    [`(@type-vecof ,var ,count)
+      (match (resolve-type var env)
+        [(? Type? t) (TVectorof t count)]
+        [#f #f])]
     [`(@type-bytes ,count) (TBytes count)]
-    [`(@type-union ,x ,y) (TUnion (resolve-type x env)
-                                  (resolve-type y env))]
+    [`(@type-union ,x ,y)
+      (let ([tx (resolve-type x env)]
+            [ty (resolve-type y env)])
+        (if (and tx ty)
+          (TUnion tx ty)
+          #f))]
+          #|
+      (let
+        ([tx (match (resolve-type x env)
+               [(? Type? t) t]
+               [#f #f])]
+         [ty (match (resolve-type y env)
+               [(? Type? t) t]
+               [#f #f]))])
+        (TUnion tx ty)
+      ]
+        |#
+              ;(resolve-type x env)
+              ;(resolve-type y env))]
     [_ #f]
     ))
 
-(: ast->list (-> @-Ast (Listof @-Ast)))
-(define (ast->list a)
-  (cons a (match a
-    [`(@let _ ,expr) (list (ast->list expr))]
-    [`(@-Binop ,a ,b) (list (ast->list a) (ast->list b))]
-    [`(@lit-num _) (list)]
-    [`(@lit-vec ,v) (map ast->list v)]
-    [`(@var _) (list)]
-    [`(@program _ ,expr) (list (ast->list expr))]
-    [`(@apply _ ,v) (list (map ast->list v))]
-    [`(@block ,v) (list (map ast->list v))]
-    [`(@index ,x ,y) (list (ast->list x) (ast->list y))]
-    [`(@update ,e1 ,e2 ,e3) (list (ast->list e1) (ast->list e2) (ast->list e3))]
-    [`(@unsafe-cast ,e _) (list (ast->list e))]
-    [`(@ann ,expr _) (list (ast->list expr))]
-    [`(@if ,p ,t ,f) (list (ast->list p) (ast->list t) (ast->list f))]
-    [`(@for ,e1 _ ,e2) (list (ast->list e1) (ast->list e2))]
-    [`(@list-bytes _) (list)]
-    [`(@set! _ ,expr) (list (ast->list expr))]
-    [`(@loop _ ,expr) (list (ast->list expr))]
-    [`(@extern _) (list)]
-    [`(@is ,expr _) (list (ast->list expr))]
-    [(with-context ctx matter)
-     (with-context ctx (ast->list matter))]
-    )))
+(: resolve-type* (-> (Listof Type-Expr) Type-Map (Option (Listof Type))))
+(define (resolve-type* l env)
+  (foldl
+    (lambda ((o : Type-Expr) (acc : (Option (Listof Type))))
+      (match acc
+        [#f #f]
+        [(? list? l)
+          (match (resolve-type o env)
+            [(? Type? t) (cons t acc)]
+            [#f #f])]))
+    (list)
+    l))
 
+; Simply throw with a type error if option is false
+(: resolve-type-or-err (-> Type-Expr Type-Map Type))
+(define (resolve-type-or-err texpr env)
+  (match (resolve-type texpr env)
+    [(? Type? t) t]
+    [_ (context-error "Failed to resolve type ~a")]))
 
 ; Read a Definition ast node and if a struct definition,
 ; add to the given type map. The given type map is also
@@ -169,8 +185,42 @@
         (TTagged
           name
           (map (lambda ([x : (List Symbol Type-Expr)])
-                 (cadr (resolve-type x env)))
+                 (resolve-type-or-err (cadr x) env))
                fields)))]))
+
+; takes a Type-Scope rather than just one map because
+; types may need to be resolved and the function-scope
+; should also be added to.
+#|
+(: add-fun-def (-> Definition Type-Scope Type-Scope))
+(define (add-fun-def def env)
+  (match def
+    [`(@def-fun ,fun ,args ,rettype ,expr)
+     (define inner-scope
+       (foldl (λ ((pair : (List Symbol Type-Expr)) (accum : Type-Scope))
+                (bind-var
+                  accum
+                  (first pair)
+                  (resolve-type (second pair) (Type-Scope-type-vars accum)))
+              env
+              args)))
+     (define inner-type (first (@-ast->type/inner expr inner-scope)))
+     (: return-type Type)
+     (define return-type
+       (cond
+         [rettype (unless (subtype-of? inner-type (resolve-type rettype))
+                    (context-error
+                     "~a expected to return type ~a, got type ~a"
+                     fun
+                     (resolve-type rettype)
+                     inner-type))
+                  (resolve-type rettype)]
+         [else inner-type]))
+     (bind-fun accum fun
+               (TFunction (map resolve-type (map (inst second Symbol Type-Expr Any)
+                                                 args))
+                          return-type))]))
+|#
 
 ;; Produces an initial scope given a bunch of definitions
 (: definitions->scope (-> (Listof Definition) Type-Scope))
@@ -197,29 +247,34 @@
              |#
              [`(@def-var ,var ,expr) (bind-var accum var (first (@-ast->type/inner expr accum)))]
              [`(@def-fun ,fun ,args ,rettype ,expr)
+               (define types-map (Type-Scope-type-vars accum))
               (define inner-scope
                 (foldl (λ ((pair : (List Symbol Type-Expr)) (accum : Type-Scope))
                          (bind-var
                            accum
                            (first pair)
-                           (resolve-type (second pair) (Type-Scope-type-vars accum)))
+                           (resolve-type-or-err (second pair) types-map)))
                        accum
-                       args)))
+                       args))
               (define inner-type (first (@-ast->type/inner expr inner-scope)))
               (: return-type Type)
               (define return-type
                 (cond
-                  [rettype (unless (subtype-of? inner-type (resolve-type rettype))
+                  [rettype (unless (subtype-of? inner-type (resolve-type-or-err rettype types-map))
                              (context-error
                               "~a expected to return type ~a, got type ~a"
                               fun
-                              (resolve-type rettype)
+                              (resolve-type-or-err rettype types-map)
                               inner-type))
-                           (resolve-type rettype)]
+                           (resolve-type-or-err rettype types-map)]
                   [else inner-type]))
               (bind-fun accum fun
-                        (TFunction (map resolve-type (map (inst second Symbol Type-Expr Any)
-                                                          args))
+                        (TFunction (map (lambda ((x : Type-Expr))
+                                          (resolve-type-or-err
+                                            x
+                                            (Type-Scope-type-vars accum)))
+                                        (map (inst second Symbol Type-Expr Type-Expr)
+                                             args))
                                    return-type))]))
          empty-ts
          defs))
@@ -250,6 +305,7 @@
 
 (define-type Type-Facts (Immutable-HashTable Symbol Type))
 
+;(: @-ast->type/inner (-> @-Ast Type-Scope (List (Option Type) Type-Facts)))
 (: @-ast->type/inner (-> @-Ast Type-Scope (List Type Type-Facts)))
 (define (@-ast->type/inner @-ast type-scope)
   (: assert-type (-> @-Ast Type Void))
@@ -261,6 +317,7 @@
          "expected type ~a, got type ~a"
          (type->string type)
          (type->string real-type)))))
+  (define types-map (Type-Scope-type-vars type-scope))
   (: retval (List Type Type-Facts))
   (define retval
     (parameterize ([current-context (context-of @-ast)])
@@ -313,15 +370,16 @@
                (hash))]
         [`(@unsafe-cast ,inner ,type)
          (match-define (list actual-inner-type inner-facts) (@-ast->type/inner inner type-scope))
-         (define new-type (resolve-type type))
+         (define new-type (resolve-type-or-err type types-map))
          (unless (subtype-of? new-type actual-inner-type)
+         ;(unless (map (lambda (t) (subtype-of? t actual-inner-type)) new-type)
            (context-error "cannot downcast ~a to ~a"
                           (type->string actual-inner-type)
                           (type->string new-type)))
          (list new-type inner-facts)]
         [`(@ann ,inner ,type)
          (match-define (list actual-inner-type inner-facts) (@-ast->type/inner inner type-scope))
-         (define new-type (resolve-type type))
+         (define new-type (resolve-type-or-err type types-map))
          (unless (subtype-of? actual-inner-type new-type)
            (context-error "cannot annotate ~a as incompatible type ~a"
                           (type->string actual-inner-type)
@@ -393,7 +451,8 @@
         [`(@is ,expr ,type)
          (list (TBin)
                (match (dectx expr)
-                 [`(@var ,var) (make-immutable-hash `((,var . ,(resolve-type type))))]
+                 [`(@var ,var)
+                   (make-immutable-hash `((,var . ,(resolve-type-or-err type types-map))))]
                  [else (hash)]))]
         [`(@if ,cond ,happy ,sad)
          (match-define (list _ facts) (@-ast->type/inner cond type-scope)) ; just to check

@@ -109,7 +109,6 @@
       (context-error "undefined function ~v"
                      (symbol->string var-name))))
 
-;(: resolve-type (-> Type-Expr Type))
 (: resolve-type (-> Type-Expr Type-Map (Option Type)))
 (define (resolve-type texpr env)
   (match texpr
@@ -135,19 +134,6 @@
         (if (and tx ty)
           (TUnion tx ty)
           #f))]
-          #|
-      (let
-        ([tx (match (resolve-type x env)
-               [(? Type? t) t]
-               [#f #f])]
-         [ty (match (resolve-type y env)
-               [(? Type? t) t]
-               [#f #f]))])
-        (TUnion tx ty)
-      ]
-        |#
-              ;(resolve-type x env)
-              ;(resolve-type y env))]
     [_ #f]
     ))
 
@@ -178,7 +164,6 @@
 (define (add-struct-def def env)
   (match def
     [`(@def-struct ,name ,fields)
-      ;(bind-type-var
       (hash-set
         env
         name

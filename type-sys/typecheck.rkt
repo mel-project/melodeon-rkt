@@ -52,12 +52,31 @@
                    (result-type : Type)))
 
 ;; A type scope
+#|
 (struct Type-Scope ((vars : (HashTable Symbol Type))
                     (type-vars : (HashTable Symbol Type))
+                    (funs : (HashTable Symbol TFunction))) #:prefab)
+|#
+(struct Type-Scope ((vars : Type-Map)
+                    (type-vars : Type-Map)
                     (funs : (HashTable Symbol TFunction))) #:prefab)
 
 (: empty-ts Type-Scope)
 (define empty-ts (Type-Scope (hash) (hash) (hash)))
+
+; Return union of two type scopes
+(: ts-union (-> Type-Scope Type-Scope Type-Scope))
+(define (ts-union x y)
+  (Type-Scope
+    (hash-union
+      (Type-Scope-vars x)
+      (Type-Scope-vars y))
+    (hash-union
+      (Type-Scope-type-vars x)
+      (Type-Scope-type-vars y))
+    (hash-union
+      (make-immutable-hash (hash->list (Type-Scope-funs x)))
+      (make-immutable-hash (hash->list (Type-Scope-funs y))))))
 
 (: apply-facts (-> Type-Scope Type-Facts Type-Scope))
 (define (apply-facts ts tf)
@@ -171,98 +190,66 @@
           name
           (map (lambda ([x : (List Symbol Type-Expr)])
                  (resolve-type-or-err (cadr x) env))
-               fields)))]))
+               fields)))]
+    [_ (make-immutable-hash '())]))
 
 ; takes a Type-Scope rather than just one map because
 ; types may need to be resolved and the function-scope
 ; should also be added to.
-#|
 (: add-fun-def (-> Definition Type-Scope Type-Scope))
-(define (add-fun-def def env)
+(define (add-fun-def def accum)
   (match def
     [`(@def-fun ,fun ,args ,rettype ,expr)
+      (define types-map (Type-Scope-type-vars accum))
      (define inner-scope
        (foldl (λ ((pair : (List Symbol Type-Expr)) (accum : Type-Scope))
                 (bind-var
                   accum
                   (first pair)
-                  (resolve-type (second pair) (Type-Scope-type-vars accum)))
-              env
-              args)))
+                  (resolve-type-or-err (second pair) types-map)))
+              accum
+              args))
      (define inner-type (first (@-ast->type/inner expr inner-scope)))
      (: return-type Type)
      (define return-type
        (cond
-         [rettype (unless (subtype-of? inner-type (resolve-type rettype))
+         [rettype (unless (subtype-of? inner-type (resolve-type-or-err rettype types-map))
                     (context-error
                      "~a expected to return type ~a, got type ~a"
                      fun
-                     (resolve-type rettype)
+                     (resolve-type-or-err rettype types-map)
                      inner-type))
-                  (resolve-type rettype)]
+                  (resolve-type-or-err rettype types-map)]
          [else inner-type]))
      (bind-fun accum fun
-               (TFunction (map resolve-type (map (inst second Symbol Type-Expr Any)
-                                                 args))
-                          return-type))]))
-|#
+               (TFunction (map (lambda ((x : Type-Expr))
+                                 (resolve-type-or-err
+                                   x
+                                   (Type-Scope-type-vars accum)))
+                               (map (inst second Symbol Type-Expr Type-Expr)
+                                    args))
+                          return-type))]
+    [_ empty-ts]))
 
-;; Produces an initial scope given a bunch of definitions
+(: add-def-var (-> Definition Type-Scope Type-Scope))
+(define (add-def-var def accum)
+  (match def
+    [`(@def-var ,var ,expr)
+      (bind-var accum var (first (@-ast->type/inner expr accum)))]
+    [_ empty-ts]))
+
 (: definitions->scope (-> (Listof Definition) Type-Scope))
 (define (definitions->scope defs)
-  (foldl (λ ((binding : Definition) (accum : Type-Scope))
-           (match binding
-             #|
-             [`(@def-struct ,name ,fields)
-               (bind-type-var
-                 accum
-                 name
-                 (TTagged
-                   name
-                   (map (lambda ([x : (List Symbol Type)]) (cadr x))
-                        fields)))]
-             |#
-             #|
-             [`(@def-alias ,name ,fields)
-               (bind-type-var
-                 accum
-                 name
-                 (TVector (map (lambda ([x : (List Symbol Type)]) (cadr x))
-                               fields)))]
-             |#
-             [`(@def-var ,var ,expr) (bind-var accum var (first (@-ast->type/inner expr accum)))]
-             [`(@def-fun ,fun ,args ,rettype ,expr)
-               (define types-map (Type-Scope-type-vars accum))
-              (define inner-scope
-                (foldl (λ ((pair : (List Symbol Type-Expr)) (accum : Type-Scope))
-                         (bind-var
-                           accum
-                           (first pair)
-                           (resolve-type-or-err (second pair) types-map)))
-                       accum
-                       args))
-              (define inner-type (first (@-ast->type/inner expr inner-scope)))
-              (: return-type Type)
-              (define return-type
-                (cond
-                  [rettype (unless (subtype-of? inner-type (resolve-type-or-err rettype types-map))
-                             (context-error
-                              "~a expected to return type ~a, got type ~a"
-                              fun
-                              (resolve-type-or-err rettype types-map)
-                              inner-type))
-                           (resolve-type-or-err rettype types-map)]
-                  [else inner-type]))
-              (bind-fun accum fun
-                        (TFunction (map (lambda ((x : Type-Expr))
-                                          (resolve-type-or-err
-                                            x
-                                            (Type-Scope-type-vars accum)))
-                                        (map (inst second Symbol Type-Expr Type-Expr)
-                                             args))
-                                   return-type))]))
-         empty-ts
-         defs))
+  (let ([struct-defs (foldl add-struct-def (Type-Scope-type-vars empty-ts) defs)]
+        [var-defs (foldl add-def-var empty-ts defs)]
+        ;[alias-defs (foldl add-alias-def defs)]
+        [fun-defs (foldl add-fun-def empty-ts defs)])
+    (foldl
+      (lambda ((x : (Pairof Symbol Type)) (scope : Type-Scope))
+        (bind-type-var scope (car x) (cdr x)))
+      (ts-union fun-defs var-defs)
+      (hash->list struct-defs))))
+
 
 ;; typechecks an @-ast
 (: @-ast->type (-> @-Ast Type))

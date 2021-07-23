@@ -6,6 +6,7 @@
 (require racket/hash)
 
 (provide Type
+         Type-Scope
          @-ast->type
          to-tvector
          memoized-type)
@@ -52,11 +53,6 @@
                    (result-type : Type)))
 
 ;; A type scope
-#|
-(struct Type-Scope ((vars : (HashTable Symbol Type))
-                    (type-vars : (HashTable Symbol Type))
-                    (funs : (HashTable Symbol TFunction))) #:prefab)
-|#
 (struct Type-Scope ((vars : Type-Map)
                     (type-vars : Type-Map)
                     (funs : (HashTable Symbol TFunction))) #:prefab)

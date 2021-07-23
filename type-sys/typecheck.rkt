@@ -10,6 +10,7 @@
          @-ast->type
          to-tvector
          memoized-type
+         resolve-type-or-err
          resolve-type)
 
 

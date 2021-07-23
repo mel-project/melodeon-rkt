@@ -83,6 +83,12 @@
                                 (set! ,counter (+ ,counter 1))))
           ,tempvec)
        )]
+    [`(@is ,expr ,type)
+     ; TODO: somehow integrate with type resolving
+     (define resolved-type (resolve-type type))
+     (define tmpsym (gensym 'is))
+     `(let (,tmpsym ,(generate-mil expr))
+        ,(generate-is resolved-type tmpsym))]
     [`(@lit-bytes ,bts) (string->symbol
                          (string-append "0x"
                                         (bytes->hex-string bts)))]
@@ -129,7 +135,7 @@
      (define lst-len (length lst))
      (define pairwise-eqq
        (for/list ([i lst-len]) : (Listof Any)
-         (generate-eq-mil-code (list-ref lst i) `(ref ,x-sym ,i) `(ref ,y-sym ,i))))
+         (generate-eq-mil-code (list-ref lst i) `(v-get ,x-sym ,i) `(v-get ,y-sym ,i))))
      (foldl (lambda ((a : Any) (b : Any))
               `(and ,a ,b))
             1
@@ -144,14 +150,41 @@
     [(? Type? t) (error "cannot compare values of non-concrete type"
                         (type->string t))]))
 
+(: generate-is (-> Type Any Any))
+(define (generate-is type sym)
+  (match type
+    [(TBin) (define tmp-name (gensym 'bin))
+            `(let (,tmp-name ,(generate-is (TNat) sym))
+               (if ,tmp-name (< ,sym 2) 0))]
+    [(TNat) `(= (typeof ,sym) 0)]
+    [(TBytes n) `(if (= (typeof ,sym) 1)
+                     (= (blength ,sym) ,n)
+                     0)]
+    [(TVectorof t n)
+     (generate-is (TVector (make-list n t)) sym)]
+    [(TVector types)
+     (define pairwise-is
+       (for/list ([i (length types)]
+                  [type types]) : (Listof Any)
+         (generate-is type `(v-get ,sym ,i))))
+     `(if (= (typeof ,sym) 2)
+          (foldl (lambda ((a : Any) (b : Any))
+              `(and ,a ,b))
+            1
+            pairwise-is)
+          0)]
+    ))
+
 ;; demo compiler flow
 (module+ main
   (define ast (parameterize ([FILENAME "whatever.melo"])
                 (melo-parse-port (open-input-string #<<EOF
 
-let bb = btoi("hello world goodbye world foobar") in
-let cc = itob(bb * bb) in
-cc == cc
+let x = ann 0 : Nat in
+if x is Bin then
+  x + 10
+else
+  x * 10
 EOF
                                                     ))))
   (displayln "@-Ast:")

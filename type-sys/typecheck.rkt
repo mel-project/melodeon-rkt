@@ -67,7 +67,9 @@
      (if corresponding
          (bind-var rst
                    (car kv)
-                   (if (subtype-of? (cdr kv) corresponding) (cdr kv) corresponding))
+                   (if (subtype-of? (cdr kv) corresponding) (cdr kv)
+                       (context-error "cannot possibly be of type ~a"
+                                      (type->string corresponding))))
          rst))
    ts
    (hash->list tf)))
@@ -137,7 +139,8 @@
               (bind-fun accum fun
                         (TFunction (map resolve-type (map (inst second Symbol Type-Expr Any)
                                                           args))
-                                   return-type))]))
+                                   return-type))]
+             [_ accum]))
          empty-ts
          defs))
 
@@ -151,7 +154,7 @@
 (define (memoized-type ast)
   (parameterize ([current-context (context-of ast)])
     (match (hash-ref TYPE-MEMOIZER ast #f)
-      [#f (context-error "cannot lookup memoized type")]
+      [#f (context-error "cannot lookup memoized type for ~a" ast)]
       [(? Type? x) x])))
  
 ;; "smart union" of two types that doesn't create a TUnion if one is the subtype of another
@@ -314,6 +317,7 @@
                  [else (hash)]))]
         [`(@if ,cond ,happy ,sad)
          (match-define (list _ facts) (@-ast->type/inner cond type-scope)) ; just to check
+         (pretty-write facts)
          (list
           (smart-union (first (@-ast->type/inner happy (apply-facts type-scope facts)))
                        (first (@-ast->type/inner sad type-scope)))

@@ -3,7 +3,8 @@
          "type-sys/typecheck.rkt"
          "type-sys/types.rkt"
          "common.rkt"
-         "codegen.rkt")
+         "codegen.rkt"
+         "modules.rkt")
 
 (: input-file (Parameter String))
 (define input-file (make-parameter ""))
@@ -20,15 +21,23 @@
    filename)
   String))
 
+(: filename->ast (-> Path-String @-Ast))
+(define (filename->ast path)
+  (with-input-from-file path
+    (lambda ()
+      (parameterize ([FILENAME
+                      (path->string
+                       (path->complete-path path))])
+        (melo-parse-port (current-input-port))))))
+
 (module+ main
-  (define input-port (open-input-file
-                      (input-file)
-                      #:mode 'text))
   (eprintf "parsing...\n")
-  (define ast (parameterize ([FILENAME
-                              (path->string
-                               (path->complete-path (input-file)))])
-                (melo-parse-port input-port)))
+  (define partial-ast (filename->ast (input-file)))
+  (eprintf "demodularizing...\n")
+  (define ast (demodularize partial-ast
+                            (input-file)
+                            filename->ast))
+  (pretty-display (dectx* ast))
   (eprintf "typechecking...\n")
   (define type (@-ast->type ast))
   (eprintf "main type: ~a\n" (type->string type))

@@ -28,7 +28,10 @@
     
     ;; let bindings
     [`(@program ,definitions ,body)
-     (append (map generate-mil-defs definitions)
+     (append (map generate-mil-defs
+                  (filter (λ((x : Definition)) (not (or (equal? (car x) '@provide)
+                                                        (equal? (car x) '@require))))
+                          definitions))
              (list (generate-mil body)))]
     [`(@let (,var-name ,var-value) ,body)
      `(let (,(mangle-sym var-name) ,(generate-mil var-value)) ,(generate-mil body))]
@@ -168,10 +171,10 @@
                   [type types]) : (Listof Any)
          (generate-is type `(v-get ,sym ,i))))
      `(if (= (typeof ,sym) 2)
-          (foldl (lambda ((a : Any) (b : Any))
-              `(and ,a ,b))
-            1
-            pairwise-is)
+          ,(foldl (lambda ((a : Any) (b : Any))
+                    `(and ,a ,b))
+                  1
+                  pairwise-is)
           0)]
     ))
 

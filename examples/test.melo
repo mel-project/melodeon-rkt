@@ -1,51 +1,10 @@
-def laboo(yah : [Nat * 6]) = [yah[0]] ++ [yah[1]]
+require "stupid.melo"
 
-if 1 then 
-    laboo([1, 2, 3, 4, 5, 6]) 
-else
-    let stupid = ann 0 : Nat in loop 500 in do
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        set! stupid = stupid * stupid;
-        stupid
-    done
-    
+- - -
+
+let stupid = stupid(1) in
+if stupid is Nat then
+    stupid + stupid
+else if stupid is [Nat * 5] then
+    stupid ++ stupid
+else 0

@@ -18,6 +18,13 @@
 (: current-context (Parameter (Option context)))
 (define current-context (make-parameter #f))
 
+(: contextualize (-> @-Ast @-Ast))
+(define (contextualize ast)
+  (let ([ctx (current-context)])
+    (if ctx
+        (with-context ctx ast)
+        ast)))
+
 (: context-of (-> @-Ast (Option context)))
 (define (context-of ast)
   (or (get-context ast) (current-context)))
@@ -54,7 +61,8 @@
 (struct context
   ((filename : String)
    (start-pos : position)
-   (end-pos : position)))
+   (end-pos : position))
+  #:transparent)
 
 (: context->string (-> (Option context) String))
 (define (context->string ctx)
@@ -92,12 +100,16 @@
      (List '@is @-Ast Type-Expr)
      (with-context @-Ast)))
 
+(define @-Ast? (make-predicate @-Ast))
+
 (define-type Definition
   (U (List '@def-var Symbol @-Ast)
      (List '@def-fun Symbol
            (Listof (List Symbol Type-Expr))
            (Option Type-Expr)
-           @-Ast)))
+           @-Ast)
+     (List '@provide Symbol)
+     (List '@require String)))
 
 (define-type Type-Expr
   (U (List '@type-var Symbol)

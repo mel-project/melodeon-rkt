@@ -46,7 +46,8 @@
      ;; CFG grammar
      (grammar
       ;; a program is a series of toplevels 
-      (<program> ((<definitions> <expr>) (pos-lift 1 2 `(@program ,$1 ,$2)))
+      (<program> ((<definitions> - - - <expr>) (pos-lift 1 5 `(@program ,$1 ,$5)))
+                 ((<definitions>) (pos-lift 1 1 `(@program ,$1 (@lit-num 0))))
                  ((<expr>) `(@program () ,$1)))
       (<definitions> ((<definition> <definitions>) (cons $1 $2))
                      ((<definition>) (list $1)))
@@ -55,6 +56,8 @@
                      `(@def-fun ,$2 ,$4 #f ,$7))
                     ((DEF VAR OPEN-PAREN <fun-args> CLOSE-PAREN COLON <type-expr> = <expr>)
                      `(@def-fun ,$2 ,$4 ,$7 ,$9))
+                    ((REQUIRE BYTES) `(@require ,(bytes->string/utf-8 $2)))
+                    ((PROVIDE VAR) `(@provide ,$2))
                     )
       (<fun-args> ((<type-dec>) (list $1))
                   ((<type-dec> COMMA <fun-args>) (cons $1 $3))
@@ -169,6 +172,10 @@
 (module+ test
   (dectx*
    (melo-parse-port (open-input-string #<<EOF
+
+def f(x: Nat) = x
+
+- - -
 
 (loop 123 in
 do

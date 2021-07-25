@@ -1,0 +1,39 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Update Apt
+        run: sudo apt update
+
+      - name: Install TzData
+        run: env DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --no-install-recommends tzdata
+
+      - name: Install Debian Tools
+        run: sudo apt -y install software-properties-common
+
+      - name: Add Racket PPA
+        run: sudo add-apt-repository -y ppa:plt/racket
+
+      - name: Install Racket
+        run: sudo apt install -y racket
+
+      - name: Install Memo
+        run: raco pkg install --auto memo
+
+      - name: Compile
+        run: raco make -v meloc.rkt

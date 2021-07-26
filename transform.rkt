@@ -5,7 +5,8 @@
          "type-sys/typecheck.rkt"
          "type-sys/types.rkt")
 
-(provide @-Ast->$-Ast)
+(provide @-Ast->$-Ast
+         @program->$program)
 
 ;; mangle a Melodeon symbol to a Mil symbol
 (: mangle-sym (-> Symbol Symbol))
@@ -45,7 +46,7 @@
 
 (: @program->$program (-> @-Ast (List $program Type-Scope)))
 (define (@program->$program @ast)
-  (match @ast
+  (match (dectx @ast)
     [`(@program ,definitions ,body)
       ; Add definitions to the env
       (define env (definitions->scope definitions))
@@ -57,7 +58,7 @@
                (filter-fn-defs definitions))
           (@-Ast->$-Ast body env))
         env)]
-    [_ (error "expected a @program ast node")]))
+    [other (error "expected a @program ast node, got ~a" other)]))
 
 (: @-Ast->$-Ast (-> @-Ast Type-Scope $-Ast))
 (define (@-Ast->$-Ast @-ast env)
@@ -65,6 +66,8 @@
   ;(define (strip-@ @-sym)
   ;  (string->symbol (substring (symbol->string @-sym) 1)))
 
+  ;(printf "env: ~a\n" env)
+  ;(printf "ast ~a\n" @-ast)
   (let ([raw-ast (dectx @-ast)])
   (match raw-ast;(dectx @-ast)
     ;; casts etc
@@ -78,11 +81,12 @@
                        ;(foldl add-fun-def empty-ts definitions))
     ;; let bindings
     [`(@let (,var-name ,var-value) ,body)
-      (new-$-Ast raw-ast env
-        ($let (list (mangle-sym var-name)
-                    (@-Ast->$-Ast var-value env))
-              (@-Ast->$-Ast body env)))]
+      (let ([$v (@-Ast->$-Ast var-value env)])
+        (new-$-Ast raw-ast env
+          ($let (list (mangle-sym var-name) $v)
+                (@-Ast->$-Ast body (bind-var env var-name ($-Ast-type $v))))))]
 
+    ; TODO check equality of types on l and r
     [`(@and ,x ,y)
       (let ([$x (@-Ast->$-Ast x env)]
             [$y (@-Ast->$-Ast y env)])
@@ -93,36 +97,74 @@
             [$y (@-Ast->$-Ast y env)])
         (new-$-Ast raw-ast env
           ($or $x $y)))]
+    [`(@+ ,x ,y)
+      (let ([$x (@-Ast->$-Ast x env)]
+            [$y (@-Ast->$-Ast y env)])
+        (new-$-Ast raw-ast env
+          ($+ $x $y)))]
+    [`(@- ,x ,y)
+      (let ([$x (@-Ast->$-Ast x env)]
+            [$y (@-Ast->$-Ast y env)])
+        (new-$-Ast raw-ast env
+          ($- $x $y)))]
+    [`(@* ,x ,y)
+      (let ([$x (@-Ast->$-Ast x env)]
+            [$y (@-Ast->$-Ast y env)])
+        (new-$-Ast raw-ast env
+          ($* $x $y)))]
+    [`(@/ ,x ,y)
+      (let ([$x (@-Ast->$-Ast x env)]
+            [$y (@-Ast->$-Ast y env)])
+        (new-$-Ast raw-ast env
+          ($/ $x $y)))]
+    [`(@append ,x ,y)
+      (let ([$x (@-Ast->$-Ast x env)]
+            [$y (@-Ast->$-Ast y env)])
+        (new-$-Ast raw-ast env
+          ($append $x $y)))]
+    [`(@index ,x ,y)
+      (let ([$x (@-Ast->$-Ast x env)]
+            [$y (@-Ast->$-Ast y env)])
+        (new-$-Ast raw-ast env
+          ($index $x $y)))]
+    [`(@eq ,x ,y)
+      (let ([$x (@-Ast->$-Ast x env)]
+            [$y (@-Ast->$-Ast y env)])
+        (new-$-Ast raw-ast env
+          ($eq $x $y)))]
+
     [`(@var ,(? symbol? varname))
       (new-$-Ast raw-ast env
         ($var (mangle-sym varname)))]
-    #|
-    ;; binary ops
-    [`(,(? (lambda(op) (member op '(@+ @- @* @/))) op) ,x ,y) `(,(strip-@ op) ,(@-Ast->$-Ast x)
-                                                                              ,(@-Ast->$-Ast y))]
-    [`(@eq ,x ,y) ; equality generation is special because it's type-dependent
-     (generate-eq-mil x y)]
-    [`(@var ,(? symbol? varname)) (mangle-sym varname)]
-    [`(@lit-num ,(? exact-integer? number)) number]
-    [`(@lit-vec ,vv) `(vector . ,(map @-Ast->$-Ast vv))]
-
+    [`(@lit-num ,(? exact-integer? number))
+      (new-$-Ast raw-ast env ($lit-num number))]
+    [`(@lit-vec ,vv)
+      (new-$-Ast raw-ast env
+        ($lit-vec (map (lambda ((x : @-Ast)) (@-Ast->$-Ast x env)) vv)))]
     ;; other stuff
-    [`(@apply ,fun ,args) `(,(mangle-sym fun) . ,(map @-Ast->$-Ast args))]
-    [`(@append ,x ,y) `(,(match (memoized-type x)
-                           [(TVectorof _ _) 'v-concat]
-                           [(TVector _) 'v-concat]
-                           [(TBytes _) 'b-concat])
-                        ,(@-Ast->$-Ast x)
-                        ,(@-Ast->$-Ast y))]
-    [`(@index ,vec ,idx) `(,(match (memoized-type vec)
-                              [(TVectorof _ _) 'v-get]
-                              [(TVector _) 'v-get]
-                              [(TBytes _) 'b-concat]) ,(@-Ast->$-Ast vec)
-                                                      ,(@-Ast->$-Ast idx))]
-    [`(@if ,x ,y ,z) `(if ,(@-Ast->$-Ast x)
-                          ,(@-Ast->$-Ast y)
-                          ,(@-Ast->$-Ast z))]
+    [`(@apply ,fun ,args)
+      (new-$-Ast raw-ast env
+        ($apply fun (map (lambda ((x : @-Ast)) (@-Ast->$-Ast x env)) args)))]
+    [`(@if ,x ,y ,z)
+      (new-$-Ast raw-ast env
+        ($if
+          (@-Ast->$-Ast x env)
+          (@-Ast->$-Ast y env)
+          (@-Ast->$-Ast z env)))]
+    #|
     [`(@for ,expr ,var-name ,vec-val)
+      (let ([v (@-Ast->$-Ast vec-val)]
+            [v-len (match ($-Ast-type v)
+                     [(TVectorof _ count) count]
+                     [(TVector v) (length v)]
+                     ; TODO length?
+                     [(TBytes b) b])])
+        (new-$-Ast raw-ast env
+          (@-Ast->$-Ast
+            `(@let (counter ,0)
+              (@let (tempvec ,vec-val)
+                (@loop ,v-len (set-let
+        ;($let (list (gensym 'counter) (new-$-Ast
      (let ([count (match (memoized-type vec-val)
                     [(TVectorof _ count) count]
                     [(TVector v) (length v)]
@@ -147,15 +189,17 @@
      (define tmpsym (gensym 'is))
      `(let (,tmpsym ,(@-Ast->$-Ast expr))
         ,(generate-is resolved-type tmpsym))]
-    [`(@lit-bytes ,bts) (string->symbol
-                         (string-append "0x"
-                                        (bytes->hex-string bts)))]
     [`(@ann ,inner ,_) (@-Ast->$-Ast inner)]
-    [`(@block ,inner) `(let () . ,(map @-Ast->$-Ast inner))]
-    [`(@set! ,x ,y) `(set! ,x ,(@-Ast->$-Ast y))]
-    [`(@loop ,n ,body) `(loop ,n ,(@-Ast->$-Ast body))]
     |#
-    [other (error "invalid @-ast" other)])))
+    [`(@lit-bytes ,bts)
+      (new-$-Ast raw-ast env ($lit-bytes bts))]
+    [`(@block ,es)
+      (new-$-Ast raw-ast env ($block (map (lambda ((e : @-Ast))
+                                            (@-Ast->$-Ast e env))
+                                          es)))]
+    [`(@loop ,n ,body)
+      (new-$-Ast raw-ast env ($loop n (@-Ast->$-Ast body env)))]
+    [other (error "@-ast node is not transformable into $-Ast" other)])))
 
 #|
 (: def->$-Ast (-> Definition $-Ast))

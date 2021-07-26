@@ -36,12 +36,12 @@
    [body : $-Ast]))
 ; Top-level node
 (struct $program
-  ([fun-defs : $fndef]
+  ([fun-defs : (Listof $fndef)]
    [expr : $-Ast]))
 
 (struct $apply
   ([name : Symbol]
-   [args : (Listof (Pairof $-Ast Type))]))
+   [args : (Listof $-Ast)]))
 
 (struct $index
   ([data : $-Ast]
@@ -56,11 +56,30 @@
    [true : $-Ast]
    [false : $-Ast]))
 
+; binop
 (struct $and
   ([l : $-Ast]
    [r : $-Ast]))
-
 (struct $or
+  ([l : $-Ast]
+   [r : $-Ast]))
+(struct $+
+  ([l : $-Ast]
+   [r : $-Ast]))
+(struct $-
+  ([l : $-Ast]
+   [r : $-Ast]))
+(struct $*
+  ([l : $-Ast]
+   [r : $-Ast]))
+(struct $/
+  ([l : $-Ast]
+   [r : $-Ast]))
+(struct $append
+  ([l : $-Ast]
+   [r : $-Ast]))
+
+(struct $eq
   ([l : $-Ast]
    [r : $-Ast]))
 
@@ -74,11 +93,19 @@
      ;(List $-Binop $-Ast $-Ast)
      $and
      $or
+     $+
+     $-
+     $*
+     $/
+     $append
+     $eq
      $lit-num
      $lit-vec
      $lit-string
+     $lit-bytes
      $var
      $apply
+     $loop
      $block
      $index
      $if))

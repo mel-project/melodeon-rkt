@@ -6,10 +6,15 @@
 (require racket/hash)
 
 (provide Type
-         Type-Scope
+         (struct-out Type-Scope)
          @-ast->type
+         @-ast->type+
          to-tvector
          memoized-type
+         definitions->scope
+         add-fun-def
+         ts-union
+         bind-var
          resolve-type-or-err
          resolve-type)
 
@@ -253,6 +258,10 @@
 (: @-ast->type (-> @-Ast Type))
 (define (@-ast->type ast)
   (first (@-ast->type/inner ast empty-ts)))
+
+(: @-ast->type+ (-> @-Ast Type-Scope Type))
+(define (@-ast->type+ ast env)
+  (first (@-ast->type/inner ast env)))
 
 ;; lookups the memoized type for the subexpression
 (: memoized-type (-> @-Ast Type))

@@ -62,6 +62,8 @@
                      `(@def-generic-fun ,$2 ,$4 ,$7 ,$10 ,$12))
                     ((REQUIRE BYTES) `(@require ,(bytes->string/utf-8 $2)))
                     ((PROVIDE VAR) `(@provide ,$2))
+                    ((STRUCT TYPE OPEN-BRACE <fun-args> CLOSE-BRACE)
+                     `(@def-struct ,$2 ,$4))
                     )
       (<fun-args> ((<type-dec>) (list $1))
                   ((<type-dec> COMMA <fun-args>) (cons $1 $3))

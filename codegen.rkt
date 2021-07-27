@@ -88,7 +88,11 @@
        )]
     [`(@is ,expr ,type)
      ; TODO: somehow integrate with type resolving
-     (define resolved-type (resolve-type type))
+
+     ; *********************
+     ; THIS DOESN'T WORK (empty scope) AND IS TEMPORARY TO GET CODE TO BUILD
+     ; *********************
+     (define resolved-type (resolve-type-or-err type (make-immutable-hash)))
      (define tmpsym (gensym 'is))
      `(let (,tmpsym ,(generate-mil expr))
         ,(generate-is resolved-type tmpsym))]

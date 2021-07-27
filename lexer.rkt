@@ -31,6 +31,7 @@
                                     DONE
                                     FOR
                                     DEF
+                                    STRUCT
                                     LOOP
                                     FAT-ARROW
                                     IF
@@ -55,6 +56,7 @@
    ["let" 'LET]
    ["in" 'IN]
    ["def" 'DEF]
+   ["struct" 'STRUCT]
    [":" 'COLON]
    ["=>" 'FAT-ARROW]
    ["where" 'WHERE]

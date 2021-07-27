@@ -3,6 +3,7 @@
          "type-sys/typecheck.rkt"
          "type-sys/types.rkt"
          "common.rkt"
+         "transform.rkt"
          "monomorphize.rkt"
          "codegen.rkt"
          "modules.rkt")
@@ -41,6 +42,9 @@
   (pretty-display (dectx* ast))
   (eprintf "typechecking...\n")
   (define type (@-ast->type ast))
+  (eprintf "generating $-Ast...\n")
+  (define res (@program->$program ast))
+  (eprintf "~a\n" res)
   (eprintf "main type: ~a\n" (type->string type))
   (eprintf "generating...\n")
   (define output (generate-mil ast))

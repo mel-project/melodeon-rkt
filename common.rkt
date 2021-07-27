@@ -85,6 +85,7 @@
      (List '@var Symbol)
      (List '@program (Listof Definition) @-Ast)
      (List '@apply Symbol (Listof @-Ast))
+     ;(List '@apply Symbol (Listof @-Ast) (Listof Type-Expr))
      (List '@block (Listof @-Ast))
      (List '@index @-Ast @-Ast)
      (List '@update @-Ast @-Ast @-Ast)
@@ -109,6 +110,13 @@
            (Listof (List Symbol Type-Expr))
            (Option Type-Expr)
            @-Ast)
+     (List '@def-struct
+           Symbol
+           (Listof (List Symbol Type-Expr)))
+     (List '@def-alias
+           Symbol
+           Type-Expr)
+           ;(Listof (List Symbol Type-Expr)))
      (List '@def-fun Symbol
            (Listof (List Symbol Type-Expr))
            (Option Type-Expr)
@@ -118,6 +126,7 @@
 
 (define-type Type-Expr
   (U (List '@type-var Symbol)
+     (List '@type-custom Symbol (Listof (List Symbol Type-Expr)))
      (List '@type-vec (Listof Type-Expr))
      (List '@type-vecof Type-Expr Nonnegative-Integer)
      (List '@type-union Type-Expr Type-Expr)

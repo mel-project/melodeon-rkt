@@ -1,0 +1,10 @@
+provide stupid
+
+def laboo(yah: Nat) = [yah, yah, yah, yah, yah]
+
+def stupid(twiddle: Bin) =
+    if twiddle then 
+        laboo(1)
+    else
+        let stupid = ann 0 : Nat in
+        stupid + stupid - stupid * stupid / stupid

@@ -17,6 +17,8 @@
                                     LET IN
                                     COLON HASH
                                     SEMICOLON
+                                    REQUIRE
+                                    PROVIDE
                                     UNSAFE
                                     CAST
                                     WHERE
@@ -57,6 +59,8 @@
    ["=>" 'FAT-ARROW]
    ["where" 'WHERE]
    ["unsafe" 'UNSAFE]
+   ["require" 'REQUIRE]
+   ["provide" 'PROVIDE]
    ["||" 'OR]
    ["&&" 'AND]
    ["not" 'NOT]

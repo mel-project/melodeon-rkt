@@ -3,8 +3,8 @@
          "type-sys/typecheck.rkt"
          "type-sys/types.rkt"
          "common.rkt"
-         "transform.rkt"
          "monomorphize.rkt"
+         "typed-ast.rkt"
          "codegen.rkt"
          "modules.rkt")
 
@@ -40,14 +40,15 @@
                             (input-file)
                             filename->ast))
   (pretty-display (dectx* ast))
-  (eprintf "typechecking...\n")
-  (define type (@-ast->type ast))
+  ;(eprintf "typechecking...\n")
+  ;(define type (@-ast->type ast))
   (eprintf "generating $-Ast...\n")
-  (define res (@program->$program ast))
+  (define res (@-transform ast))
+  ;(define res (@program->$program ast))
   (eprintf "~a\n" res)
-  (eprintf "main type: ~a\n" (type->string type))
+  (eprintf "main type: ~a\n" (type->string ($-Ast-type ($program-expr res))))
   (eprintf "generating...\n")
-  (define output (generate-mil ast))
+  (define output (generate-mil res))
   (define output-filename (or (output-file) (path-replace-extension (input-file) ".mil")))
   (with-output-to-file output-filename
     #:exists 'replace

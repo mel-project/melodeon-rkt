@@ -5,6 +5,7 @@
          "resolver.rkt"
          "../typed-ast.rkt")
 (require racket/hash)
+(provide @-transform)
 
 ;; Entry point: transforms a whole program
 (: @-transform (-> @-Ast $program))
@@ -355,8 +356,8 @@
       [`(@eq ,x ,y) (let ([x (@->$ x type-scope)]
                           [y (@->$ y type-scope)])
                       (cons ($-Ast (TBin)
-                                   ($bin 'eq (car x)
-                                         (car y)))
+                                   ($eq (car x)
+                                        (car y)))
                             tf-empty))]
       [`(,(? (lambda(op) (member op '(@+ @- @* @/))) op) ,x ,y)
        (match-let ([(cons $x _) (@->$ x type-scope)]
@@ -396,7 +397,7 @@
          (cons
           ($-Ast (tappend ($type $x)
                           ($type $y))
-                 ($bin 'append $x $y))
+                 ($append $x $y))
           tf-empty))]
 
       ;; let expressions

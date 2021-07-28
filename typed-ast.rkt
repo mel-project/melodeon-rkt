@@ -90,14 +90,22 @@
   (U '+
      '-
      '*
-     '/
-     'append
-     'eq))
+     '/))
 
 ; binop
 (struct $bin
   ([op : $-Binop]
    [l : $-Ast]
+   [r : $-Ast])
+  #:transparent)
+
+(struct $eq
+  ([l : $-Ast]
+   [r : $-Ast])
+  #:transparent)
+
+(struct $append
+  ([l : $-Ast]
    [r : $-Ast])
   #:transparent)
 
@@ -110,6 +118,8 @@
   (U $let
      ;(List $-Binop $-Ast $-Ast)
      $bin
+     $eq
+     $append
      $lit-num
      $lit-vec
      $lit-string

@@ -68,6 +68,11 @@
    [body : $-Ast])
   #:transparent)
 
+(struct $is
+  ([inner : $-Ast]
+   [type : Type])
+  #:transparent)
+
 (struct $if
   ([pred : $-Ast]
    [true : $-Ast]
@@ -104,6 +109,7 @@
      $var
      $extern
      $apply
+     $is
      $loop
      $block
      $index

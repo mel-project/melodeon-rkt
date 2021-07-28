@@ -16,7 +16,6 @@
          add-fun-def
          ts-union
          bind-var
-         resolve-type-or-err
          resolve-type)
 
 
@@ -134,7 +133,8 @@
       (context-error "undefined function ~v"
                      (symbol->string var-name))))
 
-(: resolve-type (-> Type-Expr Type-Map (Option Type)))
+;; Resolves a type or throws an error
+(: resolve-type (-> Type-Expr Type-Map Type))
 (define (resolve-type texpr env)
   (match texpr
     [`(@type-var Any) (TAny)]
@@ -143,44 +143,14 @@
     ;[`(@type-var ,var) (lookup-type-var 
     ;[`(@type-var ,var) (context-error "cannot resolve type names yet")]
     ;[`(@type-vec ,vec) (TVector (map (lambda (x) (resolve-type x env)) vec))]
-    [`(@type-vec ,vec)
-     (let ([type-vec (resolve-type* vec env)])
-       (match type-vec
-         [(? list? l) (TVector l)]
-         [#f #f]))]
-    [`(@type-vecof ,var ,count)
-     (match (resolve-type var env)
-       [(? Type? t) (TVectorof t count)]
-       [#f #f])]
+    [`(@type-vec ,vec) (TVector (map (λ((x : Type-Expr)) (resolve-type x env)) vec))]
+    [`(@type-vecof ,var ,count) (TVectorof (resolve-type var env) count)]
     [`(@type-bytes ,count) (TBytes count)]
     [`(@type-union ,x ,y)
-     (let ([tx (resolve-type x env)]
-           [ty (resolve-type y env)])
-       (if (and tx ty)
-           (TUnion tx ty)
-           #f))]
-    [_ #f]
+     (TUnion (resolve-type x env)
+             (resolve-type y env))]
+    [_ (error "wtf man" texpr)]
     ))
-
-(: resolve-type* (-> (Listof Type-Expr) Type-Map (Option (Listof Type))))
-(define (resolve-type* l env)
-  (foldl
-   (lambda ((o : Type-Expr) (acc : (Option (Listof Type))))
-     (match acc
-       [#f #f]
-       [(? list? l)
-        (match (resolve-type o env)
-          [(? Type? t) (cons t acc)]
-          [#f #f])]))
-   (list)
-   l))
-
-; Simply throw with a type error if option is false
-(: resolve-type-or-err (-> Type-Expr Type-Map Type))
-(define (resolve-type-or-err texpr env)
-  (match (resolve-type texpr env)
-    [(? Type? t) t]
-    [_ (context-error "Failed to resolve type ~a")]))
 
 ; Read a Definition ast node and if a struct definition,
 ; add to the given type map. The given type map is also
@@ -195,7 +165,7 @@
       (TTagged
        name
        (map (lambda ([x : (List Symbol Type-Expr)])
-              (resolve-type-or-err (cadr x) env))
+              (resolve-type (cadr x) env))
             fields)))]
     [_ (make-immutable-hash '())]))
 
@@ -212,24 +182,24 @@
                 (bind-var
                  accum
                  (first pair)
-                 (resolve-type-or-err (second pair) types-map)))
+                 (resolve-type (second pair) types-map)))
               accum
               args))
      (define inner-type (first (@-ast->type/inner expr inner-scope)))
      (: return-type Type)
      (define return-type
        (cond
-         [rettype (unless (subtype-of? inner-type (resolve-type-or-err rettype types-map))
+         [rettype (unless (subtype-of? inner-type (resolve-type rettype types-map))
                     (context-error
                      "~a expected to return type ~a, got type ~a"
                      fun
-                     (resolve-type-or-err rettype types-map)
+                     (resolve-type rettype types-map)
                      inner-type))
-                  (resolve-type-or-err rettype types-map)]
+                  (resolve-type rettype types-map)]
          [else inner-type]))
      (bind-fun accum fun
                (TFunction (map (lambda ((x : Type-Expr))
-                                 (resolve-type-or-err
+                                 (resolve-type
                                   x
                                   (Type-Scope-type-vars accum)))
                                (map (inst second Symbol Type-Expr Type-Expr)
@@ -408,7 +378,7 @@
       ;; downcast and upcast
       [`(@unsafe-cast ,inner ,type)
        (match-define (cons $inner inner-facts) (@->$ inner type-scope))
-       (define new-type (resolve-type-or-err type types-map))
+       (define new-type (resolve-type type types-map))
        (unless (subtype-of? new-type ($type $inner))
          (context-error "cannot downcast ~a to ~a"
                         (type->string ($type $inner))
@@ -418,7 +388,7 @@
              inner-facts)]
       [`(@ann ,inner ,type)
        (match-define (list $inner inner-facts) (@->$ inner type-scope))
-       (define new-type (resolve-type-or-err type types-map))
+       (define new-type (resolve-type type types-map))
        (unless (subtype-of? ($type $inner) new-type)
          (context-error "cannot annotate ~a as incompatible type ~a"
                         (type->string ($type $inner))
@@ -440,47 +410,30 @@
                                  ($type $sad))
                     ($if $cond $happy $sad))
              tf-empty)]
-                               
-      
-      #|[`(@for ,expr ,var ,vec)
-       (let ([len (match (first (@-ast->type/inner vec type-scope))
-                    [(TVectorof _ count) count]
-                    [(TVector v) (length v)]
-                    [(var t) (context-error "vector comprehension needs to iterate
-                                              over a vector, but a ~a was
-                                              provided"
-                                            (type->string t))])])
-         (list (TVectorof (first (@-ast->type/inner expr (bind-var type-scope var (TNat)))) len) (hash)))]
+
+      ;; index and apply
       [`(@index ,val ,idx-expr)
-       (: idx Integer)
+       (: idx Nonnegative-Integer)
        (define idx
          (match (dectx idx-expr)
            [`(@lit-num ,x) x]
            [other (context-error "non-literal index ~a not yet supported" other)]))
-       (list
-        (match (first (@-ast->type/inner val type-scope))
-          [(TVector lst) (unless (< idx (length lst))
-                           (context-error "index ~a out of bounds for vector of ~a elements"
-                                          idx
-                                          (length lst)))
-                         (list-ref lst idx)]
-          [(TVectorof t n) (unless (< idx n)
-                             (context-error "index ~a out of bounds for vector of ~a elements"
-                                            idx
-                                            n))
-                           t]
-          [other (context-error "cannot index into a value of type ~a" other)])
-        (hash))]
-      [`(@apply itob ,args)
-       (unless (= 1 (length args))
-         (context-error "itob must only take 1 argument"))
-       (assert-type (car args) (TNat))
-       (list (TBytes 32) (hash))]
-      [`(@apply btoi ,args)
-       (unless (= 1 (length args))
-         (context-error "itob must only take 1 argument"))
-       (assert-type (car args) (TBytes 32))
-       (list (TNat) (hash))]
+       (match-define (cons $val _) (@->$ val type-scope))
+       (cons
+        ($-Ast (match ($type $val)
+                 [(TVector lst) (unless (< idx (length lst))
+                                  (context-error "index ~a out of bounds for vector of ~a elements"
+                                                 idx
+                                                 (length lst)))
+                                (list-ref lst idx)]
+                 [(TVectorof t n) (unless (< idx n)
+                                    (context-error "index ~a out of bounds for vector of ~a elements"
+                                                   idx
+                                                   n))
+                                  t]
+                 [other (context-error "cannot index into a value of type ~a" other)])
+               ($index $val ($-Ast (TNat) ($lit-num idx))))
+        tf-empty)]
       [`(@apply ,fun ,args)
        (match (lookup-fun type-scope fun)
          [(TFunction arg-types result)
@@ -490,21 +443,29 @@
                    fun
                    (length args)
                    (length arg-types)))
-          (for ([arg-expr (in-list args)]
-                [arg-type (in-list arg-types)])
-            (assert-type arg-expr arg-type))
-          (list result (hash))]
+          (define $args
+            (map (λ((a : @-Ast)) (car (@->$ a type-scope))) args))
+          (for ([arg args]
+                [$arg $args]
+                [arg-type arg-types])
+            (assert-type arg ($type $arg) arg-type))
+          (cons ($-Ast result
+                       ($apply fun $args))
+                tf-empty)]
+                       
          [_ (error '@-ast->type "[~a] undefined function ~a"
                    (context->string (get-context @-ast)) fun)])]
       [`(@is ,expr ,type)
-       (list (TBin)
-             (match (dectx expr)
-               [`(@var ,var)
-                (make-immutable-hash `((,var . ,(resolve-type-or-err type types-map))))]
-               [else (hash)]))]|#
+       (cons
+        ($-Ast (TBin)
+               ($is (car (@->$ expr type-scope))
+                    (resolve-type type (Type-Scope-type-vars type-scope))))
+        (match (dectx expr)
+          [`(@var ,var)
+           (make-immutable-hash `((,var . ,(resolve-type type types-map))))]
+          [else tf-empty]))]
+      ;; TODO: desugar comprehensions
       )))
-
-;; Translates a definition to $-
 
 (module+ test
   (require "../parser.rkt")

@@ -6,17 +6,53 @@
          "../typed-ast.rkt")
 (require racket/hash)
 
-(provide Type
-         (struct-out Type-Scope)
-         @-ast->type
-         @-ast->type+
-         to-tvector
-         memoized-type
-         definitions->scope
-         add-fun-def
-         ts-union
-         bind-var
-         resolve-type)
+;; Entry point: transforms a whole program
+(: @-transform (-> @-Ast $program))
+(define (@-transform ast)
+  (match (dectx ast)
+    [`(@program ,definitions
+                ,body)
+     ; Stupid, mutation-based approach
+     (define type-scope ts-empty)
+     (: $definitions (Listof $fndef))
+     (define $definitions '())
+     (: $vardefs (Listof $vardef))
+     (define $vardefs '())
+     (for ([definition definitions])
+       (match definition
+         [`(@def-fun ,name
+                     ,args-with-types
+                     ,return-type
+                     ,body)
+          (match-define (cons $body _) (@->$ body type-scope))
+          (define ret-type (if return-type (resolve-type return-type (Type-Scope-type-vars type-scope))
+                               ($-Ast-type $body)))
+          (unless (subtype-of? ($-Ast-type $body) ret-type)
+            (context-error "function ~a annotated with return type ~a but actually returns ~a"
+                           (type->string ret-type)
+                           (type->string ($-Ast-type $body))))
+          (set! type-scope (bind-fun type-scope
+                                     name
+                                     (TFunction
+                                      (map (λ((x : Type-Expr)) (resolve-type x (Type-Scope-type-vars type-scope)))
+                                           (map (λ((x : (List Symbol Type-Expr)))
+                                                  (second x)) args-with-types))
+                                      ($-Ast-type $body))))
+          (set! $definitions (cons ($fndef name
+                                           (map (λ((x : (List Symbol Type-Expr)))
+                                                  (list (first x)
+                                                        (resolve-type (second x)
+                                                                      (Type-Scope-type-vars type-scope))))
+                                                args-with-types)
+                                           $body)
+                                   $definitions))]
+         [`(@def-var ,name ,body)
+          (match-define (cons $body _) (@->$ body type-scope))
+          (set! $vardefs (cons ($vardef name $body) $vardefs))]
+         [_ (void)]))
+     ($program $definitions
+               $vardefs
+               (car (@->$ body type-scope)))]))
 
 
 ;; Converts from TVector to TVectorof
@@ -62,10 +98,11 @@
 ;; A type scope
 (struct Type-Scope ((vars : Type-Map)
                     (type-vars : Type-Map)
-                    (funs : (HashTable Symbol TFunction))) #:prefab)
+                    (bound-facts : (Immutable-HashTable Symbol Type-Facts))
+                    (funs : (Immutable-HashTable Symbol TFunction))) #:prefab)
 
 (: ts-empty Type-Scope)
-(define ts-empty (Type-Scope (hash) (hash) (hash)))
+(define ts-empty (Type-Scope (hash) (hash) (hash) (hash)))
 
 ; Return union of two type scopes
 (: ts-union (-> Type-Scope Type-Scope Type-Scope))
@@ -77,6 +114,9 @@
    (hash-union
     (Type-Scope-type-vars x)
     (Type-Scope-type-vars y))
+   (hash-union
+    (Type-Scope-bound-facts x)
+    (Type-Scope-bound-facts y))
    (hash-union
     (make-immutable-hash (hash->list (Type-Scope-funs x)))
     (make-immutable-hash (hash->list (Type-Scope-funs y))))))
@@ -97,23 +137,30 @@
    ts
    (hash->list tf)))
 
+(: bind-facts (-> Type-Scope Symbol Type-Facts Type-Scope))
+(define (bind-facts ts var-name var-facts)
+  (match ts
+    [(Type-Scope vars type-vars type-facts funs)
+     (Type-Scope vars type-vars (hash-set type-facts var-name var-facts) funs)]))
+
+
 (: bind-var (-> Type-Scope Symbol Type Type-Scope))
 (define (bind-var ts var-name var-type)
   (match ts
-    [(Type-Scope vars type-vars funs)
-     (Type-Scope (hash-set vars var-name var-type) type-vars funs)]))
+    [(Type-Scope vars type-vars type-facts funs)
+     (Type-Scope (hash-set vars var-name var-type) type-vars type-facts funs)]))
 
 (: bind-fun (-> Type-Scope Symbol TFunction Type-Scope))
 (define (bind-fun ts fun-name fun-type)
   (match ts
-    [(Type-Scope vars type-vars funs)
-     (Type-Scope vars type-vars (hash-set funs fun-name fun-type))]))
+    [(Type-Scope vars type-vars type-facts funs)
+     (Type-Scope vars type-vars type-facts (hash-set funs fun-name  fun-type))]))
 
 (: bind-type-var (-> Type-Scope Symbol Type Type-Scope))
 (define (bind-type-var ts var-name var-type)
   (match ts
-    [(Type-Scope vars type-vars funs)
-     (Type-Scope vars (hash-set type-vars var-name var-type) funs)]))
+    [(Type-Scope vars type-vars type-facts funs)
+     (Type-Scope vars (hash-set type-vars var-name var-type) type-facts funs)]))
 
 (: lookup-var (-> Type-Scope Symbol Type))
 (define (lookup-var ts var-name)
@@ -226,23 +273,6 @@
      (ts-union fun-defs var-defs)
      (hash->list struct-defs))))
 
-;; typechecks an @-ast
-(: @-ast->type (-> @-Ast Type))
-(define (@-ast->type ast)
-  (first (@-ast->type/inner ast ts-empty)))
-
-(: @-ast->type+ (-> @-Ast Type-Scope Type))
-(define (@-ast->type+ ast env)
-  (first (@-ast->type/inner ast env)))
-
-;; lookups the memoized type for the subexpression
-(: memoized-type (-> @-Ast Type))
-(define (memoized-type ast)
-  (parameterize ([current-context (context-of ast)])
-    (match (hash-ref TYPE-MEMOIZER ast #f)
-      [#f (context-error "cannot lookup memoized type for ~a" ast)]
-      [(? Type? x) x])))
- 
 ;; "smart union" of two types that doesn't create a TUnion if one is the subtype of another
 (: smart-union (-> Type Type Type))
 (define (smart-union t1 t2)
@@ -250,9 +280,6 @@
     [(subtype-of? t1 t2) t2]
     [(subtype-of? t2 t1) t1]
     [else (TUnion t1 t2)]))
-
-(: TYPE-MEMOIZER (HashTable @-Ast Type))
-(define TYPE-MEMOIZER (make-weak-hasheq))
 
 (define-type Type-Facts (Immutable-HashTable Symbol Type))
 
@@ -298,6 +325,14 @@
                                 (TVector (map $type $vars))
                                 ($lit-vec $vars))
                                tf-empty)]
+      [`(@var ,variable) (cons ($-Ast (lookup-var type-scope variable)
+                                      ($var variable))
+                               (let ([tsfacts (Type-Scope-bound-facts type-scope)])
+                                 (cond
+                                   [(hash-has-key? tsfacts variable)
+                                    (pretty-write (list variable tsfacts))
+                                    (hash-ref tsfacts variable)]
+                                   [else tf-empty])))]
       ;[`(@lit-bytes ,bts) (list (TBytes (bytes-length bts)) (hash))]
       ;; misc
       [`(@extern ,var) (cons ($-Ast (TAny)
@@ -366,9 +401,11 @@
 
       ;; let expressions
       [`(@let (,val ,expr) ,body)
-       (match-define (cons $expr _) (@->$ expr type-scope))
+       (match-define (cons $expr expr-facts) (@->$ expr type-scope))
+       (pretty-write (list val expr-facts))
        (match-define (cons $body body-facts)
-         (@->$ body (bind-var type-scope val ($type $expr))))
+         (@->$ body (bind-facts (bind-var type-scope val ($type $expr))
+                                val expr-facts)))
        (cons ($-Ast ($type $body)
                     ($let val
                           $expr
@@ -387,7 +424,7 @@
                [($-Ast _ node) ($-Ast new-type node)])
              inner-facts)]
       [`(@ann ,inner ,type)
-       (match-define (list $inner inner-facts) (@->$ inner type-scope))
+       (match-define (cons $inner inner-facts) (@->$ inner type-scope))
        (define new-type (resolve-type type types-map))
        (unless (subtype-of? ($type $inner) new-type)
          (context-error "cannot annotate ~a as incompatible type ~a"
@@ -396,10 +433,6 @@
        (cons (match $inner
                [($-Ast _ node) ($-Ast new-type node)])
              inner-facts)]
-      
-      [`(@var ,variable) (cons ($-Ast (lookup-var type-scope variable)
-                                      ($var variable))
-                               tf-empty)]
 
       ;; if
       [`(@if ,cond ,happy ,sad)
@@ -469,10 +502,12 @@
 
 (module+ test
   (require "../parser.rkt")
-  (@->$
-   `(@lit-vec
-     ((@and
-       (@and (@lit-num 1)
-             (@lit-vec ((@lit-num 2) (@lit-num 3))))
-       (@lit-num 4))))
-   ts-empty))
+  (parameterize ([FILENAME "test.melo"])
+    (@-transform
+     (melo-parse-port (open-input-string "
+(let x = ann 1 : Any in
+if x is Nat && x == 10 then
+22222222222222
+else
+    123) / 2
+")))))

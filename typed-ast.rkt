@@ -8,6 +8,7 @@
 ;; Top-level node. This is NOT a $-Ast.
 (struct $program
   ([fun-defs : (Listof $fndef)]
+   [var-defs : (Listof $vardef)]
    [expr : $-Ast])
   #:transparent)
 
@@ -46,10 +47,16 @@
 (struct $extern
   ([val : String])
   #:transparent)
+
 ; Function definition
 (struct $fndef
   ([name : Symbol]
    [binds : (Listof (List Symbol Type))]
+   [body : $-Ast])
+  #:transparent)
+
+(struct $vardef
+  ([name : Symbol]
    [body : $-Ast])
   #:transparent)
 
@@ -91,7 +98,8 @@
 (struct $bin
   ([op : $-Binop]
    [l : $-Ast]
-   [r : $-Ast]))
+   [r : $-Ast])
+  #:transparent)
 
 (struct $block
   ([exprs : (Listof $-Ast)])

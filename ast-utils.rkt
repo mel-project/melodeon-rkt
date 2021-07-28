@@ -43,30 +43,55 @@
     [(with-context _ matter) (ast->list matter)]
     )))
 
+;; Runs every subexpression of a through f, recursively
 (: ast-map (-> (-> @-Ast @-Ast) @-Ast @-Ast))
 (define (ast-map f a)
-  (match a
-    ; trivials
-    [`(@lit-num ,n) `(@lit-num ,n)]
-    [`(@list-bytes ,b) `(@list-byes ,b)]
-    [`(@var ,x) `(@var ,x)]
-    [`(@extern ,s) `(@extern ,s)]
+  (define recurse (λ((x : @-Ast)) (ast-map f x)))
+  (f
+   (match a
+     ; trivials
+     [`(@lit-num ,n) `(@lit-num ,n)]
+     [`(@list-bytes ,b) `(@list-bytes ,b)]
+     [`(@var ,x) `(@var ,x)]
+     [`(@extern ,s) `(@extern ,s)]
 
-    ; TODO map over binding expressions of let?
-    [`(@let ,binds ,expr) `(@let ,binds ,(f expr))]
-    [`(@-Binop ,a ,b) `(@-Binop ,(f a) ,(f b))]
-    [`(@lit-vec ,v) `(@lit-vec ,(map f v))]
-    [`(@program ,defs ,expr) `(@program ,defs ,(f expr))]
-    [`(@apply ,name ,v) `(@apply ,name ,(map f v))]
-    [`(@block ,v) `(@block ,(map f v))]
-    [`(@index ,x ,y) `(@index ,(f x) ,(f y))]
-    [`(@update ,e1 ,e2 ,e3) `(@update ,(f e1) ,(f e2) ,(f e3))]
-    [`(@unsafe-cast ,e ,t) `(@unsafe-cast ,(f e) ,t)]
-    [`(@ann ,expr ,t) `(@ann ,(f expr) ,t)]
-    [`(@if ,p ,tru ,fls) `(@if ,(f p) ,(f tru) ,(f fls))]
-    [`(@for ,e1 ,var ,e2) `(@for ,(f e1) var ,(f e2))]
-    ;[`(@set! _ ,expr) (ast-map expr)]
-    [`(@loop ,count ,expr) `(@loop ,count ,(f expr))]
-    [`(@is ,expr ,t) `(@is ,(f expr) ,t)]
-    [(with-context ctx matter) (with-context ctx (ast-map f matter))]
-    ))
+     [`(@let (,var ,val) ,expr) `(@let (,var ,(recurse val))
+                                       ,(recurse expr))]
+     [`(@-Binop ,a ,b) `(@-Binop ,(recurse a) ,(recurse b))]
+     [`(@lit-vec ,v) `(@lit-vec ,(map recurse v))]
+     [`(@program ,defs ,expr) `(@program ,(map (λ((def : Definition))
+                                                 (match def
+                                                   [`(@def-var ,sym ,ast) `(@def-var ,sym ,ast)]
+                                                   [`(@def-generic-fun ,name
+                                                                       ,type-params
+                                                                       ,arguments
+                                                                       ,return-type
+                                                                       ,body)
+                                                    `(@def-generic-fun ,name
+                                                                       ,type-params
+                                                                       ,arguments
+                                                                       ,return-type
+                                                                       ,(recurse body))]
+                                                   [`(@def-fun ,name
+                                                               ,arguments
+                                                               ,return-type
+                                                               ,body)
+                                                    `(@def-fun ,name
+                                                               ,arguments
+                                                               ,return-type
+                                                               ,body)]
+                                                   [x x]))
+                                               defs) ,(recurse expr))]
+     [`(@apply ,name ,v) `(@apply ,name ,(map recurse v))]
+     [`(@block ,v) `(@block ,(map recurse v))]
+     [`(@index ,x ,y) `(@index ,(recurse x) ,(recurse y))]
+     [`(@update ,e1 ,e2 ,e3) `(@update ,(recurse e1) ,(recurse e2) ,(recurse e3))]
+     [`(@unsafe-cast ,e ,t) `(@unsafe-cast ,(recurse e) ,t)]
+     [`(@ann ,expr ,t) `(@ann ,(recurse expr) ,t)]
+     [`(@if ,p ,tru ,fls) `(@if ,(recurse p) ,(recurse tru) ,(recurse fls))]
+     [`(@for ,e1 ,var ,e2) `(@for ,(recurse e1) var ,(recurse e2))]
+     ;[`(@set! _ ,expr) (ast-map expr)]
+     [`(@loop ,count ,expr) `(@loop ,count ,(recurse expr))]
+     [`(@is ,expr ,t) `(@is ,(recurse expr) ,t)]
+     [(with-context ctx matter) (with-context ctx (recurse matter))]
+     )))

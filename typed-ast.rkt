@@ -1,109 +1,108 @@
 #lang typed/racket
 (require "common.rkt")
 (require "type-sys/types.rkt")
-(require "type-sys/typecheck.rkt")
+;(require "type-sys/typecheck.rkt")
 
 (provide (all-defined-out))
 
+;; Top-level node. This is NOT a $-Ast.
+(struct $program
+  ([fun-defs : (Listof $fndef)]
+   [expr : $-Ast])
+  #:transparent)
+
+;; $-Ast represents a desugared, fully typed AST
 (struct $-Ast
   ([type : Type]
-   [scope : Type-Scope]
-   [node : $-Ast-variant]))
+   [node : $-Ast-variant])
+  #:transparent)
 
 (struct $let
-  ([binds : (List Symbol $-Ast)]
-   [body : $-Ast]))
+  ([bind-var : Symbol]
+   [bind-expr : $-Ast]
+   [body : $-Ast])
+  #:transparent)
 
 ; Literal number
-(struct $lit-num
-  ([val : Nonnegative-Integer]))
+(struct $lit-num 
+  ([val : Nonnegative-Integer])
+  #:transparent)
 ; Literal vector
 (struct $lit-vec
-  ([val : (Listof $-Ast)]))
+  ([val : (Listof $-Ast)])
+  #:transparent)
 ; Literal bytes
 (struct $lit-bytes
-  ([val : Bytes]))
+  ([val : Bytes])
+  #:transparent)
 ; Literal string
 (struct $lit-string
-  ([val : String]))
+  ([val : String])
+  #:transparent)
 ; Variable name
 (struct $var
-  ([val : Symbol]))
+  ([val : Symbol])
+  #:transparent)
+(struct $extern
+  ([val : String])
+  #:transparent)
 ; Function definition
 (struct $fndef
   ([name : Symbol]
    [binds : (Listof (List Symbol Type))]
-   [body : $-Ast]))
-; Top-level node
-(struct $program
-  ([fun-defs : (Listof $fndef)]
-   [expr : $-Ast]))
+   [body : $-Ast])
+  #:transparent)
 
 (struct $apply
   ([name : Symbol]
-   [args : (Listof $-Ast)]))
+   [args : (Listof $-Ast)])
+  #:transparent)
 
 (struct $index
   ([data : $-Ast]
-   [ref : $-Ast]))
+   [ref : $-Ast])
+  #:transparent)
 
 (struct $loop
   ([count : Nonnegative-Integer]
-   [body : $-Ast]))
+   [body : $-Ast])
+  #:transparent)
 
 (struct $if
   ([pred : $-Ast]
    [true : $-Ast]
-   [false : $-Ast]))
+   [false : $-Ast])
+  #:transparent)
+
+(define-type $-Binop
+  (U '+
+     '-
+     '*
+     '/
+     'append
+     'eq))
 
 ; binop
-(struct $and
-  ([l : $-Ast]
+(struct $bin
+  ([op : $-Binop]
+   [l : $-Ast]
    [r : $-Ast]))
-(struct $or
-  ([l : $-Ast]
-   [r : $-Ast]))
-(struct $+
-  ([l : $-Ast]
-   [r : $-Ast]))
-(struct $-
-  ([l : $-Ast]
-   [r : $-Ast]))
-(struct $*
-  ([l : $-Ast]
-   [r : $-Ast]))
-(struct $/
-  ([l : $-Ast]
-   [r : $-Ast]))
-(struct $append
-  ([l : $-Ast]
-   [r : $-Ast]))
-
-(struct $eq
-  ([l : $-Ast]
-   [r : $-Ast]))
-
-;(define-type $-Binop (U '$+ '$- '$* '$/ '$append '$or '$and '$eq))
 
 (struct $block
-  ([exprs : (Listof $-Ast)]))
+  ([exprs : (Listof $-Ast)])
+  #:transparent)
+
 
 (define-type $-Ast-variant
   (U $let
      ;(List $-Binop $-Ast $-Ast)
-     $and
-     $or
-     $+
-     $-
-     $*
-     $/
-     $append
-     $eq
+     $bin
      $lit-num
      $lit-vec
      $lit-string
      $lit-bytes
      $var
+     $extern
      $apply
      $loop
      $block

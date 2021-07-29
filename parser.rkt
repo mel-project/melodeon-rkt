@@ -69,12 +69,16 @@
                   ((<type-dec> COMMA <fun-args>) (cons $1 $3))
                   (() empty))
       (<type-dec> ((VAR COLON <type-expr>) (list $1 $3)))
-      (<type-expr> ((<type-expr> PIPE <type-expr-2>) `(@type-union ,$1 ,$3))
+      (<type-expr> ((<type-expr> TOR <type-expr-2>) `(@type-union ,$1 ,$3))
                    ((<type-expr-2>) $1))
-      (<type-expr-2> ((TYPE) `(@type-var ,$1))
+      (<type-expr-2> ((<type-expr-3> TAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
+                     ((<type-expr-3>) $1))
+      (<type-expr-3> ((TYPE) `(@type-var ,$1))
+                     ((TNEG <type-expr-3>) `(@type-negate ,$2))
                      ((HASH OPEN-BRACKET NUM CLOSE-BRACKET) `(@type-bytes ,$3))
                      ((OPEN-BRACKET <type-exprs> CLOSE-BRACKET) `(@type-vec ,$2))
-                     ((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4)))
+                     ((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
+                     ((OPEN-PAREN <type-expr> CLOSE-PAREN) `$2))
       (<type-exprs> ((<type-expr>) (list $1))
                     ((<type-expr> COMMA <type-exprs>) (cons $1 $3)))
       ;; different kinds of exprs
@@ -179,7 +183,7 @@
   (dectx*
    (melo-parse-port (open-input-string #<<EOF
 
-def f(x: Nat) = x
+def f(x: Nat & Any) = x
 
 - - -
 

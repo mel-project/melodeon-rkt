@@ -130,6 +130,8 @@
      (List '@type-vec (Listof Type-Expr))
      (List '@type-vecof Type-Expr Nonnegative-Integer)
      (List '@type-union Type-Expr Type-Expr)
+     (List '@type-intersect Type-Expr Type-Expr)
+     (List '@type-negate Type-Expr)
      (List '@type-bytes Nonnegative-Integer)))
 
 (define-type @-Binop (U '@+ '@- '@* '@/ '@append '@or '@and '@eq))

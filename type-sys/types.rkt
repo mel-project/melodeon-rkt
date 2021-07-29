@@ -2,26 +2,30 @@
 (provide (all-defined-out))
 
 ;; Base types 
-(struct TNat () #:prefab)
-(struct TBin () #:prefab)
-(struct TAny () #:prefab)
+(struct TNat () #:transparent)
+(struct TBin () #:transparent)
+(struct TAny () #:transparent)
 
 ;; Composite types
-(struct TVector ((lst : (Listof Type))) #:prefab)
+(struct TVector ((lst : (Listof Type))) #:transparent)
 (struct TVectorof ((inner : Type)
                    (count : Nonnegative-Integer)
-                   ) #:prefab)
+                   ) #:transparent)
 (struct TBytes ((count : Nonnegative-Integer)
-                ) #:prefab)
+                ) #:transparent)
 
 (define TVectorU? (make-predicate (U TVectorof TVector)))
 
+;; "Set-theoretical" type combinators
 (struct TUnion ((x : Type)
-                (y : Type)) #:prefab)
+                (y : Type)) #:transparent)
+(struct TIntersect ((x : Type)
+                    (y : Type)) #:transparent)
+(struct TNegate ((x : Type)) #:transparent)
 
 ; Represents a custom defined product type that is distinct by its name
 (struct TTagged ((tag : Symbol)
-                 (lst : (Listof Type))) #:prefab)
+                 (lst : (Listof Type))) #:transparent)
 
 
 ;; Type
@@ -32,6 +36,8 @@
                      TVector
                      TVectorof
                      TUnion
+                     TIntersect
+                     TNegate
                      TBytes))
 
 (define Type? (make-predicate Type))

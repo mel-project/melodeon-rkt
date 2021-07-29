@@ -14,6 +14,11 @@
                                     CLOSE-BRACKET LESS-THAN GREATER-THAN
                                     OPEN-BRACE CLOSE-BRACE COMMA EOF NEG
                                     = == ++ + - * / OR AND
+
+                                    TAND
+                                    TNEG
+                                    TOR
+                                    
                                     LET IN
                                     COLON HASH
                                     SEMICOLON
@@ -85,7 +90,9 @@
    [">" 'GREATER-THAN]
    ["#" 'HASH]
    [";" 'SEMICOLON]
-   ["|" 'PIPE]
+   ["|" 'TOR]
+   ["&" 'TAND]
+   ["~" 'TNEG]
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations

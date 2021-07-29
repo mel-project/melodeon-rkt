@@ -14,7 +14,7 @@
   ; do nothing atm
   melo-sym)
 
-(: new-$-Ast (-> @-Ast Type-Scope $-Ast-variant $-Ast))
+;(: new-$-Ast (-> @-Ast Type-Scope $-Ast-variant $-Ast))
 (define (new-$-Ast ast env val)
   ($-Ast
     (@-ast->type+ ast env)

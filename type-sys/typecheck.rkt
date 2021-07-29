@@ -25,7 +25,13 @@
                      ,args-with-types
                      ,return-type
                      ,body)
-          (match-define (cons $body _) (@->$ body type-scope))
+          (define inner-type-scope
+            (foldl (λ((x : (List Symbol Type-Expr))
+                      (ts : Type-Scope))
+                     (bind-var ts (first x) (resolve-type (second x) (Type-Scope-type-vars type-scope))))
+                   type-scope
+                   args-with-types))
+          (match-define (cons $body _) (@->$ body inner-type-scope))
           (define ret-type (if return-type (resolve-type return-type (Type-Scope-type-vars type-scope))
                                ($-Ast-type $body)))
           (unless (subtype-of? ($-Ast-type $body) ret-type)
@@ -506,9 +512,9 @@
   (parameterize ([FILENAME "test.melo"])
     (@-transform
      (melo-parse-port (open-input-string "
-(let x = ann 1 : Any in
-if x is Nat && x == 10 then
-22222222222222
-else
-    123) / 2
+def dup(x: Nat) = [x, x]
+---
+let x = 1 in
+
+        0
 ")))))

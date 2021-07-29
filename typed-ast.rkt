@@ -24,6 +24,13 @@
    [body : $-Ast])
   #:transparent)
 
+; vector comprehension
+(struct $for
+  ([expr : $-Ast]
+   [var : Symbol]
+   [vec-expr : $-Ast])
+  #:transparent)
+
 ; Literal number
 (struct $lit-num 
   ([val : Nonnegative-Integer])
@@ -129,6 +136,7 @@
      $apply
      $is
      $loop
+     $for
      $block
      $index
      $if))

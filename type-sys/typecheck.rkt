@@ -348,6 +348,24 @@
                                (cons ($-Ast ($type (car body))
                                             ($loop count (car body)))
                                      (cdr body)))]
+      [`(@for ,expr ,var-name ,vec-expr)
+        (letrec ([$expr (car (@->$ expr type-scope))]
+              [$vec-pair (@->$ vec-expr type-scope)]
+              [$vec-expr (car $vec-pair)]
+              [vec-type ($-Ast-type $vec-expr)]
+              ; TODO should this somehow check if vec-type is a subtype of some
+              ; kind of general vector?
+              [len (match vec-type
+                      [(TVectorof _ count) count]
+                      [(TVector v) (length v)]
+                      [(var t) (context-error "vector comprehension needs to iterate
+                                              over a vector, but a ~a was
+                                              provided"
+                                              (type->string t))])])
+          (cons ($-Ast
+                  (TVectorof ($-Ast-type $expr) len)
+                  ($for $expr var-name $vec-expr))
+                (cdr $vec-pair)))]
       [`(@block ,body)
        (: transformed-body (Listof (Pair $-Ast Type-Facts)))
        (define transformed-body

@@ -13,8 +13,8 @@
 (define-empty-tokens syntax-tokens (OPEN-PAREN CLOSE-PAREN OPEN-BRACKET
                                     CLOSE-BRACKET LESS-THAN GREATER-THAN
                                     OPEN-BRACE CLOSE-BRACE COMMA EOF NEG
-                                    = == ++ + - * / OR AND
-
+                                    = == ++ + - * / OR AND ETC
+                                    ---
                                     TAND
                                     TNEG
                                     TOR
@@ -86,6 +86,7 @@
    ;; punctuation
    ["," 'COMMA]
    ["." 'DOT]
+   ["..." 'ETC]
    ["<" 'LESS-THAN]
    [">" 'GREATER-THAN]
    ["#" 'HASH]
@@ -93,6 +94,7 @@
    ["|" 'TOR]
    ["&" 'TAND]
    ["~" 'TNEG]
+   [(:: "-" (:* #\space) "-" (:* #\space) "-") '---]
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations

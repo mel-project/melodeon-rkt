@@ -38,6 +38,18 @@
      #t]
     [(TBytes n) (string->symbol (format "~a-bytes-~a" var-name n))]
     [(TVectorof t n) (type->sat (TVector (make-list n t)) var-name)]
+    [(TVectorEtc elems)
+     (define subelems
+       (for/list ([elem elems]
+                  [count (in-naturals)]) : (Listof Any)
+         (define sym (string->symbol (format "~a-~a" var-name count)))
+         (type->sat elem sym)))
+     ((inst foldl Any) (λ((elem : Any)
+                          (accum : Any))
+                         `(and ,elem
+                               ,accum))
+                       #t
+                       subelems)]
     [(TVector elems)
      (define subelems
        (for/list ([elem elems]
@@ -80,7 +92,20 @@
     [(cons x y) (equal? x y)]))|#
 
 (module+ test
-  (define T (TUnion (TNat) (TVector (list (TNat) (TUnion (TNat) (TBin))))))
+  ; Nat | [Nat, Nat | #[5]]
+  (define T (TUnion (TNat) (TVector (list (TNat) (TUnion (TNat) (TBytes 5))))))
+  ; [Nat, Nat]
   (define U (TVector (list (TNat) (TNat))))
-  (time (subtype-of? (TBin) (TNat)))
+  ; U <: T ? 
+  (time (subtype-of? T U))
   )
+
+#|
+
+def f<T>(x: [T * 6]) -> T = x[0]
+
+f([1, 2, 3, 4, 5, 6])
+
+find T such that [Nat * 6] <: [T * 6]
+
+|#

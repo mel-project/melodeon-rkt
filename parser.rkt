@@ -19,7 +19,7 @@
   
   ;; melo-parse: (-> position-token) -> @-Ast
   (define melo-parse
-    (cfg-parser
+    (parser
      (start <program>)
      (end EOF)
      (tokens value-tokens syntax-tokens)
@@ -46,7 +46,7 @@
      ;; CFG grammar
      (grammar
       ;; a program is a series of toplevels 
-      (<program> ((<definitions> - - - <expr>) (pos-lift 1 5 `(@program ,$1 ,$5)))
+      (<program> ((<definitions> --- <expr>) (pos-lift 1 3 `(@program ,$1 ,$3)))
                  ((<definitions>) (pos-lift 1 1 `(@program ,$1 (@lit-num 0))))
                  ((<expr>) `(@program () ,$1)))
       (<definitions> ((<definition> <definitions>) (cons $1 $2))

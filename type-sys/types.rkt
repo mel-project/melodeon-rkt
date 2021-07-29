@@ -11,6 +11,8 @@
 (struct TVectorof ((inner : Type)
                    (count : Nonnegative-Integer)
                    ) #:transparent)
+;; A vector where the final length is unknown, but it's at least the given
+(struct TVectorEtc ((list : (Listof Type))) #:transparent)
 (struct TBytes ((count : Nonnegative-Integer)
                 ) #:transparent)
 
@@ -37,6 +39,7 @@
                      TVectorof
                      TUnion
                      TIntersect
+                     TVectorEtc
                      TNegate
                      TBytes))
 
@@ -63,9 +66,12 @@
                                     " * "
                                     (number->string n)
                                     "]")]
-    [(TUnion l r) (string-append
-                   (type->string l)
-                   " | "
-                   (type->string r))]
+    [(TUnion l r) (format "(~a | ~a)"
+                          (type->string l)
+                          (type->string r))]
+    [(TIntersect l r) (format "(~a & ~a)"
+                              (type->string l)
+                              (type->string r))]
+    [(TNegate v) (format "~~ ~a" v)]
     [(TBytes n) (format "Bytes[~a]" n)]))
 

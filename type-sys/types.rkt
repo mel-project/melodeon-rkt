@@ -25,6 +25,8 @@
                     (y : Type)) #:transparent)
 (struct TNegate ((x : Type)) #:transparent)
 
+(struct TNone () #:transparent)
+
 ; Represents a custom defined product type that is distinct by its name
 (struct TTagged ((tag : Symbol)
                  (lst : (Listof Type))) #:transparent)
@@ -39,6 +41,7 @@
                      TVectorof
                      TUnion
                      TIntersect
+                     TNone
                      TVectorEtc
                      TNegate
                      TBytes))
@@ -72,6 +75,6 @@
     [(TIntersect l r) (format "(~a & ~a)"
                               (type->string l)
                               (type->string r))]
-    [(TNegate v) (format "~~ ~a" v)]
+    [(TNegate v) (format "~~ ~a" (type->string v))]
     [(TBytes n) (format "Bytes[~a]" n)]))
 

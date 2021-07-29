@@ -246,19 +246,8 @@
            [other (context-error "non-literal index ~a not yet supported" other)]))
        (match-define (cons $val _) (@->$ val type-scope))
        (cons
-        ($-Ast (match ($type $val)
-                 [(TVector lst) (unless (< idx (length lst))
-                                  (context-error "index ~a out of bounds for vector of ~a elements"
-                                                 idx
-                                                 (length lst)))
-                                (list-ref lst idx)]
-                 [(TVectorof t n) (unless (< idx n)
-                                    (context-error "index ~a out of bounds for vector of ~a elements"
-                                                   idx
-                                                   n))
-                                  t]
-                 [other (context-error "cannot index into a value of type ~a"
-                                       (type->string other))])
+        ($-Ast (tindex ($type $val)
+                idx)
                ($index $val ($-Ast (TNat) ($lit-num idx))))
         tf-empty)]
       [`(@apply ,fun ,args)
@@ -304,7 +293,7 @@ def trip(x: Nat) = [x, x, x]
 - - - 
 let x = if 1 then dup(1) else trip(1) in
 if x is [Nat, Nat] then
-    (ann x : [Nat, Nat])[0]
+    x[0]
 else
-    (ann x : [Nat, Nat, Nat])[1]
+    x[1]
 ")))))

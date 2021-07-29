@@ -13,9 +13,9 @@
 
 (define (sat->csp/inner sat)
   (match sat
-    [#t
-     (cons (make-csp (list (var 'true (list #t)))
-                     (list (constraint (list 'true) (λ(_) #t))))
+    [(? boolean? b)
+     (cons (make-csp (list (var (if b 'true 'false) (list b)))
+                     (list (constraint (list (if b 'true 'false)) (λ(_) b))))
            'true)]
     [`(not ,a)
      (match-define (cons a-csp a-sym) (sat->csp/inner a))

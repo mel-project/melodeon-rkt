@@ -5,8 +5,85 @@
 (require/typed "sat.rkt"
                [sat-solve (-> Any Any)])
 
-(provide subtype-of?)
+(provide subtype-of?
+         Type-DNF
+         type->dnf
+         dnf->string)
 
+#|
+Todo: generic type resolving. A simple case is resolving the return type of the indexing operator.
+
+Idea for indexing:
+ 1. Turn type into "surface-level" DNF form
+ 2. Recurse on each clause, making the union of the index-operator on every clause:
+    - Intersect each element of the clause:
+    - If the clause is a vector by itself, then we're "done".
+    - Otherwise, we die a horrible death.
+|#
+
+;; Type DNF form
+(define-type Type-DNF (Setof (Setof Type)))
+
+(: remove-duplicate-negation (-> Type Type))
+(define (remove-duplicate-negation type)
+  (match type
+    [(TNegate (TNegate t)) (remove-duplicate-negation t)]
+    [t t]))
+
+(: remove-autonegate (-> (Listof Type) (Listof Type)))
+(define (remove-autonegate types)
+  (define negated (list->set (filter TNegate? types)))
+  (define to-delete
+    (list->set (filter (λ((x : Type))
+                         (set-member? negated (TNegate x))) types)))
+  (filter
+   (λ((t : Type))
+     (match t
+       [(TNegate x) (not (set-member? to-delete x))]
+       [x (not (set-member? to-delete x))])) types))
+         
+(: type->dnf (-> Type Type-DNF))
+(define (type->dnf type)
+  (list->set
+   (filter (λ((x : (Setof Type))) (not (set-empty? x)))
+           (for/list ([clause (type->dnf/raw type)]) : (Listof (Setof Type))
+             (list->set
+              (remove-autonegate
+               (for/list ([elem clause]) : (Listof Type)
+                 (remove-duplicate-negation elem))))))))
+
+(: type->dnf/raw (-> Type Type-DNF))
+(define (type->dnf/raw type)
+  (match type
+    [(TUnion x y) (set-union (type->dnf x)
+                             (type->dnf y))]
+    [(TIntersect x y) (list->set
+                       (for*/list ([x-clause (type->dnf x)]
+                                   [y-clause (type->dnf y)]) : (Listof (Setof Type))
+                         (set-union x-clause y-clause)))]
+    [(TNegate x) (list->set
+                  (for/list ([clause (type->dnf x)]) : (Listof (Setof Type))
+                    (list->set
+                     (for/list ([elem clause]) : (Listof Type)
+                       (TNegate elem)))))]
+    [x (set (set x))]))
+
+(: dnf->string (-> Type-DNF String))
+(define (dnf->string dnf)
+  (string-join
+   (for/list ([clause dnf]) : (Listof String)
+     (string-append "("
+                    (string-join
+                     (for/list ([type clause]) : (Listof String)
+                       (type->string type))
+                     " ⋀ ")
+                    ")"))
+   " ⋁ "))
+
+#;(let ([T (TNegate (TNegate (TIntersect (TUnion (TBytes 3) (TBytes 5)) (TNegate (TBytes 3)))))])
+  (displayln (type->string T))
+  (displayln (dnf->string (type->dnf T))))
+                                        
 ;; a total ordering of types. break types that are subtypes of each other by lexicographic order
 (: type-smaller (-> Type Type Boolean))
 (define (type-smaller t1 t2)
@@ -36,6 +113,8 @@
           ,(string->symbol (format "~a-nbin" var-name)))]
     [(TAny) ; always true
      #t]
+    [(TNone) ; always false
+     #f]
     [(TBytes n) (string->symbol (format "~a-bytes-~a" var-name n))]
     [(TVectorof t n) (type->sat (TVector (make-list n t)) var-name)]
     [(TVectorEtc elems)

@@ -6,6 +6,46 @@
          racket/hash)
 (provide (all-defined-out))
 
+;; Given a type and an index, gets the output type
+(: tindex (-> Type Nonnegative-Integer Type))
+(define (tindex vector-type idx)
+  (: tindex/inner (-> Type Nonnegative-Integer (Option Type)))
+  (define (tindex/inner type idx)
+    (match type
+      [(TVector lst) (unless (< idx (length lst))
+                       (context-error "index ~a out of bounds for vector of ~a elements"
+                                      idx
+                                      (length lst)))
+                     (list-ref lst idx)]
+      [(TVectorof t n) (unless (< idx n)
+                         (context-error "index ~a out of bounds for vector of ~a elements"
+                                        idx
+                                        n))
+                       t]
+      [other #f]))
+
+  (: clause-index (-> (Setof Type) Nonnegative-Integer Type))
+  (define (clause-index clause idx)
+    (let ([type 
+           (foldl (λ((type : Type)
+                     (accum : (Option Type)))
+                    (or (tindex/inner type idx) type))
+                  #f
+                  (set->list clause))])
+      (or type (context-error "cannot index into a value of type ~a"
+                              (type->string vector-type)))))
+  ;; break down into dnf
+  (define dnf (type->dnf vector-type))
+  (displayln (dnf->string dnf))
+  (foldl (λ((clause : (Setof Type))
+            (t : Type))
+           (TUnion (clause-index clause idx)
+                   t))
+         (TNone)
+         (set->list dnf))
+            
+  )
+
 ;; Converts from TVector to TVectorof
 (: to-tvector (-> (U TVectorof TVector) TVector))
 (define (to-tvector tvec)

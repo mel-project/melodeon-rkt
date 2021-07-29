@@ -49,9 +49,8 @@
     [($if x y z) `(if ,(generate-mil x)
                       ,(generate-mil y)
                       ,(generate-mil z))]
-    #|
-    [`(@for ,expr ,var-name ,vec-val)
-     (let ([count (match (memoized-type vec-val)
+    [($for expr var-name vec-val)
+     (let ([count (match ($-Ast-type vec-val)
                     [(TVectorof _ count) count]
                     [(TVector v) (length v)]
                     [(TBytes b) b])]
@@ -65,7 +64,6 @@
                                 (set! ,counter (+ ,counter 1))))
           ,tempvec)
        )]
-    |#
     [($is expr type)
      (define tmpsym (gensym 'is))
      `(let (,tmpsym ,(generate-mil expr))

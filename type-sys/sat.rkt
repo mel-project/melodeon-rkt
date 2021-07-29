@@ -3,7 +3,9 @@
 (provide sat-solve)
 
 (define (sat-solve sat)
-  (solve (sat->csp sat)))
+  (define csp (sat->csp sat))
+  ;(pretty-write csp)
+  (solve csp))
 
 (define (sat->csp sat)
   (match-define (cons sat-csp sat-sym) (sat->csp/inner sat))
@@ -16,7 +18,7 @@
     [(? boolean? b)
      (cons (make-csp (list (var (if b 'true 'false) (list b)))
                      (list (constraint (list (if b 'true 'false)) (λ(_) b))))
-           'true)]
+           (if b 'true 'false))]
     [`(not ,a)
      (match-define (cons a-csp a-sym) (sat->csp/inner a))
      (define node (gensym 'not))

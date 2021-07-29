@@ -286,14 +286,15 @@
 (module+ test
   (require "../parser.rkt")
   (parameterize ([FILENAME "test.melo"])
-    (@-transform
-     (melo-parse-port (open-input-string "
+    (time
+     (@-transform
+      (melo-parse-port (open-input-string "
 def dup(x: Nat) = [x, x]
 def trip(x: Nat) = [x, x, x]
 - - - 
-let x = if 1 then dup(1) else trip(1) in
+(let x = if 1 then dup(1) else trip(1) in
 if x is [Nat, Nat] then
-    x[0]
+    trip(dup(x[0])[0] * 100)[0]
 else
-    x[1]
-")))))
+    dup(x[1])[1]) + 1
+"))))))

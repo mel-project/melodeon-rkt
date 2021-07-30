@@ -49,6 +49,8 @@
                                     (inner u))]
       ;; unindexable types
       [(TNone) (TNone)]
+      [(TNat) (TUnion (gen-tfail (TBin))
+                      (TFail 'baba))]
       [_ (gen-tfail vector-type)]))
   ;; check that it's not a fail type
   (let ([res (inner vector-type)])

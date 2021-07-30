@@ -6,45 +6,57 @@
          racket/hash)
 (provide (all-defined-out))
 
-;; Given a type and an index, gets the output type
-(: tindex (-> Type Nonnegative-Integer Type))
-(define (tindex vector-type idx)
-  (: tindex/inner (-> Type Nonnegative-Integer (Option Type)))
-  (define (tindex/inner type idx)
-    (match type
-      [(TVector lst) (unless (< idx (length lst))
-                       (context-error "index ~a out of bounds for vector of ~a elements"
-                                      idx
-                                      (length lst)))
-                     (list-ref lst idx)]
-      [(TVectorof t n) (unless (< idx n)
-                         (context-error "index ~a out of bounds for vector of ~a elements"
-                                        idx
-                                        n))
-                       t]
-      [other #f]))
-
-  (: clause-index (-> (Setof Type) Nonnegative-Integer Type))
-  (define (clause-index clause idx)
-    (let ([type 
-           (foldl (λ((type : Type)
-                     (accum : (Option Type)))
-                    (or (tindex/inner type idx) type))
-                  #f
-                  (set->list clause))])
-      (or type (context-error "cannot index into a value of type ~a"
-                              (type->string vector-type)))))
+;; Given a type and a type->type function, creates another type, made through invoking the given function only with non-logical types. This is used for generic type inference, vector indexing, etc.
+(: type-inner-map (-> Type (-> Type Type) Type))
+(define (type-inner-map type type-deconstruct)
+  (: clause-map (-> (Setof Type) Type))
+  (define (clause-map clause)
+    (foldl (λ((type : Type)
+              (accum : Type))
+             (TIntersect (type-deconstruct type) accum))
+           (TAny)
+           (set->list clause)))
   ;; break down into dnf
-  (define dnf (type->dnf vector-type))
+  (define dnf (type->dnf type))
   (displayln (dnf->string dnf))
   (foldl (λ((clause : (Setof Type))
             (t : Type))
-           (TUnion (clause-index clause idx)
+           (TUnion (clause-map clause)
                    t))
          (TNone)
-         (set->list dnf))
-            
-  )
+         (set->list dnf)))
+
+;; Given a type and an index, gets the output type
+(: tindex (-> Type Nonnegative-Integer Type))
+(define (tindex vector-type idx)
+  (: inner (-> Type Type))
+  (define (inner vector-type)
+    (match vector-type
+      [(TVector lst) (if (>= idx (length lst))
+                         (gen-tfail vector-type)
+                         (list-ref lst idx))]
+      [(TVectorof t n) (if (>= idx n)
+                           (gen-tfail vector-type)
+                           t)]
+      [(TBytes n) (if (>= idx n)
+                      (gen-tfail vector-type)
+                      (TNat))]
+      ;; set theory types
+      [(TNegate t) (TNegate (inner t))]
+      [(TUnion t u) (TUnion (inner t)
+                            (inner u))]
+      [(TIntersect t u) (TIntersect (inner t)
+                                    (inner u))]
+      ;; unindexable types
+      [(TNone) (TNone)]
+      [_ (gen-tfail vector-type)]))
+  ;; check that it's not a fail type
+  (let ([res (inner vector-type)])
+    (if (subtype-of? res (TAny))
+        res
+        (context-error "cannot index into position ~a of ~a"
+                       idx
+                       (type->string vector-type)))))
 
 ;; Converts from TVector to TVectorof
 (: to-tvector (-> (U TVectorof TVector) TVector))

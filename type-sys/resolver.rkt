@@ -81,8 +81,8 @@ Idea for indexing:
    " ⋁ "))
 
 #;(let ([T (TNegate (TNegate (TIntersect (TUnion (TBytes 3) (TBytes 5)) (TNegate (TBytes 3)))))])
-  (displayln (type->string T))
-  (displayln (dnf->string (type->dnf T))))
+    (displayln (type->string T))
+    (displayln (dnf->string (type->dnf T))))
                                         
 ;; a total ordering of types. break types that are subtypes of each other by lexicographic order
 (: type-smaller (-> Type Type Boolean))
@@ -107,45 +107,50 @@ Idea for indexing:
 (: type->sat (->* (Type) (Symbol) Any))
 (define (type->sat type (var-name 'x))
   (match type
-    [(TBin) (string->symbol (format "~a-bin" var-name))]
-    [(TNat) ; a Nat is a union of a Bin and a NonBinNat
-     `(or ,(string->symbol (format "~a-bin" var-name))
-          ,(string->symbol (format "~a-nbin" var-name)))]
-    [(TAny) ; always true
-     #t]
-    [(TNone) ; always false
-     #f]
-    [(TBytes n) (string->symbol (format "~a-bytes-~a" var-name n))]
-    [(TVectorof t n) (type->sat (TVector (make-list n t)) var-name)]
-    [(TVectorEtc elems)
-     (define subelems
-       (for/list ([elem elems]
-                  [count (in-naturals)]) : (Listof Any)
-         (define sym (string->symbol (format "~a-~a" var-name count)))
-         (type->sat elem sym)))
-     ((inst foldl Any) (λ((elem : Any)
-                          (accum : Any))
-                         `(and ,elem
-                               ,accum))
-                       #t
-                       subelems)]
-    [(TVector elems)
-     (define subelems
-       (for/list ([elem elems]
-                  [count (in-naturals)]) : (Listof Any)
-         (define sym (string->symbol (format "~a-~a" var-name count)))
-         (type->sat elem sym)))
-     ((inst foldl Any) (λ((elem : Any)
-                          (accum : Any))
-                         `(and ,elem
-                               ,accum))
-                       (string->symbol (format "~a-vec-~a" var-name (length elems)))
-                       subelems)]
+    [(TFail t) `(and ,(string->symbol (format "~a-fail-~a" var-name t))
+                     ,(string->symbol (format "~a-fail" var-name)))]
     [(TUnion x y) `(or ,(type->sat x var-name)
                        ,(type->sat y var-name))]
     [(TIntersect x y) `(and ,(type->sat x var-name)
                             ,(type->sat y var-name))]
-    [(TNegate x) `(not ,(type->sat x var-name))]))
+    [(TNegate x) `(not ,(type->sat x var-name))]
+    [type
+     `(and (not ,(string->symbol (format "~a-fail" var-name)))
+           ,(match type
+              [(TBin) (string->symbol (format "~a-bin" var-name))]
+              [(TNat) ; a Nat is a union of a Bin and a NonBinNat
+               `(or ,(string->symbol (format "~a-bin" var-name))
+                    ,(string->symbol (format "~a-nbin" var-name)))]
+              [(TAny) ; always true
+               `(not ,(string->symbol (format "~a-fail" var-name)))]
+              [(TNone) ; always false
+               #f]
+              [(TBytes n) (string->symbol (format "~a-bytes-~a" var-name n))]
+              [(TVectorof t n) (type->sat (TVector (make-list n t)) var-name)]
+              [(TVectorEtc elems)
+               (define subelems
+                 (for/list ([elem elems]
+                            [count (in-naturals)]) : (Listof Any)
+                   (define sym (string->symbol (format "~a-~a" var-name count)))
+                   (type->sat elem sym)))
+               ((inst foldl Any) (λ((elem : Any)
+                                    (accum : Any))
+                                   `(and ,elem
+                                         ,accum))
+                                 #t
+                                 subelems)]
+              [(TVector elems)
+               (define subelems
+                 (for/list ([elem elems]
+                            [count (in-naturals)]) : (Listof Any)
+                   (define sym (string->symbol (format "~a-~a" var-name count)))
+                   (type->sat elem sym)))
+               ((inst foldl Any) (λ((elem : Any)
+                                    (accum : Any))
+                                   `(and ,elem
+                                         ,accum))
+                                 (string->symbol (format "~a-vec-~a" var-name (length elems)))
+                                 subelems)]))]))
 
 #|
 (define (subtype-of? t1 t2)
@@ -176,7 +181,7 @@ Idea for indexing:
   ; [Nat, Nat]
   (define U (TVector (list (TNat) (TNat))))
   ; U <: T ? 
-  (time (subtype-of? T U))
+  (time (subtype-of? (TNat) (TAny)))
   )
 
 #|

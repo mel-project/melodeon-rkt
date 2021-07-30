@@ -15,10 +15,10 @@
 
 (define (sat->csp/inner sat)
   (match sat
-    [(? boolean? b)
-     (cons (make-csp (list (var (if b 'true 'false) (list b)))
-                     (list (constraint (list (if b 'true 'false)) (λ(_) b))))
-           (if b 'true 'false))]
+    [#f
+     (cons (make-csp (list (var 'false (list #f)))
+                     empty)
+           'true)]
     [`(not ,a)
      (match-define (cons a-csp a-sym) (sat->csp/inner a))
      (define node (gensym 'not))

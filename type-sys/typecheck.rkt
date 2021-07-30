@@ -296,5 +296,5 @@ def trip(x: Nat) = [x, x, x]
 if x is [Nat, Nat] then
     trip(dup(x[0])[0] * 100)[0]
 else
-    dup(x[1])[1]) + 1
+    dup(x[2])[1]) + 1
 "))))))

@@ -4,7 +4,8 @@
          "types.rkt"
          "resolver.rkt"
          "../typed-ast.rkt"
-         "typecheck-helpers.rkt")
+         "typecheck-helpers.rkt"
+         "typecheck-unify.rkt")
 (require racket/hash)
 (provide @-transform)
 
@@ -246,7 +247,7 @@
            [other (context-error "non-literal index ~a not yet supported" other)]))
        (match-define (cons $val _) (@->$ val type-scope))
        (cons
-        ($-Ast (tindex ($type $val)
+        ($-Ast (type-index ($type $val)
                 idx)
                ($index $val ($-Ast (TNat) ($lit-num idx))))
         tf-empty)]

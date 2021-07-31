@@ -25,6 +25,9 @@
                     (y : Type)) #:transparent)
 (struct TNegate ((x : Type)) #:transparent)
 
+;; Represents a type variable
+(struct TVar ((label : Symbol)) #:transparent)
+
 (struct TNone () #:transparent)
 
 ;; Represents a unique "fail" type that contains no values, cannot be constructed, etc. This is used internally to indicate a "bad" type.
@@ -59,7 +62,8 @@
                      TFail
                      TVectorEtc
                      TNegate
-                     TBytes))
+                     TBytes
+                     TVar))
 
 (define Type? (make-predicate Type))
 
@@ -71,6 +75,7 @@
     [(TNat) "Nat"]
     [(TBin) "Bin"]
     [(TAny) "Any"]
+    [(TVar s) (format "'~a" s)]
     [(TFail s) (format "Fail[~a]" s)]
     [(TTagged tag types) (define type-strs (map type->string types))
                            (string-append "["

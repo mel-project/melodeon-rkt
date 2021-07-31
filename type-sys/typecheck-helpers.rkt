@@ -6,59 +6,6 @@
          racket/hash)
 (provide (all-defined-out))
 
-;; Given a type and a type->type function, creates another type, made through invoking the given function only with non-logical types. This is used for generic type inference, vector indexing, etc.
-(: type-inner-map (-> Type (-> Type Type) Type))
-(define (type-inner-map type type-deconstruct)
-  (: clause-map (-> (Setof Type) Type))
-  (define (clause-map clause)
-    (foldl (λ((type : Type)
-              (accum : Type))
-             (TIntersect (type-deconstruct type) accum))
-           (TAny)
-           (set->list clause)))
-  ;; break down into dnf
-  (define dnf (type->dnf type))
-  (displayln (dnf->string dnf))
-  (foldl (λ((clause : (Setof Type))
-            (t : Type))
-           (TUnion (clause-map clause)
-                   t))
-         (TNone)
-         (set->list dnf)))
-
-;; Given a type and an index, gets the output type
-(: tindex (-> Type Nonnegative-Integer Type))
-(define (tindex vector-type idx)
-  (: inner (-> Type Type))
-  (define (inner vector-type)
-    (match vector-type
-      [(TVector lst) (if (>= idx (length lst))
-                         (gen-tfail vector-type)
-                         (list-ref lst idx))]
-      [(TVectorof t n) (if (>= idx n)
-                           (gen-tfail vector-type)
-                           t)]
-      [(TBytes n) (if (>= idx n)
-                      (gen-tfail vector-type)
-                      (TNat))]
-      ;; set theory types
-      [(TNegate t) (TNegate (inner t))]
-      [(TUnion t u) (TUnion (inner t)
-                            (inner u))]
-      [(TIntersect t u) (TIntersect (inner t)
-                                    (inner u))]
-      ;; unindexable types
-      [(TNone) (TNone)]
-      [(TNat) (TUnion (gen-tfail (TBin))
-                      (TFail 'baba))]
-      [_ (gen-tfail vector-type)]))
-  ;; check that it's not a fail type
-  (let ([res (inner vector-type)])
-    (if (subtype-of? res (TAny))
-        res
-        (context-error "cannot index into position ~a of ~a"
-                       idx
-                       (type->string vector-type)))))
 
 ;; Converts from TVector to TVectorof
 (: to-tvector (-> (U TVectorof TVector) TVector))

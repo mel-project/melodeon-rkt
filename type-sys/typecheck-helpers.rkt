@@ -46,6 +46,15 @@
             
   )
 
+; The inner type is just the union of all
+; types in the type vector
+(: tvector-inner-type (-> TVector Type))
+(define (tvector-inner-type tvec)
+  (define v (TVector-lst tvec))
+  (foldl (λ((t : Type) (acc : Type)) (TUnion t acc))
+         (car v)
+         (cdr v)))
+
 ;; Converts from TVector to TVectorof
 (: to-tvector (-> (U TVectorof TVector) TVector))
 (define (to-tvector tvec)

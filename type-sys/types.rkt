@@ -25,7 +25,24 @@
                     (y : Type)) #:transparent)
 (struct TNegate ((x : Type)) #:transparent)
 
+;; Represents a type variable
+(struct TVar ((label : Symbol)) #:transparent)
+
 (struct TNone () #:transparent)
+
+;; Represents a unique "fail" type that contains no values, cannot be constructed, etc. This is used internally to indicate a "bad" type.
+(struct TFail ((label : Symbol)) #:transparent)
+
+;; Generates a TFail corresponding to the given object.
+(: gen-tfail (-> Any TFail))
+(define gen-tfail
+  (let ([cache : (HashTable Any TFail) (make-hash)])
+    (lambda ((val : Any))
+      (cond
+        [(hash-has-key? cache val) (hash-ref cache val)]
+        [else (define obj (TFail (gensym)))
+              (hash-set! cache val obj)
+              obj]))))
 
 ; Represents a custom defined product type that is distinct by its name
 (struct TTagged ((tag : Symbol)
@@ -42,9 +59,11 @@
                      TUnion
                      TIntersect
                      TNone
+                     TFail
                      TVectorEtc
                      TNegate
-                     TBytes))
+                     TBytes
+                     TVar))
 
 (define Type? (make-predicate Type))
 
@@ -52,9 +71,12 @@
 (: type->string (-> Type String))
 (define (type->string type)
   (match type
+    [(TNone) "None"]
     [(TNat) "Nat"]
     [(TBin) "Bin"]
     [(TAny) "Any"]
+    [(TVar s) (format "'~a" s)]
+    [(TFail s) (format "Fail[~a]" s)]
     [(TTagged tag types) (define type-strs (map type->string types))
                            (string-append "["
                                           (symbol->string tag)

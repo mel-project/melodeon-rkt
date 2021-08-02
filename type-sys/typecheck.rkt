@@ -4,7 +4,8 @@
          "types.rkt"
          "resolver.rkt"
          "../typed-ast.rkt"
-         "typecheck-helpers.rkt")
+         "typecheck-helpers.rkt"
+         "typecheck-unify.rkt")
 (require racket/hash)
 (provide @-transform)
 
@@ -262,7 +263,7 @@
            [other (context-error "non-literal index ~a not yet supported" other)]))
        (match-define (cons $val _) (@->$ val type-scope))
        (cons
-        ($-Ast (tindex ($type $val)
+        ($-Ast (type-index ($type $val)
                 idx)
                ($index $val ($-Ast (TNat) ($lit-num idx))))
         tf-empty)]
@@ -312,5 +313,5 @@ def trip(x: Nat) = [x, x, x]
 if x is [Nat, Nat] then
     trip(dup(x[0])[0] * 100)[0]
 else
-    dup(x[1])[1]) + 1
+    dup(x[2])[1]) + 1
 "))))))

@@ -138,6 +138,9 @@
                     ;; vector update
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> FAT-ARROW <terminal-expr> CLOSE-BRACKET)
                      (pos-lift 1 6 `(@update ,$1 ,$3 ,$5)))
+                    ;; custom type instantiation
+                    ((TYPE OPEN-BRACE <multi-exprs> CLOSE-BRACE)
+                     (pos-lift 1 3 `(@instantiate ,$1 ,$3)))
                     ;; type guards
                     ((<apply-expr> IS <type-expr>) (pos-lift 1 3 `(@is ,$1 ,$3)))
                     ((<terminal-expr>) $1))

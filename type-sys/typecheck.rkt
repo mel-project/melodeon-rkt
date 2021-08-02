@@ -111,6 +111,17 @@
                                     (hash-ref tsfacts variable)]
                                    [else tf-empty])))]
       ;[`(@lit-bytes ,bts) (list (TBytes (bytes-length bts)) (hash))]
+      [`(@instantiate ,type-name ,args)
+        (let ([type (lookup-type-var type-scope type-name)])
+          (cons (match type
+            [`(@type-struct ,_ ,params)
+              (let ([param-types (map (λ (texpr) (resolve-type texpr types-map))
+                                      (map cadr args))])
+                ($-Ast (TVector (cons TNat param-types))
+                       ($lit-vec (map cadr args))))]
+            [_ (context-error "~a is not a custom type which can be
+                              instantiated." type-name)])
+            tf-empty))]
       ;; misc
       [`(@extern ,var) (cons ($-Ast (TAny)
                                     ($extern var)) tf-empty)]

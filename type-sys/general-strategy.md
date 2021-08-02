@@ -16,7 +16,7 @@ We'd like the above code to typecheck properly. A naive approach where `x is Nat
 
 In other words, we need a way to infer that given `x : Nat | Bytes[5]` and that `x : Nat` is false, `x : Bytes[5]`. There are several ways we can do this:
 
-1. **Full set operators in types**: We can just add intersection and negation types. Then, we can infer that `x : (Nat | Bytes[5]) & ~Nat`. By using a SAT-solving subtype checker, this ugly type is a subtype of `Nat`, and everyone is happy.
+1. **Full set operators in types**: We can just add intersection and negation types. Then, we can infer that `x : (Nat | Bytes[5]) & ~Nat`. By using a SAT-solving subtype checker, this ugly type is a subtype of `Bytes[5]`, and everyone is happy.
 
 - Pros: highly elegant conceptually. Types are just sets/boolean expressions. Other parts of the compiler (like occurrence typing) can just throw work to the typechecker, which throws work to a SAT solver.
 - Cons: **inference** becomes extremely tricky. How do you index into the third element of `([Nat * 3] | [Nat * 2]) & ~[Any * 2]`? Expressing this as a boolean formula isn't very helpful, because it will contain quantifiers.

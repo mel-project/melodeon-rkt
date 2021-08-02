@@ -19,7 +19,9 @@
 (: generate-mil (-> $program Any))
 (define (generate-mil prgrm)
   ;; TODO generate fns
-  (generate-mil-expr ($program-expr prgrm)))
+  (append
+    (map generate-mil-def ($program-fun-defs prgrm))
+    (list (generate-mil-expr ($program-expr prgrm)))))
 
 ;; turns a Melodeon $-ast to mil
 (: generate-mil-expr (-> $-Ast Any))
@@ -58,8 +60,8 @@
                     [(TVectorof _ count) count]
                     [(TVector v) (length v)]
                     [(TBytes b) b])]
-           [counter (gensym 'fori)]
-           [tempvec (gensym 'forv)])
+           [counter (gensym 'i)]
+           [tempvec (gensym 'v)])
        `(let (,counter 0 ,tempvec ,(generate-mil-expr vec-val))
           (loop ,count (set-let ()
                                 (set! ,tempvec (v-from ,tempvec ,counter
@@ -79,14 +81,16 @@
     [($loop n body) `(loop ,n ,(generate-mil-expr body))]
     [other (error "invalid $-ast" other)]))
 
-#|
-(: generate-mil-defs (-> Definition Any))
-(define (generate-mil-defs def)
+(: generate-mil-def (-> $fndef Any))
+(define (generate-mil-def def)
   (match def
-    [`(@def-var ,var ,expr) `(gl ,(mangle-sym var) ,(generate-mil expr))]
-    [`(@def-fun ,var ,args ,_ ,expr)
-     `(fn ,(mangle-sym var) ,(map mangle-sym (map (inst car Symbol Any) args)) ,(generate-mil expr))]))
-|#
+    [($fndef name binds body)
+     `(fn ,(mangle-sym name)
+          ,(map mangle-sym (map (inst car Symbol Any) binds))
+          ,(generate-mil-expr body))]))
+    ; TODO mil does not have globals
+    ;[($vardef var expr)
+    ; `(gl ,(mangle-sym var) ,(generate-mil expr))]
 
 ;; generates code for equality
 (: generate-eq-mil (-> $-Ast $-Ast Any))

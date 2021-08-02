@@ -1,11 +1,11 @@
 #lang racket
-(require csp)
-;(require memo)
+;(require csp)
+(require memo)
 (provide sat-solve)
 
 (define (sat-solve sat)
   ;(pretty-write sat)
-  (sat-solve/csp sat))
+  (sat-solve/fast sat))
 
 
 (define (sat-solve/fast sat)
@@ -34,13 +34,15 @@
     [`(not (not ,x)) (into-dnf x)]
     [x (set (set x))]))
 
-
+#|
 
 (define (sat-solve/csp sat)
   ;(pretty-write sat)
   (define csp (sat->csp sat))
   ;(pretty-write csp)
   (define res (solve csp))
+  (when res
+    (pretty-write res))
   res)
 
 
@@ -201,4 +203,4 @@
                                                                 x-0-nbin))))
                                               (and (not x-0-fail) #f))))
                                   x-vec-3))))))
-        (and (not x-fail) (not x-fail)))))
+        (and (not x-fail) (not x-fail)))))|#

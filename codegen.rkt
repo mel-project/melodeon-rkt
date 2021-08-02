@@ -15,74 +15,82 @@
   ; do nothing atm
   melo-sym)
 
-;; turns a Melodeon $-ast to mil
+; generates a top-level program into mil code
 (: generate-mil (-> $program Any))
-(define (generate-mil $-ast)
+(define (generate-mil prgrm)
   ;; TODO generate fns
+  (append
+    (map generate-mil-def ($program-fun-defs prgrm))
+    (list (generate-mil-expr ($program-expr prgrm)))))
 
-  (match ($program-expr $-ast)
+;; turns a Melodeon $-ast to mil
+(: generate-mil-expr (-> $-Ast Any))
+(define (generate-mil-expr $-ast)
+  (match ($-Ast-node $-ast)
     ;; let bindings
     [($let var-name var-value body)
-     `(let (,(mangle-sym var-name) ,(generate-mil var-value)) ,(generate-mil body))]
+     `(let (,(mangle-sym var-name) ,(generate-mil-expr var-value)) ,(generate-mil-expr body))]
     ;; binary ops
     [($bin op x y)
-     `(,op ,(generate-mil x) ,(generate-mil y))]
+     `(,op ,(generate-mil-expr x) ,(generate-mil-expr y))]
     [($eq x y) ; equality generation is special because it's type-dependent
      (generate-eq-mil x y)]
     [($var varname) (mangle-sym varname)]
     [($lit-num n) n]
-    [($lit-vec vv) `(vector . ,(map generate-mil vv))]
+    [($lit-vec vv) `(vector . ,(map generate-mil-expr vv))]
 
     ;; other stuff
-    [($apply fun args) `(,(mangle-sym fun) . ,(map generate-mil args))]
+    [($apply fun args) `(,(mangle-sym fun) . ,(map generate-mil-expr args))]
     [($append x y) `(,(match ($-Ast-type x)
                         [(TVectorof _ _) 'v-concat]
                         [(TVector _) 'v-concat]
                         [(TBytes _) 'b-concat])
-                        ,(generate-mil x)
-                        ,(generate-mil y))]
+                        ,(generate-mil-expr x)
+                        ,(generate-mil-expr y))]
     [($index vec idx) `(,(match ($-Ast-type vec)
                            [(TVectorof _ _) 'v-get]
                            [(TVector _) 'v-get]
-                           [(TBytes _) 'b-concat]) ,(generate-mil vec)
-                                                   ,(generate-mil idx))]
-    [($if x y z) `(if ,(generate-mil x)
-                      ,(generate-mil y)
-                      ,(generate-mil z))]
+                           [(TBytes _) 'b-concat]) ,(generate-mil-expr vec)
+                                                   ,(generate-mil-expr idx))]
+    [($if x y z) `(if ,(generate-mil-expr x)
+                      ,(generate-mil-expr y)
+                      ,(generate-mil-expr z))]
     [($for expr var-name vec-val)
      (let ([count (match ($-Ast-type vec-val)
                     [(TVectorof _ count) count]
                     [(TVector v) (length v)]
                     [(TBytes b) b])]
-           [counter (gensym 'fori)]
-           [tempvec (gensym 'forv)])
-       `(let (,counter 0 ,tempvec ,(generate-mil vec-val))
+           [counter (gensym 'i)]
+           [tempvec (gensym 'v)])
+       `(let (,counter 0 ,tempvec ,(generate-mil-expr vec-val))
           (loop ,count (set-let ()
                                 (set! ,tempvec (v-from ,tempvec ,counter
                                                        (let (,var-name (v-get ,tempvec iter))
-                                                         ,(generate-mil expr))))
+                                                         ,(generate-mil-expr expr))))
                                 (set! ,counter (+ ,counter 1))))
           ,tempvec)
        )]
     [($is expr type)
      (define tmpsym (gensym 'is))
-     `(let (,tmpsym ,(generate-mil expr))
+     `(let (,tmpsym ,(generate-mil-expr expr))
         ,(generate-is type tmpsym))]
     [($lit-bytes bts) (string->symbol
                         (string-append "0x"
                                        (bytes->hex-string bts)))]
-    [($block inner) `(let () . ,(map generate-mil inner))]
-    [($loop n body) `(loop ,n ,(generate-mil body))]
-    [other (error "invalid @-ast" other)]))
+    [($block inner) `(let () . ,(map generate-mil-expr inner))]
+    [($loop n body) `(loop ,n ,(generate-mil-expr body))]
+    [other (error "invalid $-ast" other)]))
 
-#|
-(: generate-mil-defs (-> Definition Any))
-(define (generate-mil-defs def)
+(: generate-mil-def (-> $fndef Any))
+(define (generate-mil-def def)
   (match def
-    [`(@def-var ,var ,expr) `(gl ,(mangle-sym var) ,(generate-mil expr))]
-    [`(@def-fun ,var ,args ,_ ,expr)
-     `(fn ,(mangle-sym var) ,(map mangle-sym (map (inst car Symbol Any) args)) ,(generate-mil expr))]))
-|#
+    [($fndef name binds body)
+     `(fn ,(mangle-sym name)
+          ,(map mangle-sym (map (inst car Symbol Any) binds))
+          ,(generate-mil-expr body))]))
+    ; TODO mil does not have globals
+    ;[($vardef var expr)
+    ; `(gl ,(mangle-sym var) ,(generate-mil expr))]
 
 ;; generates code for equality
 (: generate-eq-mil (-> $-Ast $-Ast Any))

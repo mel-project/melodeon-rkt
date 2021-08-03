@@ -69,6 +69,16 @@
          (cdr l)))
 |#
 
+; Convert a string to the sum of its ascii
+; character encodings
+(: string->uint (-> String Nonnegative-Integer))
+(define (string->uint s)
+  (foldl (λ ((c : Char) (acc : Nonnegative-Integer))
+            ;(ann (char->integer c) Nonnegative-Integer))
+            (+ acc (char->integer c)))
+         0
+         (string->list s)))
+
 ;(: @-ast->type/inner (-> @-Ast Type-Scope (List (Option Type) Type-Facts)))
 
 (: @-ast->type/inner (-> @-Ast Type-Scope (List Type Type-Facts)))
@@ -133,10 +143,12 @@
 
                 ($-Ast (TVector (cons (TNat) types))
                        ($lit-vec (cons
-                                   ($-Ast (TNat) ($lit-num 0))
+                                   ($-Ast
+                                     (TNat)
+                                     ($lit-num (string->uint
+                                                 (symbol->string type-name))))
                                    (map (λ ((x : (Pairof $-Ast Type-Map))) : $-Ast
                                            (car x)) $args)))))]
-                       ;($lit-vec (map (λ ((x : (List Symbol Type))) : Type (cadr x)) args)))]
             [_ (context-error "~a is not a custom type which can be instantiated."
                               type-name)])
             tf-empty))]

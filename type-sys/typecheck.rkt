@@ -15,9 +15,8 @@
   (match (dectx ast)
     [`(@program ,definitions
                 ,body)
-     ; Stupid, mutation-based approach
-     ;(define type-scope ts-empty)
      (define type-scope (definitions->scope definitions))
+     ; Stupid, mutation-based approach
      (: $definitions (Listof $fndef))
      (define $definitions '())
      (: $vardefs (Listof $vardef))
@@ -41,15 +40,6 @@
             (context-error "function ~a annotated with return type ~a but actually returns ~a"
                            (type->string ret-type)
                            (type->string ($-Ast-type $body))))
-          #|
-          (set! type-scope (bind-fun type-scope
-                                     name
-                                     (TFunction
-                                      (map (λ((x : Type-Expr)) (resolve-type x (Type-Scope-type-vars type-scope)))
-                                           (map (λ((x : (List Symbol Type-Expr)))
-                                                  (second x)) args-with-types))
-                                      ($-Ast-type $body))))
-          |#
           (set! $definitions (cons ($fndef name
                                            (map (λ((x : (List Symbol Type-Expr)))
                                                   (list (first x)
@@ -66,6 +56,18 @@
                $vardefs
                (car (@->$ body type-scope)))]))
 
+
+; Assign a number to each element of a list
+#|
+(: enumerate (All (T) (-> (Listof T) (Listof (List Nonnegative-Integer T)))))
+(define (enumerate l)
+  (foldl (λ ((x : T) (acc : (List Nonnegative-Integer (Listof T))))
+            : (List Nonnegative-Integer T)
+            (list (+ 1 (car acc))
+                  (cons x (cadr acc))))
+         (list 0 (car l))
+         (cdr l)))
+|#
 
 ;(: @-ast->type/inner (-> @-Ast Type-Scope (List (Option Type) Type-Facts)))
 
@@ -116,20 +118,27 @@
       ;[`(@lit-bytes ,bts) (list (TBytes (bytes-length bts)) (hash))]
       [`(@instantiate ,type-name ,args)
         (let ([type (lookup-type-var type-scope type-name)])
-          (printf (format "type scope in inst check: ~a\n~a\n" type-scope type))
           (cons (match type
             ;[`(@type-struct ,_ ,params)
             [(TTagged _ types)
               (let ([$args (map (λ ((arg : @-Ast)) (@->$ arg type-scope)) args)])
-                ; TODO check that arg-types match types, or throw error
+                ; Check that arg-types match parameter types, or throw error
+                (for ([arg (map (λ ((x : (Pairof $-Ast Type-Map))) (car x)) $args)]
+                      [param-type types])
+                  (unless (equal? ($-Ast-type arg) param-type)
+                    ; TODO print the @ast for a cleaner repr, or just the index
+                    (context-error "Argument of instantiated type is of type ~a but type ~a is expected."
+                                   (type->string ($-Ast-type arg))
+                                   (type->string param-type))))
+
                 ($-Ast (TVector (cons (TNat) types))
                        ($lit-vec (cons
                                    ($-Ast (TNat) ($lit-num 0))
                                    (map (λ ((x : (Pairof $-Ast Type-Map))) : $-Ast
                                            (car x)) $args)))))]
                        ;($lit-vec (map (λ ((x : (List Symbol Type))) : Type (cadr x)) args)))]
-            [_ (context-error "~a is not a custom type which can be
-                              instantiated." type-name)])
+            [_ (context-error "~a is not a custom type which can be instantiated."
+                              type-name)])
             tf-empty))]
       ;; misc
       [`(@extern ,var) (cons ($-Ast (TAny)

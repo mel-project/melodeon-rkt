@@ -32,7 +32,7 @@
   #:transparent)
 
 ; Literal number
-(struct $lit-num 
+(struct $lit-num
   ([val : Nonnegative-Integer])
   #:transparent)
 ; Literal vector

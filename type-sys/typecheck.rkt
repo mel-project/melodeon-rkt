@@ -16,7 +16,8 @@
     [`(@program ,definitions
                 ,body)
      ; Stupid, mutation-based approach
-     (define type-scope ts-empty)
+     ;(define type-scope ts-empty)
+     (define type-scope (definitions->scope definitions))
      (: $definitions (Listof $fndef))
      (define $definitions '())
      (: $vardefs (Listof $vardef))
@@ -40,6 +41,7 @@
             (context-error "function ~a annotated with return type ~a but actually returns ~a"
                            (type->string ret-type)
                            (type->string ($-Ast-type $body))))
+          #|
           (set! type-scope (bind-fun type-scope
                                      name
                                      (TFunction
@@ -47,6 +49,7 @@
                                            (map (λ((x : (List Symbol Type-Expr)))
                                                   (second x)) args-with-types))
                                       ($-Ast-type $body))))
+          |#
           (set! $definitions (cons ($fndef name
                                            (map (λ((x : (List Symbol Type-Expr)))
                                                   (list (first x)
@@ -113,12 +116,18 @@
       ;[`(@lit-bytes ,bts) (list (TBytes (bytes-length bts)) (hash))]
       [`(@instantiate ,type-name ,args)
         (let ([type (lookup-type-var type-scope type-name)])
+          (printf (format "type scope in inst check: ~a\n~a\n" type-scope type))
           (cons (match type
-            [`(@type-struct ,_ ,params)
-              (let ([param-types (map (λ (texpr) (resolve-type texpr types-map))
-                                      (map cadr args))])
-                ($-Ast (TVector (cons TNat param-types))
-                       ($lit-vec (map cadr args))))]
+            ;[`(@type-struct ,_ ,params)
+            [(TTagged _ types)
+              (let ([$args (map (λ ((arg : @-Ast)) (@->$ arg type-scope)) args)])
+                ; TODO check that arg-types match types, or throw error
+                ($-Ast (TVector (cons (TNat) types))
+                       ($lit-vec (cons
+                                   ($-Ast (TNat) ($lit-num 0))
+                                   (map (λ ((x : (Pairof $-Ast Type-Map))) : $-Ast
+                                           (car x)) $args)))))]
+                       ;($lit-vec (map (λ ((x : (List Symbol Type))) : Type (cadr x)) args)))]
             [_ (context-error "~a is not a custom type which can be
                               instantiated." type-name)])
             tf-empty))]
@@ -308,8 +317,81 @@
           [`(@var ,var)
            (make-immutable-hash `((,var . ,(resolve-type type types-map))))]
           [else tf-empty]))]
-      ;; TODO: desugar comprehensions
       )))
+
+(: empty-ts Type-Scope)
+(define empty-ts (Type-Scope (hash) (hash) (hash) (hash)))
+
+; Read a Definition ast node and if a struct definition,
+; add to the given type map. The given type map is also
+; used to potentitally resolve type variables in the struct.
+(: add-struct-def (-> Definition Type-Map Type-Map))
+(define (add-struct-def def env)
+  (match def
+    [`(@def-struct ,name ,fields)
+      (hash-set
+        env
+        name
+        (TTagged
+          name
+          (map (lambda ([x : (List Symbol Type-Expr)])
+                 (resolve-type (cadr x) env))
+               fields)))]
+    [_ (make-immutable-hash '())]))
+
+; takes a Type-Scope rather than just one map because
+; types may need to be resolved and the function-scope
+; should also be added to.
+(: add-fun-def (-> Definition Type-Scope Type-Scope))
+(define (add-fun-def def accum)
+  (match def
+    [`(@def-fun ,name
+                ,args-with-types
+                ,return-type
+                ,body)
+     (define inner-type-scope
+       (foldl (λ((x : (List Symbol Type-Expr))
+                 (ts : Type-Scope))
+                (bind-var ts (first x)
+                          (resolve-type (second x) (Type-Scope-type-vars accum))))
+              accum
+              args-with-types))
+     (match-define (cons $body _) (@->$ body inner-type-scope))
+     (define ret-type (if return-type
+                          (resolve-type return-type (Type-Scope-type-vars accum))
+                          ($-Ast-type $body)))
+     (unless (subtype-of? ($-Ast-type $body) ret-type)
+       (context-error "function ~a annotated with return type ~a but actually returns ~a"
+                      (type->string ret-type)
+                      (type->string ($-Ast-type $body))))
+     (bind-fun accum
+       name
+       (TFunction
+        (map (λ((x : Type-Expr))
+               (resolve-type x (Type-Scope-type-vars accum)))
+             (map (λ((x : (List Symbol Type-Expr)))
+                    (second x)) args-with-types))
+        ($-Ast-type $body)))]
+    [_ empty-ts]))
+
+(: add-def-var (-> Definition Type-Scope Type-Scope))
+(define (add-def-var def accum)
+  (match def
+    [`(@def-var ,var ,expr)
+      (bind-var accum var (first (@-ast->type/inner expr accum)))]
+    [_ empty-ts]))
+
+(: definitions->scope (-> (Listof Definition) Type-Scope))
+(define (definitions->scope defs)
+  (let ([struct-defs (foldl add-struct-def (Type-Scope-type-vars empty-ts) defs)]
+        [var-defs (foldl add-def-var empty-ts defs)]
+        ;[alias-defs (foldl add-alias-def defs)]
+        [fun-defs (foldl add-fun-def empty-ts defs)])
+    (foldl
+      (lambda ((x : (Pairof Symbol Type)) (scope : Type-Scope))
+        (bind-type-var scope (car x) (cdr x)))
+      (ts-union fun-defs var-defs)
+      (hash->list struct-defs))))
 
 (module+ test
   (require "../parser.rkt")

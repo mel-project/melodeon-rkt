@@ -1,7 +1,6 @@
 #lang racket/base
 
 (require rackunit
-         "../common.rkt"
          "../parser.rkt"
          "../typed-ast.rkt"
          "types.rkt"

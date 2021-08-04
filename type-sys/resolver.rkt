@@ -139,6 +139,8 @@ Idea for indexing:
                                          ,accum))
                                  #t
                                  subelems)]
+              [(TTagged _ elems)
+               (type->sat (TVector (cons (TNat) elems)) var-name)]
               [(TVector elems)
                (define subelems
                  (for/list ([elem elems]

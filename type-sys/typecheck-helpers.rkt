@@ -180,6 +180,12 @@
     [`(@type-union ,x ,y)
      (TUnion (resolve-type x env)
              (resolve-type y env))]
+    [`(@type-struct ,name ,fields)
+      (TTagged
+        name
+        (map (lambda ([x : (List Symbol Type-Expr)])
+               (resolve-type (cadr x) env))
+             fields))]
     [_ (error "wtf man" texpr)]
     ))
 

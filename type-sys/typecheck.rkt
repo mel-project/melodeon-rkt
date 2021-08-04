@@ -7,7 +7,6 @@
          "typecheck-helpers.rkt"
          "typecheck-unify.rkt")
 (require racket/hash)
-(require (only-in typed/racket [map orig:foldl]))
 (require typed-map)
 
 (provide @-transform)
@@ -19,12 +18,17 @@
     [`(@program ,definitions
                 ,body)
      (define type-scope (definitions->scope definitions))
+     ; Generate accessor fns for all struct types defined
+     (define accessor-fn-defs
+       (flatten1 (map generate-accessors
+                      (filter struct-def? definitions))))
+
      ; Stupid, mutation-based approach
      (: $definitions (Listof $fndef))
      (define $definitions '())
      (: $vardefs (Listof $vardef))
      (define $vardefs '())
-     (for ([definition definitions])
+     (for ([definition (append definitions accessor-fn-defs)])
        (match definition
          [`(@def-fun ,name
                      ,args-with-types
@@ -61,22 +65,23 @@
 
 ; When given a @def-struct, generates a list of @def-fun's
 ; to access every field of the struct.
-#|
 (: generate-accessors (-> Definition (Listof Definition)))
 (define (generate-accessors def)
   (match def
     [`(@def-struct ,struct-name ,binds)
-      (map (λ ((tuple : (List Nonnegative-Integer (List Symbol Type-Expr))))
+      (define sym-x (gensym 'x))
+      (map (λ ((tuple : (List Integer (List Symbol Type-Expr))))
               (match-define (cons i (cons field texpr)) tuple)
               `(@def-fun
                  ; TODO mangle
-                 ,(format "~a-~a" struct-name field)
-                 ;,(list (list 'x `(@type-struct ,struct-name ,binds)))
-                 ((x `(@type-struct ,struct-name ,binds)))
-                 (@index (@var x) ,i)))
+                 ,(string->symbol (format "~a-~a" struct-name (car field)))
+                 ((,sym-x (@type-struct ,struct-name ,binds)))
+                 #f
+                 ; TODO REPLACE THIS LINE WITH THE ONE BELOW
+                 ;(@var ,sym-x)))
+                 (@index (@var ,sym-x) (@lit-num ,(cast i Nonnegative-Integer)))))
                  (enumerate binds))]
     [_ '()]))
-|#
 
 ; Assign a number to each element of a list
 (: enumerate (All (T) (-> (Listof T) (Listof (List Integer T)))))
@@ -153,7 +158,6 @@
       [`(@instantiate ,type-name ,args)
         (let ([type (lookup-type-var type-scope type-name)])
           (cons (match type
-            ;[`(@type-struct ,_ ,params)
             [(TTagged _ types)
               (let ([$args (map (λ ((arg : @-Ast)) (@->$ arg type-scope)) args)])
                 ; Check that arg-types match parameter types, or throw error
@@ -381,11 +385,7 @@
       (bind-type-var
         env
         name
-        (TTagged
-          name
-          (map (lambda ([x : (List Symbol Type-Expr)])
-                 (resolve-type (cadr x) (Type-Scope-type-vars env)))
-               fields)))]
+        (resolve-type `(@type-struct ,name ,fields) (Type-Scope-type-vars env)))]
     [_ env]))
 
 ; takes a Type-Scope rather than just one map because

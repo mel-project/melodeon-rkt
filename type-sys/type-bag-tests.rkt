@@ -14,3 +14,8 @@
                             (type->bag (TBytes 3)))
               (type->bag (TUnion (TUnion (TNat) (TBytes 1))
                                  (TBytes 5))))
+
+(bag-subtract (type->bag (TUnion (TVectorof (TNat) 2)
+                                 (TVectorof (TUnion (TNat)
+                                                    (TBytes 3)) 3)))
+              (type->bag (TVectorof (TAny) 3)))

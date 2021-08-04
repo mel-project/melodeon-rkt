@@ -4,7 +4,8 @@
          racket/hash)
 (provide type->bag
          Type-Bag
-         bag-subtract)
+         bag-subtract
+         )
 
 (define-type Bag-Case (HashTable Prim-Index Prim-Type))
 
@@ -57,15 +58,13 @@
 ;; Cleans up a bag, by removing all empty elements
 (: bag-cleanup (-> Type-Bag Type-Bag))
 (define (bag-cleanup bag)
-  (Type-Bag
-   (for/set ([inner (Type-Bag-inner bag)]
-             #:when (not (hash-empty? inner))) : (Setof Bag-Case)
-     inner)))
+  bag)
 
 (: type->bag/raw (-> Type Prim-Index Type-Bag))
 (define (type->bag/raw type idx)
   (match type
     ; primitives
+    [(TAny) (Type-Bag (set (ann (hash) Bag-Case)))]
     [(TNat) (Type-Bag (set (hash idx (PNat))))]
     ; vectors: pairwise
     [(TBytes n) (Type-Bag (set (cast
@@ -93,21 +92,54 @@
 (define (bag-subtype-of? t u)
   ; trivial case: it's just a subset
   ; does this always work?
+  ; no it doesn't, haha
   (subset? (Type-Bag-inner t)
            (Type-Bag-inner u)))
+
+(: set-union* (All (a) (-> (Setof (Setof a)) (Setof a))))
+(define (set-union* sets)
+  (for/fold ([accum (ann (set) (Setof a))])
+            ([one-set sets]) : (Setof a)
+    (set-union accum one-set)))
 
 ;; Subtracts two bags. Removes all cases from b1 that are subsets of all cases of b2.
 (: bag-subtract (-> Type-Bag Type-Bag Type-Bag))
 (define (bag-subtract b1 b2)
-  (bag-cleanup
-   (Type-Bag
-    (for/set ([case (Type-Bag-inner b1)]) : (Setof Bag-Case)
-      (for/fold ([accum case])
-                ([their-case (Type-Bag-inner b2)]) : Bag-Case
-        (case-subtract accum their-case))))))
+  ; subtract all cases in b2 from every case in b1
+  (Type-Bag
+   (for/fold ([outer-accum (ann (set) (Setof Bag-Case))])
+             ([b1-case (Type-Bag-inner b1)]) : (Setof Bag-Case)
+     (set-union outer-accum 
+                (set-union*
+                 (for/set ([b2-case (Type-Bag-inner b2)]) : (Setof (Setof Bag-Case))
+                   (case-subtract b1-case b2-case)))))))
 
-(: case-subtract (-> Bag-Case Bag-Case Bag-Case))
-(define (case-subtract c1 c2)
-  (for/hash ([(k v) c1]
-             #:when (not (equal? (hash-ref c2 k #f) v))) : Bag-Case
-    (values k v)))
+
+
+(: case-subtract (-> Bag-Case Bag-Case (Setof Bag-Case)))
+(define (case-subtract c d)
+  ; for every term in d, subtract that from every term in c
+  (cast 
+   (set-remove 
+    (for/set ([(d-term-k d-term-v) d]) : (Setof (Option Bag-Case))
+      (with-handlers ([exn:fail? (λ _ #f)])
+        (for/fold ([accum (ann (hash) Bag-Case)])
+                  ([(c-term-k c-term-v) c]) : Bag-Case
+          (let ([subtracted (term-subtract (cons c-term-k c-term-v)
+                                           (cons d-term-k d-term-v))])
+            (if subtracted (hash-set accum
+                                     (car subtracted)
+                                     (cdr subtracted))
+                (error "fail now"))))))
+    #f)
+   (Setof Bag-Case)))
+
+(: term-subtract (-> (Pair Prim-Index Prim-Type)
+                     (Pair Prim-Index Prim-Type)
+                     (Option (Pair Prim-Index Prim-Type))))
+(define (term-subtract term-1 term-2)
+  (cond
+    ; if the terms are identical, fail. that's pretty obvious
+    [(equal? term-1 term-2) #f]
+    ; otherwise, we conservatively no-op it
+    [else term-1]))

@@ -6,7 +6,9 @@
          "../typed-ast.rkt"
          "typecheck-helpers.rkt"
          "typecheck-unify.rkt")
+(require (only-in typed/racket [map orig:foldl]))
 (require racket/hash)
+
 (provide @-transform)
 
 ;; Entry point: transforms a whole program
@@ -71,10 +73,14 @@
 
 ; Convert a string to the sum of its ascii
 ; character encodings
-(: string->uint (-> String Nonnegative-Integer))
+;(: string->uint (-> String Nonnegative-Integer))
+(: string->uint (-> String Integer))
 (define (string->uint s)
-  (foldl (λ ((c : Char) (acc : Nonnegative-Integer))
+  ;(foldl (λ ((c : Char) (acc : Nonnegative-Integer))
+  (foldl (λ ((c : Char) (acc : Integer))
+  ;(foldl (λ (c acc)
             ;(ann (char->integer c) Nonnegative-Integer))
+            ;(cast (+ acc (char->integer c)) Nonnegative-Integer))
             (+ acc (char->integer c)))
          0
          (string->list s)))
@@ -145,8 +151,9 @@
                        ($lit-vec (cons
                                    ($-Ast
                                      (TNat)
-                                     ($lit-num (string->uint
-                                                 (symbol->string type-name))))
+                                     ($lit-num (cast (string->uint
+                                                 (symbol->string type-name))
+                                                     Nonnegative-Integer)))
                                    (map (λ ((x : (Pairof $-Ast Type-Map))) : $-Ast
                                            (car x)) $args)))))]
             [_ (context-error "~a is not a custom type which can be instantiated."
@@ -358,7 +365,7 @@
           (map (lambda ([x : (List Symbol Type-Expr)])
                  (resolve-type (cadr x) env))
                fields)))]
-    [_ (make-immutable-hash '())]))
+    [_ env]))
 
 ; takes a Type-Scope rather than just one map because
 ; types may need to be resolved and the function-scope
@@ -393,14 +400,14 @@
              (map (λ((x : (List Symbol Type-Expr)))
                     (second x)) args-with-types))
         ($-Ast-type $body)))]
-    [_ empty-ts]))
+    [_ accum]))
 
 (: add-def-var (-> Definition Type-Scope Type-Scope))
 (define (add-def-var def accum)
   (match def
     [`(@def-var ,var ,expr)
       (bind-var accum var (first (@-ast->type/inner expr accum)))]
-    [_ empty-ts]))
+    [_ accum]))
 
 (: definitions->scope (-> (Listof Definition) Type-Scope))
 (define (definitions->scope defs)

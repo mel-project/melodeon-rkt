@@ -2,13 +2,27 @@
 (require "common.rkt"
          "type-sys/types.rkt")
 (require racket/hash)
+(require typed-map)
 (provide Type-Map
+         flatten1
+         struct-def?
          ast->list
          ast->list*)
 
 
 ; An environment for type variable mappings to types
 (define-type Type-Map (Immutable-HashTable Symbol Type))
+
+; flatten 1 level, preserves type info
+(: flatten1 (All (T) (-> (Listof (Listof T)) (Listof T))))
+(define (flatten1 ls)
+  (foldl append '() ls))
+
+(: struct-def? (-> Definition Boolean))
+(define (struct-def? def)
+  (match def
+    [`(@def-struct ,_ ,_) #t]
+    [_ #f]))
 
 (: ast->list* (-> (Listof @-Ast) (Listof @-Ast)))
 (define (ast->list* v)

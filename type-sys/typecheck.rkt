@@ -6,8 +6,8 @@
          "../typed-ast.rkt"
          "typecheck-helpers.rkt"
          "typecheck-unify.rkt")
-(require (only-in typed/racket [map orig:foldl]))
 (require racket/hash)
+(require typed-map)
 
 (provide @-transform)
 
@@ -18,12 +18,17 @@
     [`(@program ,definitions
                 ,body)
      (define type-scope (definitions->scope definitions))
+     ; Generate accessor fns for all struct types defined
+     (define accessor-fn-defs
+       (flatten1 (map generate-accessors
+                      (filter struct-def? definitions))))
+
      ; Stupid, mutation-based approach
      (: $definitions (Listof $fndef))
      (define $definitions '())
      (: $vardefs (Listof $vardef))
      (define $vardefs '())
-     (for ([definition definitions])
+     (for ([definition (append definitions accessor-fn-defs)])
        (match definition
          [`(@def-fun ,name
                      ,args-with-types
@@ -58,18 +63,36 @@
                $vardefs
                (car (@->$ body type-scope)))]))
 
+; When given a @def-struct, generates a list of @def-fun's
+; to access every field of the struct.
+(: generate-accessors (-> Definition (Listof Definition)))
+(define (generate-accessors def)
+  (match def
+    [`(@def-struct ,struct-name ,binds)
+      (define sym-x (gensym 'x))
+      (map (λ ((tuple : (List Integer (List Symbol Type-Expr))))
+              (match-define (cons i (cons field texpr)) tuple)
+              `(@def-fun
+                 ; TODO mangle
+                 ,(string->symbol (format "~a-~a" struct-name (car field)))
+                 ((,sym-x (@type-struct ,struct-name ,binds)))
+                 #f
+                 ; TODO REPLACE THIS LINE WITH THE ONE BELOW
+                 ;(@var ,sym-x)))
+                 (@index (@var ,sym-x) (@lit-num ,(cast i Nonnegative-Integer)))))
+                 (enumerate binds))]
+    [_ '()]))
 
 ; Assign a number to each element of a list
-#|
-(: enumerate (All (T) (-> (Listof T) (Listof (List Nonnegative-Integer T)))))
+(: enumerate (All (T) (-> (Listof T) (Listof (List Integer T)))))
 (define (enumerate l)
-  (foldl (λ ((x : T) (acc : (List Nonnegative-Integer (Listof T))))
-            : (List Nonnegative-Integer T)
-            (list (+ 1 (car acc))
-                  (cons x (cadr acc))))
-         (list 0 (car l))
+  (foldl (λ ((x : T) (acc : (Listof (List Integer T))))
+            (cons
+              (list (+ 1 (caar acc))
+                    x)
+              acc))
+         (list (list 0 (car l)))
          (cdr l)))
-|#
 
 ; Convert a string to the sum of its ascii
 ; character encodings
@@ -135,7 +158,6 @@
       [`(@instantiate ,type-name ,args)
         (let ([type (lookup-type-var type-scope type-name)])
           (cons (match type
-            ;[`(@type-struct ,_ ,params)
             [(TTagged _ types)
               (let ([$args (map (λ ((arg : @-Ast)) (@->$ arg type-scope)) args)])
                 ; Check that arg-types match parameter types, or throw error
@@ -350,21 +372,20 @@
 (: empty-ts Type-Scope)
 (define empty-ts (Type-Scope (hash) (hash) (hash) (hash)))
 
+(: type-map-set (All (a b) (-> (Immutable-HashTable a b) a b (Immutable-HashTable a b))))
+(define (type-map-set hash k v) (hash-set hash k v))
+
 ; Read a Definition ast node and if a struct definition,
 ; add to the given type map. The given type map is also
 ; used to potentitally resolve type variables in the struct.
-(: add-struct-def (-> Definition Type-Map Type-Map))
+(: add-struct-def (-> Definition Type-Scope Type-Scope))
 (define (add-struct-def def env)
   (match def
     [`(@def-struct ,name ,fields)
-      (hash-set
+      (bind-type-var
         env
         name
-        (TTagged
-          name
-          (map (lambda ([x : (List Symbol Type-Expr)])
-                 (resolve-type (cadr x) env))
-               fields)))]
+        (resolve-type `(@type-struct ,name ,fields) (Type-Scope-type-vars env)))]
     [_ env]))
 
 ; takes a Type-Scope rather than just one map because
@@ -411,15 +432,11 @@
 
 (: definitions->scope (-> (Listof Definition) Type-Scope))
 (define (definitions->scope defs)
-  (let ([struct-defs (foldl add-struct-def (Type-Scope-type-vars empty-ts) defs)]
+  (let ([struct-defs (foldl add-struct-def empty-ts defs)]
         [var-defs (foldl add-def-var empty-ts defs)]
         ;[alias-defs (foldl add-alias-def defs)]
         [fun-defs (foldl add-fun-def empty-ts defs)])
-    (foldl
-      (lambda ((x : (Pairof Symbol Type)) (scope : Type-Scope))
-        (bind-type-var scope (car x) (cdr x)))
-      (ts-union fun-defs var-defs)
-      (hash->list struct-defs))))
+      (foldl ts-union empty-ts (list fun-defs var-defs struct-defs))))
 
 (module+ test
   (require "../parser.rkt")

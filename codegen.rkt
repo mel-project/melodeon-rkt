@@ -48,6 +48,7 @@
                         ,(generate-mil-expr x)
                         ,(generate-mil-expr y))]
     [($index vec idx) `(,(match ($-Ast-type vec)
+                           [(TTagged _ _) 'v-get]
                            [(TVectorof _ _) 'v-get]
                            [(TVector _) 'v-get]
                            [(TBytes _) 'b-concat]) ,(generate-mil-expr vec)
@@ -115,8 +116,7 @@
 (: generate-eq-mil-code (-> Type Any Any Any))
 (define (generate-eq-mil-code type x-sym y-sym)
   (match type
-    [(or (TNat)
-         (TBin)) `(= ,x-sym ,y-sym)]
+    [(TNat) `(= ,x-sym ,y-sym)]
     [(TVector lst)
      ;; we generate mil code in a pairwise fashion
      (define lst-len (length lst))
@@ -137,12 +137,9 @@
     [(? Type? t) (error "cannot compare values of non-concrete type"
                         (type->string t))]))
 
-(: generate-is (-> Type Any Any))
+(: generate-is (-> Type Any Any)) 
 (define (generate-is type sym)
   (match type
-    [(TBin) (define tmp-name (gensym 'bin))
-            `(let (,tmp-name ,(generate-is (TNat) sym))
-               (if ,tmp-name (< ,sym 2) 0))]
     [(TNat) `(= (typeof ,sym) 0)]
     [(TBytes n) `(if (= (typeof ,sym) 1)
                      (= (blength ,sym) ,n)

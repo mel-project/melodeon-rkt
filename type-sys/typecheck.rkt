@@ -15,20 +15,23 @@
 (: @-transform (-> @-Ast $program))
 (define (@-transform ast)
   (match (dectx ast)
-    [`(@program ,definitions
+    [`(@program ,initial-defs
                 ,body)
-     (define type-scope (definitions->scope definitions))
+     ;(define type-scope (definitions->scope definitions))
      ; Generate accessor fns for all struct types defined
      (define accessor-fn-defs
        (flatten1 (map generate-accessors
-                      (filter struct-def? definitions))))
+                      (filter struct-def? initial-defs))))
+
+     (define definitions (append initial-defs accessor-fn-defs))
+     (define type-scope (definitions->scope definitions))
 
      ; Stupid, mutation-based approach
      (: $definitions (Listof $fndef))
      (define $definitions '())
      (: $vardefs (Listof $vardef))
      (define $vardefs '())
-     (for ([definition (append definitions accessor-fn-defs)])
+     (for ([definition definitions])
        (match definition
          [`(@def-fun ,name
                      ,args-with-types
@@ -167,14 +170,16 @@
                                    [else tf-empty])))]
       ;[`(@lit-bytes ,bts) (list (TBytes (bytes-length bts)) (hash))]
       [`(@accessor ,var ,field)
-        (letrec ([$var (car (@->$ var type-scope))]
-                 [accessor-name (find-name-by-type ($-Ast-type $var) type-scope)])
-          ; TODO check that the type has the requested field
-          (unless accessor-name
-            (context-error "~a has no fields for accessing" var))
-          (@->$
-            `(@apply ,accessor-name (,var))
-            type-scope))]
+        ; TODO check that the type has the requested field
+        (let ([$var (car (@->$ var type-scope))])
+          (match ($-Ast-type $var)
+            [(TTagged tag types)
+             (@->$
+               `(@apply ,(accessor-name tag field) (,var))
+               type-scope)]
+            [_ (context-error "When accessing field '~a' expected '~a' to be a
+                              struct type, but it's actually a ~a" field var
+                              ($-Ast-type $var))]))]
       [`(@instantiate ,type-name ,args)
         (let ([type (lookup-type-var type-scope type-name)])
           (cons (match type
@@ -189,7 +194,7 @@
                                    (type->string ($-Ast-type arg))
                                    (type->string param-type))))
 
-                ($-Ast (TVector (cons (TNat) types))
+                ($-Ast type ;(TVector (cons (TNat) types))
                        ($lit-vec (cons
                                    ($-Ast
                                      (TNat)

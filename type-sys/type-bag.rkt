@@ -98,6 +98,9 @@
                                 (hash idx (PBytes)
                                       `(len ,idx) (ann n : Integer))
                                 Bag-Case)))]
+    ; structs
+    [(TTagged _ types)
+     (type->bag/raw (TVector (cons (TNat) types)) idx)]
     [(TVectorof t n) (type->bag/raw (TVector (make-list n t)) idx)]
     [(TVector types)
      (for/fold ([accum (Type-Bag (set (hash idx (PVec)

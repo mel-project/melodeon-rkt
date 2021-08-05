@@ -5,7 +5,7 @@
 
 (define (sat-solve sat)
   ;(pretty-write sat)
-  (sat-solve/fast sat))
+  (sat-solve/csp sat))
 
 
 (define (sat-solve/fast sat)
@@ -34,14 +34,14 @@
     [`(not (not ,x)) (into-dnf x)]
     [x (set (set x))]))
 
-#|
+(require csp)
 
 (define (sat-solve/csp sat)
   ;(pretty-write sat)
   (define csp (sat->csp sat))
   ;(pretty-write csp)
   (define res (solve csp))
-  (when res
+  #;(when res
     (pretty-write res))
   res)
 
@@ -203,4 +203,4 @@
                                                                 x-0-nbin))))
                                               (and (not x-0-fail) #f))))
                                   x-vec-3))))))
-        (and (not x-fail) (not x-fail)))))|#
+        (and (not x-fail) (not x-fail)))))

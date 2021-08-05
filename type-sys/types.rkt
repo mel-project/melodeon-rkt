@@ -3,7 +3,6 @@
 
 ;; Base types 
 (struct TNat () #:transparent)
-(struct TBin () #:transparent)
 (struct TAny () #:transparent)
 
 ;; Composite types
@@ -23,7 +22,6 @@
                 (y : Type)) #:transparent)
 (struct TIntersect ((x : Type)
                     (y : Type)) #:transparent)
-(struct TNegate ((x : Type)) #:transparent)
 
 ;; Represents a type variable
 (struct TVar ((label : Symbol)) #:transparent)
@@ -51,7 +49,6 @@
 
 ;; Type
 (define-type Type (U TNat
-                     TBin
                      TAny
                      TTagged
                      TVector
@@ -59,9 +56,6 @@
                      TUnion
                      TIntersect
                      TNone
-                     TFail
-                     TVectorEtc
-                     TNegate
                      TBytes
                      TVar))
 
@@ -73,7 +67,6 @@
   (match type
     [(TNone) "None"]
     [(TNat) "Nat"]
-    [(TBin) "Bin"]
     [(TAny) "Any"]
     [(TVar s) (format "'~a" s)]
     [(TFail s) (format "Fail[~a]" s)]
@@ -97,6 +90,5 @@
     [(TIntersect l r) (format "(~a & ~a)"
                               (type->string l)
                               (type->string r))]
-    [(TNegate v) (format "~~ ~a" (type->string v))]
     [(TBytes n) (format "Bytes[~a]" n)]))
 

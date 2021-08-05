@@ -3,6 +3,7 @@
          "../ast-utils.rkt"
          "resolver.rkt"
          "../common.rkt"
+         "type-bag.rkt"
          racket/hash)
 (provide (all-defined-out))
 
@@ -95,11 +96,6 @@
          tf2
          (hash->list tf1)))
 
-(: tf-negate (-> Type-Facts Type-Facts))
-(define (tf-negate tf1)
-  (for/hash ([(k v) tf1]) : (Immutable-HashTable Symbol Type)
-    (values k (TNegate v))))
-
 (: apply-facts (-> Type-Scope Type-Facts Type-Scope))
 (define (apply-facts ts tf)
   (foldl
@@ -110,6 +106,20 @@
          (bind-var rst
                    (car kv)
                    (TIntersect corresponding (cdr kv)))
+         rst))
+   ts
+   (hash->list tf)))
+
+(: subtract-facts (-> Type-Scope Type-Facts Type-Scope))
+(define (subtract-facts ts tf)
+  (foldl
+   (lambda ((kv : (Pair Symbol Type))
+            (rst : Type-Scope))
+     (define corresponding (hash-ref (Type-Scope-vars ts) (car kv) #f))
+     (if corresponding
+         (bind-var rst
+                   (car kv)
+                   (bag->type (bag-subtract (type->bag corresponding) (type->bag (cdr kv)))))
          rst))
    ts
    (hash->list tf)))
@@ -169,7 +179,6 @@
 (define (resolve-type texpr env)
   (match texpr
     [`(@type-var Any) (TAny)]
-    [`(@type-var Bin) (TBin)]
     [`(@type-var Nat) (TNat)]
     ;[`(@type-var ,var) (lookup-type-var 
     ;[`(@type-var ,var) (context-error "cannot resolve type names yet")]

@@ -3,14 +3,26 @@
          "../common.rkt"
          racket/hash)
 (provide type->bag
-         Type-Bag
+         (struct-out Type-Bag)
          bag-subtract
+         bag-project
+         bag-case->type
+         bag->type
          )
 
 (define-type Bag-Case (HashTable Prim-Index Prim-Type))
 
 (struct Type-Bag ((inner : (Setof Bag-Case)))
   #:transparent)
+
+(: bag-project (-> Type-Bag Prim-Index Type-Bag))
+(define (bag-project bag pidx)
+  (Type-Bag
+   (for/set ([bag-case (Type-Bag-inner bag)]) : (Setof Bag-Case)
+     (for/fold ([accum (ann (hash) (HashTable Prim-Index Prim-Type))])
+               ([(key val) bag-case]) : (HashTable Prim-Index Prim-Type)
+       (with-handlers ([exn:fail? (λ _ accum)])
+         (hash-set accum (pidx-project key pidx) val))))))
 
 (: bag-union (-> Type-Bag Type-Bag Type-Bag))
 (define (bag-union t u)
@@ -20,11 +32,15 @@
 (: bag-product (-> Type-Bag Type-Bag Type-Bag))
 (define (bag-product t u)
   (Type-Bag
-   (for*/set ([t-case (Type-Bag-inner t)]
-              [u-case (Type-Bag-inner u)]) :
-     (Setof Bag-Case)
-     (case-union t-case
-                 u-case))))
+   (for/set ([elem
+              (for*/set ([t-case (Type-Bag-inner t)]
+                         [u-case (Type-Bag-inner u)]) :
+                (Setof (Option Bag-Case))
+                (with-handlers ([exn:fail? (λ _ #f)])
+                  (case-union t-case
+                              u-case)))]
+             #:when elem) : (Setof Bag-Case)
+     elem)))
 
 (: case-set (-> Bag-Case Prim-Index Prim-Type Bag-Case))
 (define (case-set case key value)
@@ -36,19 +52,28 @@
 
 (: case-union (-> Bag-Case Bag-Case Bag-Case))
 (define (case-union c1 c2)
-  (with-handlers ([exn:fail? (λ(_) (ann (hash) Bag-Case))])
-    (for/fold ([accum c1])
-              ([(k v) c2])
-      (case-set accum k v))))
+  (for/fold ([accum c1])
+            ([(k v) c2])
+    (case-set accum k v)))
 
 (define-type Prim-Index (U 'root
                            (List 'len Prim-Index)
                            (List 'ref Prim-Index Integer)))
 
+(: pidx-project (-> Prim-Index Prim-Index Prim-Index))
+(define (pidx-project pidx new-root)
+  (cond
+    [(equal? pidx new-root) 'root]
+    [else (match pidx
+            [`(ref ,inner ,len) `(ref ,(pidx-project inner new-root) ,len)]
+            [`(len ,inner) `(len ,(pidx-project inner new-root))]
+            [_ (error "cannot project")])]))
+
 (struct PNat () #:transparent)
 (struct PVec () #:transparent)
+(struct PVar ((sym : Symbol)) #:transparent)
 (struct PBytes () #:transparent)
-(define-type Prim-Type (U PNat PVec Index PBytes))
+(define-type Prim-Type (U PNat PVec PVar Index PBytes))
 
 ;; Converts a type belonging to the given index to a type-bag
 (: type->bag (-> Type Type-Bag))
@@ -64,8 +89,10 @@
 (define (type->bag/raw type idx)
   (match type
     ; primitives
+    [(TNone) (Type-Bag (set))]
     [(TAny) (Type-Bag (set (ann (hash) Bag-Case)))]
     [(TNat) (Type-Bag (set (hash idx (PNat))))]
+    [(TVar a) (Type-Bag (set (hash idx (PVar a))))]
     ; vectors: pairwise
     [(TBytes n) (Type-Bag (set (cast
                                 (hash idx (PBytes)
@@ -143,3 +170,25 @@
     [(equal? term-1 term-2) #f]
     ; otherwise, we conservatively no-op it
     [else term-1]))
+
+(: bag-case->type (-> Bag-Case Type))
+(define (bag-case->type case)
+  (bag-case->type/inner case 'root))
+
+(: bag->type (-> Type-Bag Type))
+(define (bag->type bag)
+  (for/fold ([accum : Type (TNone)])
+            ([bag-case (Type-Bag-inner bag)]) : Type
+    (TUnion (bag-case->type bag-case) accum)))
+
+
+(: bag-case->type/inner (-> Bag-Case Prim-Index Type))
+(define (bag-case->type/inner case pidx)
+  (match (hash-ref case pidx #f)
+    [#f (TAny)]
+    [(PNat) (TNat)]
+    [(PVec) (define length (cast (hash-ref case `(len ,pidx)) Integer))
+            (TVector (for/list ([i length]) : (Listof Type)
+                       (bag-case->type/inner case `(ref ,pidx ,i))))]
+    [(PBytes) (define length (cast (hash-ref case `(len ,pidx)) Nonnegative-Integer))
+              (TBytes length)]))

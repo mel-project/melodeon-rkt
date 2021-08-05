@@ -116,7 +116,7 @@
     (match (dectx @-ast)
       ;; literals
       [`(@lit-num ,num) (cons ($-Ast (if (or (= num 0)
-                                             (= num 1)) (TBin) (TNat))
+                                             (= num 1)) (TNat) (TNat))
                                      ($lit-num num))
                               tf-empty)]
       [`(@lit-vec ,vars) (define $vars (map (λ((a : @-Ast)) (car (@->$ a type-scope))) vars))
@@ -213,7 +213,7 @@
       ;; binary operations
       [`(@eq ,x ,y) (let ([x (@->$ x type-scope)]
                           [y (@->$ y type-scope)])
-                      (cons ($-Ast (TBin)
+                      (cons ($-Ast (TNat)
                                    ($eq (car x)
                                         (car y)))
                             tf-empty))]
@@ -296,7 +296,7 @@
       [`(@if ,cond ,happy ,sad)
        (match-define (cons $cond facts) (@->$ cond type-scope)) ; just to check
        (match-define (cons $happy _) (@->$ happy (apply-facts type-scope facts)))
-       (match-define (cons $sad _) (@->$ sad (apply-facts type-scope (tf-negate facts)))) ; !! TODO !! "negate" the facts
+       (match-define (cons $sad _) (@->$ sad (subtract-facts type-scope facts))) ; !! TODO !! "negate" the facts
        (cons ($-Ast (smart-union ($type $happy)
                                  ($type $sad))
                     ($if $cond $happy $sad))
@@ -338,7 +338,7 @@
                    (context->string (get-context @-ast)) fun)])]
       [`(@is ,expr ,type)
        (cons
-        ($-Ast (TBin)
+        ($-Ast (TNat)
                ($is (car (@->$ expr type-scope))
                     (resolve-type type (Type-Scope-type-vars type-scope))))
         (match (dectx expr)
@@ -434,5 +434,5 @@ def trip(x: Nat) = [x, x, x]
 if x is [Nat, Nat] then
     trip(dup(x[0])[0] * 100)[0]
 else
-    dup(x[2])[1]) + 1
+    dup(x[2])[1]) + 1 + [1, 1][0]
 "))))))

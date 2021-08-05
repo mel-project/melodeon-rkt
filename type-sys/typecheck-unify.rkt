@@ -38,7 +38,7 @@
                           [_ #f])) : (Listof (List TVar Prim-Index)) 
         (list (match value
                 [(PVar a) (TVar a)]) key))))
-  (pretty-print tvar-locations)
+  ;(pretty-print tvar-locations)
   ; now we use those locations to lookup the type
   (: tvars (Listof TVar))
   (define tvars (remove-duplicates

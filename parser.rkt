@@ -133,6 +133,8 @@
                    ((<apply-expr>) $1))
       ;; higher-associativity (apply-like) operators
       (<apply-expr> ((VAR OPEN-PAREN <multi-exprs> CLOSE-PAREN) (pos-lift 1 4 `(@apply ,$1 ,$3)))
+                    ;; data field accessors
+                    ((VAR DOT VAR) (pos-lift 1 3 `(@accessor (@var ,$1) ,$3)))
                     ;; vector indexing
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> CLOSE-BRACKET) (pos-lift 1 4 `(@index ,$1 ,$3)))
                     ;; vector update

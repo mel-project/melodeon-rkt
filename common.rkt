@@ -87,6 +87,7 @@
      (List '@program (Listof Definition) @-Ast)
      (List '@apply Symbol (Listof @-Ast))
      ;(List '@apply Symbol (Listof @-Ast) (Listof Type-Expr))
+     (List '@accessor @-Ast Symbol)
      (List '@block (Listof @-Ast))
      (List '@index @-Ast @-Ast)
      (List '@update @-Ast @-Ast @-Ast)

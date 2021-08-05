@@ -74,11 +74,10 @@
               (match-define (cons i (cons field texpr)) tuple)
               `(@def-fun
                  ; TODO mangle
-                 ,(string->symbol (format "~a-~a" struct-name (car field)))
+                 ,(accessor-name struct-name (car field))
+                 ;,(string->symbol (format "~a-~a" struct-name (car field)))
                  ((,sym-x (@type-struct ,struct-name ,binds)))
                  #f
-                 ; TODO REPLACE THIS LINE WITH THE ONE BELOW
-                 ;(@var ,sym-x)))
                  (@index (@var ,sym-x) (@lit-num ,(cast i Nonnegative-Integer)))))
                  (enumerate binds))]
     [_ '()]))
@@ -107,6 +106,18 @@
             (+ acc (char->integer c)))
          0
          (string->list s)))
+
+; Search type-vars in a type scope and return the
+; name of the first matching type
+(: find-name-by-type (-> Type Type-Scope (Option Symbol)))
+(define (find-name-by-type type ts)
+  (foldl (λ (tup name)
+           (if (and (equal? type (cdr tup)) (not name))
+                         (car tup)
+                         name))
+         #f
+         (hash->list (Type-Scope-type-vars ts))))
+
 
 ;(: @-ast->type/inner (-> @-Ast Type-Scope (List (Option Type) Type-Facts)))
 
@@ -155,6 +166,15 @@
                                     (hash-ref tsfacts variable)]
                                    [else tf-empty])))]
       ;[`(@lit-bytes ,bts) (list (TBytes (bytes-length bts)) (hash))]
+      [`(@accessor ,var ,field)
+        (letrec ([$var (car (@->$ var type-scope))]
+                 [accessor-name (find-name-by-type ($-Ast-type $var) type-scope)])
+          ; TODO check that the type has the requested field
+          (unless accessor-name
+            (context-error "~a has no fields for accessing" var))
+          (@->$
+            `(@apply ,accessor-name (,var))
+            type-scope))]
       [`(@instantiate ,type-name ,args)
         (let ([type (lookup-type-var type-scope type-name)])
           (cons (match type

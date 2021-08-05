@@ -7,6 +7,12 @@
 (provide (all-defined-out))
 
 
+; Produce the name of a product type's
+; accessor function for a given field
+(: accessor-name (-> Symbol Symbol Symbol))
+(define (accessor-name type field)
+  (string->symbol (format "~a-~a" type field)))
+
 ; The inner type is just the union of all
 ; types in the type vector
 (: tvector-inner-type (-> TVector Type))

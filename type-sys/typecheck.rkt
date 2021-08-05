@@ -81,7 +81,8 @@
                  ;,(string->symbol (format "~a-~a" struct-name (car field)))
                  ((,sym-x (@type-struct ,struct-name ,binds)))
                  #f
-                 (@index (@var ,sym-x) (@lit-num ,(cast i Nonnegative-Integer)))))
+                 ; Add one to index i bcs first is always the struct id
+                 (@index (@var ,sym-x) (@lit-num ,(cast (+ i 1) Nonnegative-Integer)))))
                  (enumerate binds))]
     [_ '()]))
 

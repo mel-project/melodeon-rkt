@@ -7,6 +7,8 @@
          bag-subtract
          bag-project
          bag-case->type
+         Prim-Index
+         PVar
          bag->type
          )
 
@@ -182,7 +184,8 @@
 (define (bag->type bag)
   (for/fold ([accum : Type (TNone)])
             ([bag-case (Type-Bag-inner bag)]) : Type
-    (TUnion (bag-case->type bag-case) accum)))
+    (if (equal? accum (TNone)) (bag-case->type bag-case)
+        (TUnion (bag-case->type bag-case) accum))))
 
 
 (: bag-case->type/inner (-> Bag-Case Prim-Index Type))

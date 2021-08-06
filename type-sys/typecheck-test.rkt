@@ -9,12 +9,42 @@
 (define (prgrm-eq? str $prgm)
   (check-equal?
     (let ([@program (melo-parse-port (open-input-string str))])
-      (@-transform @program))
-    $prgm))
+     ; (@-transform @program))
+    ; $prgm))
+      (format "~a" (@-transform @program)))
+    (format "~a" $prgm)))
 
 (prgrm-eq?
   "0"
-  ($program '() '() ($-Ast (TBin) ($lit-num 0))))
+  ($program '() '() ($-Ast (TNat) ($lit-num 0))))
+
+(prgrm-eq?
+  "
+  struct Y { x : Nat }
+  ---
+  let y = Y { 3 } in y.x
+  "
+  ($program
+   (list
+    ($fndef
+     'Y-x
+     (list (list 'x45629 (TTagged 'Y (list (TNat)))))
+     ($-Ast
+      (TNat)
+      ($index
+       ($-Ast (TTagged 'Y (list (TNat))) ($var 'x45629))
+       ($-Ast (TNat) ($lit-num 1))))))
+   '()
+   ($-Ast
+    (TNat)
+    ($let
+     'y
+     ($-Ast
+      (TTagged 'Y (list (TNat)))
+      ($lit-vec (list ($-Ast (TNat) ($lit-num 89)) ($-Ast (TNat) ($lit-num 3)))))
+     ($-Ast
+      (TNat)
+      ($apply 'Y-x (list ($-Ast (TTagged 'Y (list (TNat))) ($var 'y)))))))))
 
 (prgrm-eq?
   "
@@ -23,24 +53,45 @@
   struct Y { x : Nat }
   ---
   let x = X { 2 } in
-  let y = Y { 3 } in foo(0)
+  let y = Y { 3 } in y.x
   "
   ($program
-   (list ($fndef 'foo (list (list 'x (TNat))) ($-Ast (TNat) ($var 'x))))
+   (list
+    ($fndef
+     'X-x
+     (list (list 'x45668 (TTagged 'X (list (TNat)))))
+     ($-Ast
+      (TNat)
+      ($index
+       ($-Ast (TTagged 'X (list (TNat))) ($var 'x45668))
+       ($-Ast (TNat) ($lit-num 1)))))
+    ($fndef
+     'Y-x
+     (list (list 'x45667 (TTagged 'Y (list (TNat)))))
+     ($-Ast
+      (TNat)
+      ($index
+       ($-Ast (TTagged 'Y (list (TNat))) ($var 'x45667))
+       ($-Ast (TNat) ($lit-num 1)))))
+    ($fndef 'foo (list (list 'x (TNat))) ($-Ast (TNat) ($var 'x))))
    '()
    ($-Ast
     (TNat)
     ($let
      'x
      ($-Ast
-      (TVector (list (TNat) (TNat)))
+      (TTagged 'X (list (TNat)))
       ($lit-vec (list ($-Ast (TNat) ($lit-num 88)) ($-Ast (TNat) ($lit-num 2)))))
      ($-Ast
       (TNat)
       ($let
        'y
        ($-Ast
-        (TVector (list (TNat) (TNat)))
+        (TTagged 'Y (list (TNat)))
         ($lit-vec
          (list ($-Ast (TNat) ($lit-num 89)) ($-Ast (TNat) ($lit-num 3)))))
-       ($-Ast (TNat) ($apply 'foo (list ($-Ast (TBin) ($lit-num 0)))))))))))
+       ($-Ast
+        (TNat)
+        ($apply 'Y-x (list ($-Ast (TTagged 'Y (list (TNat))) ($var
+                                                               'y)))))))))))
+

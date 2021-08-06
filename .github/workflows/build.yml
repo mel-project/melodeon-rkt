@@ -35,6 +35,9 @@ jobs:
       - name: Install Memo
         run: raco pkg install --auto memo
 
+      - name: Install Csp
+        run: raco pkg install --auto csp
+
       - name: Install Typed-map
         run: raco pkg install --auto typed-map
 

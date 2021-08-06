@@ -72,17 +72,16 @@
 (define (generate-accessors def)
   (match def
     [`(@def-struct ,struct-name ,binds)
-      (define sym-x (gensym 'x))
       (map (λ ((tuple : (List Integer (List Symbol Type-Expr))))
               (match-define (cons i (cons field texpr)) tuple)
               `(@def-fun
                  ; TODO mangle
                  ,(accessor-name struct-name (car field))
                  ;,(string->symbol (format "~a-~a" struct-name (car field)))
-                 ((,sym-x (@type-struct ,struct-name ,binds)))
+                 ((@x (@type-struct ,struct-name ,binds)))
                  #f
                  ; Add one to index i bcs first is always the struct id
-                 (@index (@var ,sym-x) (@lit-num ,(cast (+ i 1) Nonnegative-Integer)))))
+                 (@index (@var @x) (@lit-num ,(cast (+ i 1) Nonnegative-Integer)))))
                  (enumerate binds))]
     [_ '()]))
 
@@ -282,18 +281,16 @@
           tf-empty))]
       [`(@and ,x ,y)
        ; trivial desugaring
-       (define tmp (gensym 'and))
-       (@->$ `(@let (,tmp ,x)
-                    (@if (@var ,tmp)
+       (@->$ `(@let (@x ,x)
+                    (@if (@var @x)
                          ,y
-                         (@var ,tmp)))
+                         (@var @x)))
              type-scope)]
       [`(@or ,x ,y)
        ; trivial desugaring
-       (define tmp (gensym 'and))
-       (@->$ `(@let (,tmp ,x)
-                    (@if (@var ,tmp)
-                         (@var ,tmp)
+       (@->$ `(@let (@x ,x)
+                    (@if (@var @x)
+                         (@var @x)
                          ,y))
              type-scope)]
       [`(@append ,x ,y)

@@ -3,6 +3,7 @@
          "type-sys/resolver.rkt"
          "type-sys/typecheck.rkt"
          "type-sys/types.rkt"
+         "typed-ast.rkt"
          "common.rkt")
 (require/typed file/sha1
                (bytes->hex-string (-> Bytes String)))
@@ -14,109 +15,89 @@
   ; do nothing atm
   melo-sym)
 
-;; turns a Melodeon @-ast to mil
-(: generate-mil (-> @-Ast Any))
-(define (generate-mil @-ast)
-  (: strip-@ (-> Symbol Symbol))
-  (define (strip-@ @-sym)
-    (string->symbol (substring (symbol->string @-sym) 1)))
+; generates a top-level program into mil code
+(: generate-mil (-> $program Any))
+(define (generate-mil prgrm)
+  ;; TODO generate fns
+  (append
+    (map generate-mil-def ($program-fun-defs prgrm))
+    (list (generate-mil-expr ($program-expr prgrm)))))
 
-  (match (dectx @-ast)
-    ;; casts etc
-    [`(@unsafe-cast ,inner ,_) (generate-mil inner)]
-    [`(@extern ,str) (string->symbol str)]
-    
+;; turns a Melodeon $-ast to mil
+(: generate-mil-expr (-> $-Ast Any))
+(define (generate-mil-expr $-ast)
+  (match ($-Ast-node $-ast)
     ;; let bindings
-    [`(@program ,definitions ,body)
-     (append (map generate-mil-defs
-                  (filter (λ((x : Definition)) (not (or (equal? (car x) '@provide)
-                                                        (equal? (car x) '@require))))
-                          definitions))
-             (list (generate-mil body)))]
-    [`(@let (,var-name ,var-value) ,body)
-     `(let (,(mangle-sym var-name) ,(generate-mil var-value)) ,(generate-mil body))]
-    
-    ;; logical ops desugar to if-then-else
-    [`(@and ,x ,y)
-     (define temp-var (gensym 'and))
-     `(let (,temp-var ,(generate-mil x))
-        (if ,temp-var ,(generate-mil y) ,temp-var))]
-    [`(@or ,x ,y)
-     (define temp-var (gensym 'and))
-     `(let (,temp-var ,(generate-mil x))
-        (if ,temp-var ,temp-var ,(generate-mil y)))]
-        
+    [($let var-name var-value body)
+     `(let (,(mangle-sym var-name) ,(generate-mil-expr var-value)) ,(generate-mil-expr body))]
     ;; binary ops
-    [`(,(? (lambda(op) (member op '(@+ @- @* @/))) op) ,x ,y) `(,(strip-@ op) ,(generate-mil x)
-                                                                              ,(generate-mil y))]
-    [`(@eq ,x ,y) ; equality generation is special because it's type-dependent
+    [($bin op x y)
+     `(,op ,(generate-mil-expr x) ,(generate-mil-expr y))]
+    [($eq x y) ; equality generation is special because it's type-dependent
      (generate-eq-mil x y)]
-    [`(@var ,(? symbol? varname)) (mangle-sym varname)]
-    [`(@lit-num ,(? exact-integer? number)) number]
-    [`(@lit-vec ,vv) `(vector . ,(map generate-mil vv))]
+    [($var varname) (mangle-sym varname)]
+    [($lit-num n) n]
+    [($lit-vec vv) `(vector . ,(map generate-mil-expr vv))]
 
     ;; other stuff
-    [`(@apply ,fun ,args) `(,(mangle-sym fun) . ,(map generate-mil args))]
-    [`(@append ,x ,y) `(,(match (memoized-type x)
-                           [(TVectorof _ _) 'v-concat]
-                           [(TVector _) 'v-concat]
-                           [(TBytes _) 'b-concat])
-                        ,(generate-mil x)
-                        ,(generate-mil y))]
-    [`(@index ,vec ,idx) `(,(match (memoized-type vec)
-                              [(TVectorof _ _) 'v-get]
-                              [(TVector _) 'v-get]
-                              [(TBytes _) 'b-concat]) ,(generate-mil vec)
-                                                      ,(generate-mil idx))]
-    [`(@if ,x ,y ,z) `(if ,(generate-mil x)
-                          ,(generate-mil y)
-                          ,(generate-mil z))]
-    [`(@for ,expr ,var-name ,vec-val)
-     (let ([count (match (memoized-type vec-val)
+    [($apply fun args) `(,(mangle-sym fun) . ,(map generate-mil-expr args))]
+    [($append x y) `(,(match ($-Ast-type x)
+                        [(TVectorof _ _) 'v-concat]
+                        [(TVector _) 'v-concat]
+                        [(TBytes _) 'b-concat])
+                        ,(generate-mil-expr x)
+                        ,(generate-mil-expr y))]
+    [($index vec idx) `(,(match ($-Ast-type vec)
+                           [(TTagged _ _) 'v-get]
+                           [(TVectorof _ _) 'v-get]
+                           [(TVector _) 'v-get]
+                           [(TBytes _) 'b-concat]) ,(generate-mil-expr vec)
+                                                   ,(generate-mil-expr idx))]
+    [($if x y z) `(if ,(generate-mil-expr x)
+                      ,(generate-mil-expr y)
+                      ,(generate-mil-expr z))]
+    [($for expr var-name vec-val)
+     (let ([count (match ($-Ast-type vec-val)
                     [(TVectorof _ count) count]
                     [(TVector v) (length v)]
                     [(TBytes b) b])]
-           [counter (gensym 'fori)]
-           [tempvec (gensym 'forv)])
-       `(let (,counter 0 ,tempvec ,(generate-mil vec-val))
+           [counter (gensym 'i)]
+           [tempvec (gensym 'v)])
+       `(let (,counter 0 ,tempvec ,(generate-mil-expr vec-val))
           (loop ,count (set-let ()
                                 (set! ,tempvec (v-from ,tempvec ,counter
                                                        (let (,var-name (v-get ,tempvec iter))
-                                                         ,(generate-mil expr))))
+                                                         ,(generate-mil-expr expr))))
                                 (set! ,counter (+ ,counter 1))))
           ,tempvec)
        )]
-    [`(@is ,expr ,type)
-     ; TODO: somehow integrate with type resolving
-
-     ; *********************
-     ; THIS DOESN'T WORK (empty scope) AND IS TEMPORARY TO GET CODE TO BUILD
-     ; *********************
-     (define resolved-type (resolve-type-or-err type (make-immutable-hash)))
+    [($is expr type)
      (define tmpsym (gensym 'is))
-     `(let (,tmpsym ,(generate-mil expr))
-        ,(generate-is resolved-type tmpsym))]
-    [`(@lit-bytes ,bts) (string->symbol
-                         (string-append "0x"
-                                        (bytes->hex-string bts)))]
-    [`(@ann ,inner ,_) (generate-mil inner)]
-    [`(@block ,inner) `(let () . ,(map generate-mil inner))]
-    [`(@set! ,x ,y) `(set! ,x ,(generate-mil y))]
-    [`(@loop ,n ,body) `(loop ,n ,(generate-mil body))]
-    [other (error "invalid @-ast" other)]))
+     `(let (,tmpsym ,(generate-mil-expr expr))
+        ,(generate-is type tmpsym))]
+    [($lit-bytes bts) (string->symbol
+                        (string-append "0x"
+                                       (bytes->hex-string bts)))]
+    [($block inner) `(let () . ,(map generate-mil-expr inner))]
+    [($loop n body) `(loop ,n ,(generate-mil-expr body))]
+    [other (error "invalid $-ast" other)]))
 
-(: generate-mil-defs (-> Definition Any))
-(define (generate-mil-defs def)
+(: generate-mil-def (-> $fndef Any))
+(define (generate-mil-def def)
   (match def
-    [`(@def-var ,var ,expr) `(gl ,(mangle-sym var) ,(generate-mil expr))]
-    [`(@def-fun ,var ,args ,_ ,expr)
-     `(fn ,(mangle-sym var) ,(map mangle-sym (map (inst car Symbol Any) args)) ,(generate-mil expr))]))
+    [($fndef name binds body)
+     `(fn ,(mangle-sym name)
+          ,(map mangle-sym (map (inst car Symbol Any) binds))
+          ,(generate-mil-expr body))]))
+    ; TODO mil does not have globals
+    ;[($vardef var expr)
+    ; `(gl ,(mangle-sym var) ,(generate-mil expr))]
 
 ;; generates code for equality
-(: generate-eq-mil (-> @-Ast @-Ast Any))
+(: generate-eq-mil (-> $-Ast $-Ast Any))
 (define (generate-eq-mil x y)
-  (define x-type (memoized-type x))
-  (define y-type (memoized-type y))
+  (define x-type ($-Ast-type x))
+  (define y-type ($-Ast-type y))
   (define bigger-type
     (cond
       [(subtype-of? x-type y-type) y-type]
@@ -135,8 +116,7 @@
 (: generate-eq-mil-code (-> Type Any Any Any))
 (define (generate-eq-mil-code type x-sym y-sym)
   (match type
-    [(or (TNat)
-         (TBin)) `(= ,x-sym ,y-sym)]
+    [(TNat) `(= ,x-sym ,y-sym)]
     [(TVector lst)
      ;; we generate mil code in a pairwise fashion
      (define lst-len (length lst))
@@ -157,12 +137,9 @@
     [(? Type? t) (error "cannot compare values of non-concrete type"
                         (type->string t))]))
 
-(: generate-is (-> Type Any Any))
+(: generate-is (-> Type Any Any)) 
 (define (generate-is type sym)
   (match type
-    [(TBin) (define tmp-name (gensym 'bin))
-            `(let (,tmp-name ,(generate-is (TNat) sym))
-               (if ,tmp-name (< ,sym 2) 0))]
     [(TNat) `(= (typeof ,sym) 0)]
     [(TBytes n) `(if (= (typeof ,sym) 1)
                      (= (blength ,sym) ,n)
@@ -198,8 +175,8 @@ EOF
   (pretty-print (dectx* ast))
   (displayln "")
   ;; type check
-  (@-ast->type ast)
+  (define prgrm (@-transform ast))
   ;; generate the mil
   (displayln "Mil:")
   (pretty-display
-   (generate-mil ast)))
+   (generate-mil prgrm)))

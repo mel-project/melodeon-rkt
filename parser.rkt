@@ -19,7 +19,7 @@
   
   ;; melo-parse: (-> position-token) -> @-Ast
   (define melo-parse
-    (cfg-parser
+    (parser
      (start <program>)
      (end EOF)
      (tokens value-tokens syntax-tokens)
@@ -46,7 +46,7 @@
      ;; CFG grammar
      (grammar
       ;; a program is a series of toplevels 
-      (<program> ((<definitions> - - - <expr>) (pos-lift 1 5 `(@program ,$1 ,$5)))
+      (<program> ((<definitions> --- <expr>) (pos-lift 1 3 `(@program ,$1 ,$3)))
                  ((<definitions>) (pos-lift 1 1 `(@program ,$1 (@lit-num 0))))
                  ((<expr>) `(@program () ,$1)))
       (<definitions> ((<definition> <definitions>) (cons $1 $2))
@@ -69,12 +69,16 @@
                   ((<type-dec> COMMA <fun-args>) (cons $1 $3))
                   (() empty))
       (<type-dec> ((VAR COLON <type-expr>) (list $1 $3)))
-      (<type-expr> ((<type-expr> PIPE <type-expr-2>) `(@type-union ,$1 ,$3))
+      (<type-expr> ((<type-expr> TOR <type-expr-2>) `(@type-union ,$1 ,$3))
                    ((<type-expr-2>) $1))
-      (<type-expr-2> ((TYPE) `(@type-var ,$1))
+      (<type-expr-2> ((<type-expr-3> TAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
+                     ((<type-expr-3>) $1))
+      (<type-expr-3> ((TYPE) `(@type-var ,$1))
+                     ((TNEG <type-expr-3>) `(@type-negate ,$2))
                      ((HASH OPEN-BRACKET NUM CLOSE-BRACKET) `(@type-bytes ,$3))
                      ((OPEN-BRACKET <type-exprs> CLOSE-BRACKET) `(@type-vec ,$2))
-                     ((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4)))
+                     ((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
+                     ((OPEN-PAREN <type-expr> CLOSE-PAREN) `$2))
       (<type-exprs> ((<type-expr>) (list $1))
                     ((<type-expr> COMMA <type-exprs>) (cons $1 $3)))
       ;; different kinds of exprs
@@ -129,11 +133,16 @@
                    ((<apply-expr>) $1))
       ;; higher-associativity (apply-like) operators
       (<apply-expr> ((VAR OPEN-PAREN <multi-exprs> CLOSE-PAREN) (pos-lift 1 4 `(@apply ,$1 ,$3)))
+                    ;; data field accessors
+                    ((VAR DOT VAR) (pos-lift 1 3 `(@accessor (@var ,$1) ,$3)))
                     ;; vector indexing
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> CLOSE-BRACKET) (pos-lift 1 4 `(@index ,$1 ,$3)))
                     ;; vector update
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> FAT-ARROW <terminal-expr> CLOSE-BRACKET)
                      (pos-lift 1 6 `(@update ,$1 ,$3 ,$5)))
+                    ;; custom type instantiation
+                    ((TYPE OPEN-BRACE <multi-exprs> CLOSE-BRACE)
+                     (pos-lift 1 3 `(@instantiate ,$1 ,$3)))
                     ;; type guards
                     ((<apply-expr> IS <type-expr>) (pos-lift 1 3 `(@is ,$1 ,$3)))
                     ((<terminal-expr>) $1))
@@ -179,7 +188,7 @@
   (dectx*
    (melo-parse-port (open-input-string #<<EOF
 
-def f(x: Nat) = x
+def f(x: Nat & Any) = x
 
 - - -
 

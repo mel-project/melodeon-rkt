@@ -82,10 +82,12 @@
      (List @-Binop @-Ast @-Ast)
      (List '@lit-num Nonnegative-Integer)
      (List '@lit-vec (Listof @-Ast))
+     (List '@instantiate Symbol (Listof @-Ast))
      (List '@var Symbol)
      (List '@program (Listof Definition) @-Ast)
      (List '@apply Symbol (Listof @-Ast))
      ;(List '@apply Symbol (Listof @-Ast) (Listof Type-Expr))
+     (List '@accessor @-Ast Symbol)
      (List '@block (Listof @-Ast))
      (List '@index @-Ast @-Ast)
      (List '@update @-Ast @-Ast @-Ast)
@@ -126,10 +128,13 @@
 
 (define-type Type-Expr
   (U (List '@type-var Symbol)
-     (List '@type-custom Symbol (Listof (List Symbol Type-Expr)))
+     ;(List '@type-alias Symbol (Listof (List Symbol Type-Expr)))
+     (List '@type-struct Symbol (Listof (List Symbol Type-Expr)))
      (List '@type-vec (Listof Type-Expr))
      (List '@type-vecof Type-Expr Nonnegative-Integer)
      (List '@type-union Type-Expr Type-Expr)
+     (List '@type-intersect Type-Expr Type-Expr)
+     (List '@type-negate Type-Expr)
      (List '@type-bytes Nonnegative-Integer)))
 
 (define-type @-Binop (U '@+ '@- '@* '@/ '@append '@or '@and '@eq))

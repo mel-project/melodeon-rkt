@@ -14,7 +14,7 @@
   ; do nothing atm
   melo-sym)
 
-(: new-$-Ast (-> @-Ast Type-Scope $-Ast-variant $-Ast))
+;(: new-$-Ast (-> @-Ast Type-Scope $-Ast-variant $-Ast))
 (define (new-$-Ast ast env val)
   ($-Ast
     (@-ast->type+ ast env)
@@ -200,12 +200,3 @@
     [`(@loop ,n ,body)
       (new-$-Ast raw-ast env ($loop n (@-Ast->$-Ast body env)))]
     [other (error "@-ast node is not transformable into $-Ast" other)])))
-
-#|
-(: def->$-Ast (-> Definition $-Ast))
-(define (generate-mil-defs def)
-  (match def
-    [`(@def-var ,var ,expr) `(gl ,(mangle-sym var) ,(generate-mil expr))]
-    [`(@def-fun ,var ,args ,_ ,expr)
-     `(fn ,(mangle-sym var) ,(map mangle-sym (map (inst car Symbol Any) args)) ,(generate-mil expr))]))
-|#

@@ -33,3 +33,12 @@
      x
      (@lit-vec ((@lit-num 1) (@lit-num 2) (@lit-num 3))))))
 
+(parse-eq?
+  "
+  struct X { x: Nat }
+  ---
+  X { 1 + 1 }
+  "
+  '(@program
+    ((@def-struct X ((x (@type-var Nat)))))
+    (@instantiate X ((@+ (@lit-num 1) (@lit-num 1))))))

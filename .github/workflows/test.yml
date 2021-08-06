@@ -26,6 +26,15 @@ jobs:
       - name: Install Racket
         run: sudo apt install -y racket
 
+      - name: Install Memo
+        run: raco pkg install --auto memo
+
+      - name: Install Csp
+        run: raco pkg install --auto csp
+
+      - name: Install Typed-map
+        run: raco pkg install --auto typed-map
+
       - name: Run top-level unit tests
         run: racket *-test.rkt
 

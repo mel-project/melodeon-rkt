@@ -35,5 +35,8 @@ jobs:
       - name: Install Memo
         run: raco pkg install --auto memo
 
+      - name: Install Typed-map
+        run: raco pkg install --auto typed-map
+
       - name: Compile
         run: raco make -v meloc.rkt

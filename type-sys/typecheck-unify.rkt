@@ -48,7 +48,7 @@
                       (cast (first inner) TVar))))))
   (unless (subtype-of? type
                        (type-template-fill template (for/hash ([tvar tvars]) : (HashTable TVar Type)
-                                                     (values tvar (TAny)))))
+                                                      (values tvar (TAny)))))
     (context-error "cannot unify because ~a is not a subtype of ~a with all variables replaced by Any"
                    (type->string type)
                    (type->string template)))
@@ -61,11 +61,12 @@
                 (define my-locations (for/list ([k location-case]
                                                 #:when (equal? (first k) tvar)) : (Listof Prim-Index)
                                        (cast (second k) Prim-Index)))
+                ;(pretty-print my-locations)
                 (TUnion accum
-                        (for/fold ([accum : Type (TAny)])
+                        (for/fold ([accum : Type (TNone)])
                                   ([location my-locations]) : Type
-                          (TIntersect accum
-                                      (bag->type (bag-project type-bag location)))))))))))
+                          (TUnion accum
+                                  (bag->type (bag-project type-bag location)))))))))))
 
 ;; Applies a type-variable mapping to a template, filling in the slots
 (: type-template-fill (-> Type (HashTable TVar Type) Type))
@@ -81,7 +82,5 @@
                                   (recurse y))]
     [x x]))
 
-(type-unify (TVector (list (TVar 'a)
-                           (TVar 'b)))
-            (TUnion (TVector (list (TNat) (TBytes 5)))
-                    (TVector (list (TBytes 2) (TBytes 3)))))
+#;(type-unify (TUnion (TVar 'a) (TNat))
+            (TUnion (TNat) (TBytes 5)))

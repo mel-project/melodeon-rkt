@@ -10,6 +10,7 @@
          Prim-Index
          PVar
          bag->type
+         bag-subtype-of?
          )
 
 (define-type Bag-Case (HashTable Prim-Index Prim-Type))
@@ -44,7 +45,7 @@
              #:when elem) : (Setof Bag-Case)
      elem)))
 
-(: case-set (-> Bag-Case Prim-Index Prim-Type Bag-Case))
+(: case-set (-> Bag-Case Prim-Index Prim-Type Bag-Case)) 
 (define (case-set case key value)
   (cond
     [(hash-has-key? case key) (if (equal? (hash-ref case key) value)
@@ -126,11 +127,12 @@
 ;; Bag-based subtype function
 (: bag-subtype-of? (-> Type-Bag Type-Bag Boolean))
 (define (bag-subtype-of? t u)
-  ; trivial case: it's just a subset
-  ; does this always work?
-  ; no it doesn't, haha
-  (subset? (Type-Bag-inner t)
-           (Type-Bag-inner u)))
+  ; every case in t must be a superset of all the cases in u
+  (for/and ([t-case (Type-Bag-inner t)]) : Boolean
+    (for/or ([u-case (Type-Bag-inner u)]) : Boolean
+      (for/and ([(t-key t-val) t-case]) : Boolean
+        (and (hash-has-key? u-case t-key)
+             (equal? t-val (hash-ref u-case t-key)))))))
 
 (: set-union* (All (a) (-> (Setof (Setof a)) (Setof a))))
 (define (set-union* sets)

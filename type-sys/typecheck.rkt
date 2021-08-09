@@ -2,7 +2,6 @@
 (require "../common.rkt"
          "../ast-utils.rkt"
          "types.rkt"
-         "resolver.rkt"
          "../typed-ast.rkt"
          "typecheck-helpers.rkt"
          "typecheck-unify.rkt")
@@ -301,7 +300,7 @@
        (match-let ([(cons $x _) (@->$ x type-scope)]
                    [(cons $y _) (@->$ y type-scope)])
          (cons
-          ($-Ast (tappend ($type $x)
+          ($-Ast (type-append ($type $x)
                           ($type $y))
                  ($append $x $y))
           tf-empty))]
@@ -439,6 +438,7 @@
                           ($-Ast-type $body)))
      (unless (subtype-of? ($-Ast-type $body) ret-type)
        (context-error "function ~a annotated with return type ~a but actually returns ~a"
+                      name
                       (type->string ret-type)
                       (type->string ($-Ast-type $body))))
      (bind-fun accum

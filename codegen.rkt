@@ -1,6 +1,6 @@
 #lang typed/racket
 (require "parser.rkt"
-         "type-sys/resolver.rkt"
+         "type-sys/typecheck-unify.rkt"
          "type-sys/typecheck.rkt"
          "type-sys/types.rkt"
          "typed-ast.rkt"
@@ -165,7 +165,7 @@
                 (melo-parse-port (open-input-string #<<EOF
 
 let x = ann 0 : Nat in
-if x is Bin then
+if x is Nat then
   x + 10
 else
   x * 10

@@ -358,6 +358,8 @@
            [`(@lit-num ,x) x]
            [other (context-error "non-literal index ~a not yet supported" other)]))
        (match-define (cons $val _) (@->$ val type-scope))
+       (pretty-print ($type $val))
+       (pretty-print idx)
        (cons
         ($-Ast (type-index ($type $val)
                 idx)
@@ -453,7 +455,7 @@
 (define (add-def-var def accum)
   (match def
     [`(@def-var ,var ,expr)
-      (bind-var accum var (first (@-ast->type/inner expr accum)))]
+     (bind-var accum var (first (@-ast->type/inner expr accum)))]
     [_ accum]))
 
 (: definitions->scope (-> (Listof Definition) Type-Scope))
@@ -462,9 +464,9 @@
         [var-defs (foldl add-def-var empty-ts defs)]
         ;[alias-defs (foldl add-alias-def defs)]
         [fun-defs (foldl add-fun-def empty-ts defs)])
-      (foldl ts-union empty-ts (list fun-defs var-defs struct-defs))))
+    (foldl ts-union empty-ts (list fun-defs var-defs struct-defs))))
 
-(module+ test
+#;(module+ test
   (require "../parser.rkt")
   (parameterize ([FILENAME "test.melo"])
     (time
@@ -472,10 +474,12 @@
       (melo-parse-port (open-input-string "
 def dup(x: Nat) = [x, x]
 def trip(x: Nat) = [x, x, x]
+
+struct Tagged {
+   x : Nat,
+   y : Nat
+}
+
 - - - 
-(let x = if 1 then dup(1) else trip(1) in
-if x is [Nat, Nat] then
-    trip(dup(x[0])[0] * 100)[0]
-else
-    dup(x[2])[1]) + 1 + [1, 1][0]
+x+1
 "))))))

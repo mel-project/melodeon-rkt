@@ -73,9 +73,10 @@
 
 (struct PNat () #:transparent)
 (struct PVec () #:transparent)
+(struct PTagged ((tag : Symbol)) #:transparent)
 (struct PVar ((sym : Symbol)) #:transparent)
 (struct PBytes () #:transparent)
-(define-type Prim-Type (U PNat PVec PVar Index PBytes))
+(define-type Prim-Type (U PNat PVec PVar Index PBytes PTagged))
 
 ;; Converts a type belonging to the given index to a type-bag
 (: type->bag (-> Type Type-Bag))
@@ -101,8 +102,11 @@
                                       `(len ,idx) (ann n : Integer))
                                 Bag-Case)))]
     ; structs
-    [(TTagged _ types)
-     (type->bag/raw (TVector (cons (TNat) types)) idx)]
+    [(TTagged tag types)
+     (for/fold ([accum (Type-Bag (set (hash idx (PTagged tag))))])
+               ([type types]
+                [ctr (in-naturals)]) : Type-Bag
+       (bag-product accum (type->bag/raw type `(ref ,idx ,ctr))))]
     [(TVectorof t n) (type->bag/raw (TVector (make-list n t)) idx)]
     [(TVector types)
      (for/fold ([accum (Type-Bag (set (hash idx (PVec)

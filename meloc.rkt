@@ -39,10 +39,10 @@
   (define ast (demodularize partial-ast
                             (input-file)
                             filename->ast))
-  ;(pretty-display (dectx* ast))
+  (pretty-display (dectx* ast))
   (eprintf "generating $-Ast...\n")
   (define res (@-transform ast))
-  ;(pretty-display res)
+  ;(pretty-write res)
   (eprintf "main type: ~a\n" (type->string ($-Ast-type ($program-expr res))))
   (eprintf "generating mil...\n")
   (define output (generate-mil res))

@@ -7,7 +7,8 @@
          flatten1
          struct-def?
          ast->list
-         ast->list*)
+         ast->list*
+         ast-map)
 
 
 ; An environment for type variable mappings to types
@@ -53,16 +54,18 @@
     [`(@set! _ ,expr) (ast->list expr)]
     [`(@loop _ ,expr) (ast->list expr)]
     [`(@extern _) (list)]
-    [`(@is ,expr _) (ast->list expr)]
-    [(with-context _ matter) (ast->list matter)]
-    )))
+            [`(@is ,expr _) (ast->list expr)]
+            [(with-context _ matter) (ast->list matter)]
+            )))
 
 ;; Runs every subexpression of a through f, recursively
 (: ast-map (-> (-> @-Ast @-Ast) @-Ast @-Ast))
 (define (ast-map f a)
   (define recurse (λ((x : @-Ast)) (ast-map f x)))
-  (f
-   (match a
+  (parameterize ([current-context (context-of a)])
+    (contextualize
+     (f
+      (match (dectx a)
      ; trivials
      [`(@lit-num ,n) `(@lit-num ,n)]
      [`(@list-bytes ,b) `(@list-bytes ,b)]
@@ -71,7 +74,7 @@
 
      [`(@let (,var ,val) ,expr) `(@let (,var ,(recurse val))
                                        ,(recurse expr))]
-     [`(@-Binop ,a ,b) `(@-Binop ,(recurse a) ,(recurse b))]
+     [`(,(? @-Binop? op) ,a ,b) `(,op ,(recurse a) ,(recurse b))]
      [`(@lit-vec ,v) `(@lit-vec ,(map recurse v))]
      [`(@program ,defs ,expr) `(@program ,(map (λ((def : Definition))
                                                  (match def
@@ -108,4 +111,4 @@
      [`(@loop ,count ,expr) `(@loop ,count ,(recurse expr))]
      [`(@is ,expr ,t) `(@is ,(recurse expr) ,t)]
      [(with-context ctx matter) (with-context ctx (recurse matter))]
-     )))
+     )))))

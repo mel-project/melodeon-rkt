@@ -138,3 +138,4 @@
      (List '@type-bytes Nonnegative-Integer)))
 
 (define-type @-Binop (U '@+ '@- '@* '@/ '@append '@or '@and '@eq))
+(define @-Binop? (make-predicate @-Binop))

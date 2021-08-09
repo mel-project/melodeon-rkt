@@ -188,6 +188,8 @@
   (dectx*
    (melo-parse-port (open-input-string #<<EOF
 
+require "helloworld.melo"
+
 def f(x: Nat & Any) = x
 
 - - -

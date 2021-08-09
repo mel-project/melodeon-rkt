@@ -1,5 +1,6 @@
 #lang typed/racket
-(require "common.rkt")
+(require "common.rkt"
+         "ast-utils.rkt")
 (provide demodularize)
 
 ;; Fully "demodularizes" an @-Ast, given its filename and a file-loading function.
@@ -83,17 +84,13 @@
      (match (dectx ast)
        [`(@program ,defs ,inner) `(@program ,(map recurse-def defs)
                                             ,(recurse inner))]
-       [`(@let (,k ,v) ,inner)
-        `(@let (,(automangle k)
-                ,(recurse v))
-               ,(mangle-unprovided/inner inner mangle (set-add no-mangle k)))]
-       [`(@apply ,f ,args)
-        `(@apply ,(automangle f) ,(map recurse args))]
-       [`(@var ,sym)
-        `(@var ,(automangle sym))]
-       ;; all the other stupid cases. This is so stupid and slow it's ridiculous. Will be replaced by a "functor" style impl later
-       [(? list? whatever)
-        (cast (map (λ(x)
-                     (if (@-Ast? x) (recurse x) x))
-                   whatever) @-Ast)]
-       ))))
+       [node (ast-map (lambda ((node : @-Ast))
+                        (match node
+                          [`(@var ,x) `(@var ,(automangle x))]
+                          [`(@apply ,f ,args) `(@apply ,(automangle f) ,args)]
+                          [`(@let (,var ,val) ,expr) `(@let (,var ,(recurse val))
+                                                            ,(mangle-unprovided/inner expr
+                                                                                      mangle
+                                                                                      (set-add no-mangle var)))]
+                          [x x]))
+                      node)]))))

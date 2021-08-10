@@ -39,11 +39,11 @@
           (define inner-type-scope
             (foldl (λ((x : (List Symbol Type-Expr))
                       (ts : Type-Scope))
-                     (bind-var ts (first x) (resolve-type (second x) (Type-Scope-type-vars type-scope))))
+                     (bind-var ts (first x) (resolve-type (second x) type-scope)))
                    type-scope
                    args-with-types))
           (match-define (cons $body _) (@->$ body inner-type-scope))
-          (define ret-type (if return-type (resolve-type return-type (Type-Scope-type-vars type-scope))
+          (define ret-type (if return-type (resolve-type return-type type-scope) 
                                ($-Ast-type $body)))
           (unless (subtype-of? ($-Ast-type $body) ret-type)
             (context-error "function ~a annotated with return type ~a but actually returns ~a"
@@ -53,7 +53,7 @@
                                            (map (λ((x : (List Symbol Type-Expr)))
                                                   (list (first x)
                                                         (resolve-type (second x)
-                                                                      (Type-Scope-type-vars type-scope))))
+                                                                      type-scope)))
                                                 args-with-types)
                                            $body)
                                    $definitions))]
@@ -161,6 +161,10 @@
                                 (TVector (map $type $vars))
                                 ($lit-vec $vars))
                                tf-empty)]
+      [`(@lit-bytes ,bts) (cons ($-Ast
+                                 (TBytes (bytes-length bts))
+                                 ($lit-bytes bts))
+                                tf-empty)]
       [`(@var ,variable) (cons ($-Ast (lookup-var type-scope variable)
                                       ($var variable))
                                (let ([tsfacts (Type-Scope-bound-facts type-scope)])
@@ -320,7 +324,7 @@
       ;; downcast and upcast
       [`(@unsafe-cast ,inner ,type)
        (match-define (cons $inner inner-facts) (@->$ inner type-scope))
-       (define new-type (resolve-type type types-map))
+       (define new-type (resolve-type type type-scope))
        (unless (subtype-of? new-type ($type $inner))
          (context-error "cannot downcast ~a to ~a"
                         (type->string ($type $inner))
@@ -330,7 +334,7 @@
              inner-facts)]
       [`(@ann ,inner ,type)
        (match-define (cons $inner inner-facts) (@->$ inner type-scope))
-       (define new-type (resolve-type type types-map))
+       (define new-type (resolve-type type type-scope))
        (unless (subtype-of? ($type $inner) new-type)
          (context-error "cannot annotate ~a as incompatible type ~a"
                         (type->string ($type $inner))
@@ -389,10 +393,10 @@
        (cons
         ($-Ast (TNat)
                ($is (car (@->$ expr type-scope))
-                    (resolve-type type (Type-Scope-type-vars type-scope))))
+                    (resolve-type type type-scope)))
         (match (dectx expr)
           [`(@var ,var)
-           (make-immutable-hash `((,var . ,(resolve-type type types-map))))]
+           (make-immutable-hash `((,var . ,(resolve-type type type-scope))))]
           [else tf-empty]))]
       )))
 
@@ -412,7 +416,7 @@
       (bind-type-var
         env
         name
-        (resolve-type `(@type-struct ,name ,fields) (Type-Scope-type-vars env)))]
+        (resolve-type `(@type-struct ,name ,fields) env))]
     [_ env]))
 
 ; takes a Type-Scope rather than just one map because
@@ -429,12 +433,13 @@
        (foldl (λ((x : (List Symbol Type-Expr))
                  (ts : Type-Scope))
                 (bind-var ts (first x)
-                          (resolve-type (second x) (Type-Scope-type-vars accum))))
+                          (resolve-type (second x) accum)))
               accum
               args-with-types))
+     (pretty-write (dectx* body))
      (match-define (cons $body _) (@->$ body inner-type-scope))
      (define ret-type (if return-type
-                          (resolve-type return-type (Type-Scope-type-vars accum))
+                          (resolve-type return-type accum)
                           ($-Ast-type $body)))
      (unless (subtype-of? ($-Ast-type $body) ret-type)
        (context-error "function ~a annotated with return type ~a but actually returns ~a"
@@ -445,7 +450,7 @@
        name
        (TFunction
         (map (λ((x : Type-Expr))
-               (resolve-type x (Type-Scope-type-vars accum)))
+               (resolve-type x accum))
              (map (λ((x : (List Symbol Type-Expr)))
                     (second x)) args-with-types))
         ($-Ast-type $body)))]

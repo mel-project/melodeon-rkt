@@ -21,8 +21,9 @@
              (for/list ([definition (in-list definitions)]) : (Listof (Option @-Ast))
                (match definition
                  [`(@require ,dep-fname)
-                  (let ([dep-fname (build-path (path->string
-                                                (cast (path-only filename) Path)) dep-fname)])
+                  (let ([dep-fname (if (absolute-path? dep-fname) dep-fname
+                                       (build-path (path->string
+                                                    (cast (path-only filename) Path)) dep-fname))])
                     (demodularize (filename->ast dep-fname)
                                   dep-fname
                                   filename->ast))]
@@ -78,6 +79,15 @@
                                                          ast mangle
                                                          (set-union no-mangle
                                                                     (list->set (map (inst car Symbol) args)))))]
+      [`(@def-struct ,sym ,lalas)
+       `(@def-struct ,(automangle sym)
+                     ,(for/list ([elem lalas]) : (Listof (List Symbol Type-Expr))
+                        (match elem
+                          [(list sym texpr)
+                           (list (cast sym Symbol)
+                                 (mangle-type-expr (cast texpr Type-Expr)
+                                                   (λ((x : Symbol))
+                                                     (if (set-member? no-mangle x) x (mangle x)))))])))]
       [x x]))
   (parameterize ([current-context (context-of ast)])
     (contextualize
@@ -94,3 +104,21 @@
                                                                                       (set-add no-mangle var)))]
                           [x x]))
                       node)]))))
+
+(: mangle-type-expr (-> Type-Expr (-> Symbol Symbol) Type-Expr))
+(define (mangle-type-expr expr mangle)
+  (: recurse (-> Type-Expr Type-Expr))
+  (define (recurse expr)
+    (mangle-type-expr expr mangle))
+  (match expr
+    [`(@type-var Nat) expr]
+    [`(@type-var Any) expr]
+    [`(@type-var ,sym) `(@type-var ,(mangle sym))]
+    [`(@type-vec ,inner) `(@type-vec ,(map recurse inner))]
+    [`(@type-vecof ,t ,n) `(@type-vecof ,(recurse t) ,n)]
+    [`(@type-dynvecof ,t) `(@type-dynvecof ,(recurse t))]
+    [`(@type-union ,t ,u) `(@type-union ,(recurse t)
+                                        ,(recurse u))]
+    [`(@type-intersect ,t ,u) `(@type-intersect ,(recurse t)
+                                                ,(recurse u))]
+    [x x]))

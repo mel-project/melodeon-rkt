@@ -42,6 +42,8 @@
                          (bag-case->type u-case))
               [(cons (TVector t-list)
                      (TVector u-list)) (TVector (append t-list u-list))]
+              [(cons (TBytes n)
+                     (TBytes m)) (TBytes (+ n m))]
               [_ (context-error "cannot append types ~a and ~a"
                                 (type->string t)
                                 (type->string u))]))))

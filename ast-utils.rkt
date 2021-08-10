@@ -68,7 +68,7 @@
       (match (dectx a)
      ; trivials
      [`(@lit-num ,n) `(@lit-num ,n)]
-     [`(@list-bytes ,b) `(@list-bytes ,b)]
+     [`(@lit-bytes ,b) `(@lit-bytes ,b)]
      [`(@var ,x) `(@var ,x)]
      [`(@extern ,s) `(@extern ,s)]
 

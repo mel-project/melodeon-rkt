@@ -2,6 +2,7 @@
 (require "parser.rkt"
          "type-sys/typecheck-unify.rkt"
          "type-sys/typecheck.rkt"
+         "type-sys/type-bag.rkt"
          "type-sys/types.rkt"
          "typed-ast.rkt"
          "common.rkt")
@@ -41,7 +42,7 @@
 
     ;; other stuff
     [($apply fun args) `(,(mangle-sym fun) . ,(map generate-mil-expr args))]
-    [($append x y) `(,(match ($-Ast-type x)
+    [($append x y) `(,(match (bag->type (type->bag ($-Ast-type x)))
                         [(TVectorof _ _) 'v-concat]
                         [(TVector _) 'v-concat]
                         [(TBytes _) 'b-concat])

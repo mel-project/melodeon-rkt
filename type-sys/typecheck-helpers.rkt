@@ -145,16 +145,17 @@
                      (symbol->string var-name))))
 
 ;; Resolves a type or throws an error
-(: resolve-type (-> Type-Expr Type-Map Type))
+(: resolve-type (-> Type-Expr Type-Scope Type))
 (define (resolve-type texpr env)
   (match texpr
     [`(@type-var Any) (TAny)]
     [`(@type-var Nat) (TNat)]
-    ;[`(@type-var ,var) (lookup-type-var 
+    [`(@type-var ,var) (lookup-type-var env var)]
     ;[`(@type-var ,var) (context-error "cannot resolve type names yet")]
     ;[`(@type-vec ,vec) (TVector (map (lambda (x) (resolve-type x env)) vec))]
     [`(@type-vec ,vec) (TVector (map (λ((x : Type-Expr)) (resolve-type x env)) vec))]
     [`(@type-vecof ,var ,count) (TVectorof (resolve-type var env) count)]
+    [`(@type-dynvecof ,type) (TDynVectorof (resolve-type type env))] 
     [`(@type-bytes ,count) (TBytes count)]
     [`(@type-union ,x ,y)
      (TUnion (resolve-type x env)

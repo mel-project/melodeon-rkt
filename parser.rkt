@@ -62,6 +62,7 @@
                      `(@def-generic-fun ,$2 ,$4 ,$7 ,$10 ,$12))
                     ((REQUIRE BYTES) `(@require ,(bytes->string/utf-8 $2)))
                     ((PROVIDE VAR) `(@provide ,$2))
+                    ((PROVIDE TYPE) `(@provide ,$2))
                     ((STRUCT TYPE OPEN-BRACE <fun-args> CLOSE-BRACE)
                      `(@def-struct ,$2 ,$4))
                     )
@@ -74,7 +75,7 @@
       (<type-expr-2> ((<type-expr-3> TAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
                      ((<type-expr-3>) $1))
       (<type-expr-3> ((TYPE) `(@type-var ,$1))
-                     ((TNEG <type-expr-3>) `(@type-negate ,$2))
+                     ((OPEN-BRACKET <type-expr> ETC CLOSE-BRACKET) `(@type-dynvecof ,$2))
                      ((HASH OPEN-BRACKET NUM CLOSE-BRACKET) `(@type-bytes ,$3))
                      ((OPEN-BRACKET <type-exprs> CLOSE-BRACKET) `(@type-vec ,$2))
                      ((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
@@ -190,7 +191,7 @@
 
 require "helloworld.melo"
 
-def f(x: Nat & Any) = x
+def f(x: [Nat ...]) = x
 
 - - -
 

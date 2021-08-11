@@ -46,8 +46,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    - name: Run top-level unit tests
-      run: racket *-test.rkt
+    steps:
+      - name: Run top-level unit tests
+        run: racket *-test.rkt
 
-    - name: Run type system unit tests
-      run: racket type-sys/*-test.rkt
+      - name: Run type system unit tests
+        run: racket type-sys/*-test.rkt

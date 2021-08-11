@@ -137,5 +137,6 @@
      (List '@type-intersect Type-Expr Type-Expr)
      (List '@type-bytes Nonnegative-Integer)))
 
-(define-type @-Binop (U '@+ '@- '@* '@/ '@append '@or '@and '@eq))
+(define-type @-Binop (U '@+ '@- '@* '@/ '@append '@xor '@bor '@band
+                        '@shl '@shr '@or '@and '@eq))
 (define @-Binop? (make-predicate @-Binop))

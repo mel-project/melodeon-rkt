@@ -83,7 +83,7 @@
       (<type-exprs> ((<type-expr>) (list $1))
                     ((<type-expr> COMMA <type-exprs>) (cons $1 $3)))
       ;; different kinds of exprs
-      (<expr> ((<or-expr>) $1)
+      (<expr> ((<shl-expr>) $1)
               ((<let-expr>) $1)
               ((<where-expr>) $1)
               ((<block-expr>) $1)
@@ -116,13 +116,18 @@
                     ((<where-expr> WHERE VAR = <add-expr>) (pos-lift 1 5
                                                                      `(@let (,$3 ,$5) ,$1))))
       
-      ;; lowest-associativity (logical) operators
+      ;; bitwise operators
       (<shl-expr> ((<shl-expr> SHL <shr-expr>) (pos-lift 1 3 `(@shl ,$1 ,$3)))
                  ((<shr-expr>) $1))
       (<shr-expr> ((<shr-expr> SHR <xor-expr>) (pos-lift 1 3 `(@shr ,$1 ,$3)))
                  ((<xor-expr>) $1))
-      (<xor-expr> ((<xor-expr> XOR <or-expr>) (pos-lift 1 3 `(@xor ,$1 ,$3)))
+      (<xor-expr> ((<xor-expr> XOR <bor-expr>) (pos-lift 1 3 `(@xor ,$1 ,$3)))
+                 ((<bor-expr>) $1))
+      (<bor-expr> ((<bor-expr> BOR <band-expr>) (pos-lift 1 3 `(@bor ,$1 ,$3)))
+                 ((<band-expr>) $1))
+      (<band-expr> ((<band-expr> BAND <or-expr>) (pos-lift 1 3 `(@band ,$1 ,$3)))
                  ((<or-expr>) $1))
+      ;; lowest-associativity (logical) operators
       (<or-expr> ((<or-expr> OR <and-expr>) (pos-lift 1 3 `(@or ,$1 ,$3)))
                  ((<and-expr>) $1))
       (<and-expr> ((<and-expr> AND <eq-expr>) (pos-lift 1 3 `(@and ,$1 ,$3)))

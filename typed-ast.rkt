@@ -95,6 +95,11 @@
 
 (define-type $-Binop
   (U '+
+     'bor
+     'band
+     'xor
+     'shl
+     'shr
      '-
      '*
      '/))

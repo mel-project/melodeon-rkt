@@ -267,7 +267,7 @@
                                    ($eq (car x)
                                         (car y)))
                             tf-empty))]
-      [`(,(? (lambda(op) (member op '(@+ @- @* @/))) op) ,x ,y)
+      [`(,(? (lambda(op) (member op '(@band @bor @shl @shr @xor @+ @- @* @/))) op) ,x ,y)
        (match-let ([(cons $x _) (@->$ x type-scope)]
                    [(cons $y _) (@->$ y type-scope)])
          (assert-type x ($type $x) (TNat))
@@ -275,6 +275,11 @@
          (cons
           ($-Ast (TNat)
                  ($bin (match op
+                         ['@bor 'bor]
+                         ['@band 'band]
+                         ['@xor 'xor]
+                         ['@shl 'shl]
+                         ['@shr 'shr]
                          ['@+ '+]
                          ['@- '-]
                          ['@* '*]

@@ -14,7 +14,7 @@
                                     CLOSE-BRACKET LESS-THAN GREATER-THAN
                                     OPEN-BRACE CLOSE-BRACE COMMA EOF NEG
                                     = == ++ + - * / OR XOR AND ETC
-                                    SHL SHR
+                                    SHL SHR BAND BOR
                                     ---
                                     TAND
                                     TNEG
@@ -69,8 +69,10 @@
    ["require" 'REQUIRE]
    ["provide" 'PROVIDE]
    ["||" 'OR]
+   ["|" 'BOR]
    ["^" 'XOR]
    ["&&" 'AND]
+   ["&" 'BAND]
    ["<<" 'SHL]
    [">>" 'SHR]
    ["not" 'NOT]

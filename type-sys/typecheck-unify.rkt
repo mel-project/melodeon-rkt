@@ -1,9 +1,15 @@
 #lang typed/racket
 (require "type-bag.rkt"
          "types.rkt"
-         "resolver.rkt"
          "../common.rkt")
-(provide type-index)
+(provide type-index
+         type-append
+         subtype-of?)
+
+(: subtype-of? (-> Type Type Boolean))
+(define (subtype-of? t1 t2)
+  (bag-subtype-of? (type->bag t1)
+                   (type->bag t2)))
 
 (: type-index (-> Type Integer Type))
 (define (type-index type idx)
@@ -20,6 +26,27 @@
                      length)))
   ;; then we find the possible types
   (bag->type (bag-project bagged `(ref root ,idx))))
+
+(: type-append (-> Type Type Type))
+(define (type-append t u)
+  ;; convert to bags
+  (define t-bag (type->bag t))
+  (define u-bag (type->bag u))
+  ;; cartesian-product the two bags
+  (for*/fold ([accum : Type (TNone)])
+             ([t-case (Type-Bag-inner t-bag)]
+              [u-case (Type-Bag-inner u-bag)]) : Type
+    ;; This *should* work.
+    (TUnion accum
+            (match (cons (bag-case->type t-case)
+                         (bag-case->type u-case))
+              [(cons (TVector t-list)
+                     (TVector u-list)) (TVector (append t-list u-list))]
+              [(cons (TBytes n)
+                     (TBytes m)) (TBytes (+ n m))]
+              [_ (context-error "cannot append types ~a and ~a"
+                                (type->string t)
+                                (type->string u))]))))
 
 ;; Given a "template" containing type variables and another type without type variables, return
 ;; a mapping from type variable to type

@@ -2,7 +2,6 @@
 (require "../common.rkt"
          "../ast-utils.rkt"
          "types.rkt"
-         "resolver.rkt"
          "../typed-ast.rkt"
          "typecheck-helpers.rkt"
          "typecheck-unify.rkt")
@@ -40,11 +39,11 @@
           (define inner-type-scope
             (foldl (λ((x : (List Symbol Type-Expr))
                       (ts : Type-Scope))
-                     (bind-var ts (first x) (resolve-type (second x) (Type-Scope-type-vars type-scope))))
+                     (bind-var ts (first x) (resolve-type (second x) type-scope)))
                    type-scope
                    args-with-types))
           (match-define (cons $body _) (@->$ body inner-type-scope))
-          (define ret-type (if return-type (resolve-type return-type (Type-Scope-type-vars type-scope))
+          (define ret-type (if return-type (resolve-type return-type type-scope) 
                                ($-Ast-type $body)))
           (unless (subtype-of? ($-Ast-type $body) ret-type)
             (context-error "function ~a annotated with return type ~a but actually returns ~a"
@@ -54,7 +53,7 @@
                                            (map (λ((x : (List Symbol Type-Expr)))
                                                   (list (first x)
                                                         (resolve-type (second x)
-                                                                      (Type-Scope-type-vars type-scope))))
+                                                                      type-scope)))
                                                 args-with-types)
                                            $body)
                                    $definitions))]
@@ -162,6 +161,10 @@
                                 (TVector (map $type $vars))
                                 ($lit-vec $vars))
                                tf-empty)]
+      [`(@lit-bytes ,bts) (cons ($-Ast
+                                 (TBytes (bytes-length bts))
+                                 ($lit-bytes bts))
+                                tf-empty)]
       [`(@var ,variable) (cons ($-Ast (lookup-var type-scope variable)
                                       ($var variable))
                                (let ([tsfacts (Type-Scope-bound-facts type-scope)])
@@ -301,7 +304,7 @@
        (match-let ([(cons $x _) (@->$ x type-scope)]
                    [(cons $y _) (@->$ y type-scope)])
          (cons
-          ($-Ast (tappend ($type $x)
+          ($-Ast (type-append ($type $x)
                           ($type $y))
                  ($append $x $y))
           tf-empty))]
@@ -321,7 +324,7 @@
       ;; downcast and upcast
       [`(@unsafe-cast ,inner ,type)
        (match-define (cons $inner inner-facts) (@->$ inner type-scope))
-       (define new-type (resolve-type type types-map))
+       (define new-type (resolve-type type type-scope))
        (unless (subtype-of? new-type ($type $inner))
          (context-error "cannot downcast ~a to ~a"
                         (type->string ($type $inner))
@@ -331,7 +334,7 @@
              inner-facts)]
       [`(@ann ,inner ,type)
        (match-define (cons $inner inner-facts) (@->$ inner type-scope))
-       (define new-type (resolve-type type types-map))
+       (define new-type (resolve-type type type-scope))
        (unless (subtype-of? ($type $inner) new-type)
          (context-error "cannot annotate ~a as incompatible type ~a"
                         (type->string ($type $inner))
@@ -358,6 +361,8 @@
            [`(@lit-num ,x) x]
            [other (context-error "non-literal index ~a not yet supported" other)]))
        (match-define (cons $val _) (@->$ val type-scope))
+       (pretty-print ($type $val))
+       (pretty-print idx)
        (cons
         ($-Ast (type-index ($type $val)
                 idx)
@@ -388,10 +393,10 @@
        (cons
         ($-Ast (TNat)
                ($is (car (@->$ expr type-scope))
-                    (resolve-type type (Type-Scope-type-vars type-scope))))
+                    (resolve-type type type-scope)))
         (match (dectx expr)
           [`(@var ,var)
-           (make-immutable-hash `((,var . ,(resolve-type type types-map))))]
+           (make-immutable-hash `((,var . ,(resolve-type type type-scope))))]
           [else tf-empty]))]
       )))
 
@@ -411,7 +416,7 @@
       (bind-type-var
         env
         name
-        (resolve-type `(@type-struct ,name ,fields) (Type-Scope-type-vars env)))]
+        (resolve-type `(@type-struct ,name ,fields) env))]
     [_ env]))
 
 ; takes a Type-Scope rather than just one map because
@@ -428,43 +433,43 @@
        (foldl (λ((x : (List Symbol Type-Expr))
                  (ts : Type-Scope))
                 (bind-var ts (first x)
-                          (resolve-type (second x) (Type-Scope-type-vars accum))))
+                          (resolve-type (second x) accum)))
               accum
               args-with-types))
+     (pretty-write (dectx* body))
      (match-define (cons $body _) (@->$ body inner-type-scope))
      (define ret-type (if return-type
-                          (resolve-type return-type (Type-Scope-type-vars accum))
+                          (resolve-type return-type accum)
                           ($-Ast-type $body)))
      (unless (subtype-of? ($-Ast-type $body) ret-type)
        (context-error "function ~a annotated with return type ~a but actually returns ~a"
+                      name
                       (type->string ret-type)
                       (type->string ($-Ast-type $body))))
      (bind-fun accum
        name
        (TFunction
         (map (λ((x : Type-Expr))
-               (resolve-type x (Type-Scope-type-vars accum)))
+               (resolve-type x accum))
              (map (λ((x : (List Symbol Type-Expr)))
                     (second x)) args-with-types))
         ($-Ast-type $body)))]
     [_ accum]))
 
-(: add-def-var (-> Definition Type-Scope Type-Scope))
-(define (add-def-var def accum)
+(: add-var-def (-> Definition Type-Scope Type-Scope))
+(define (add-var-def def accum)
   (match def
     [`(@def-var ,var ,expr)
-      (bind-var accum var (first (@-ast->type/inner expr accum)))]
+     (bind-var accum var (first (@-ast->type/inner expr accum)))]
     [_ accum]))
 
 (: definitions->scope (-> (Listof Definition) Type-Scope))
 (define (definitions->scope defs)
-  (let ([struct-defs (foldl add-struct-def empty-ts defs)]
-        [var-defs (foldl add-def-var empty-ts defs)]
-        ;[alias-defs (foldl add-alias-def defs)]
-        [fun-defs (foldl add-fun-def empty-ts defs)])
-      (foldl ts-union empty-ts (list fun-defs var-defs struct-defs))))
+  (for/fold ([accum empty-ts])
+            ([def defs]) : Type-Scope
+    (add-fun-def def (add-var-def def (add-struct-def def accum)))))
 
-(module+ test
+#;(module+ test
   (require "../parser.rkt")
   (parameterize ([FILENAME "test.melo"])
     (time
@@ -472,10 +477,12 @@
       (melo-parse-port (open-input-string "
 def dup(x: Nat) = [x, x]
 def trip(x: Nat) = [x, x, x]
+
+struct Tagged {
+   x : Nat,
+   y : Nat
+}
+
 - - - 
-(let x = if 1 then dup(1) else trip(1) in
-if x is [Nat, Nat] then
-    trip(dup(x[0])[0] * 100)[0]
-else
-    dup(x[2])[1]) + 1 + [1, 1][0]
+x+1
 "))))))

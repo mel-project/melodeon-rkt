@@ -10,8 +10,8 @@
 (struct TVectorof ((inner : Type)
                    (count : Nonnegative-Integer)
                    ) #:transparent)
-;; A vector where the final length is unknown, but it's at least the given
-(struct TVectorEtc ((list : (Listof Type))) #:transparent)
+;; A vector where the length is unknown, but all values of are the given type
+(struct TDynVectorof ((inner : Type)) #:transparent)
 (struct TBytes ((count : Nonnegative-Integer)
                 ) #:transparent)
 
@@ -51,6 +51,7 @@
 (define-type Type (U TNat
                      TAny
                      TTagged
+                     TDynVectorof
                      TVector
                      TVectorof
                      TUnion
@@ -71,10 +72,11 @@
     [(TVar s) (format "'~a" s)]
     [(TFail s) (format "Fail[~a]" s)]
     [(TTagged tag types) (define type-strs (map type->string types))
-                           (string-append "["
-                                          (symbol->string tag)
-                                          (string-join type-strs ", ")
-                                          "]")]
+                         (string-append 
+                                        (symbol->string tag)
+                                        "{"
+                                        (string-join type-strs ", ")
+                                        "}")]
     [(TVector lst) (define inner-names (map type->string lst))
                    (string-append "["
                                   (string-join inner-names ", ")

@@ -1,7 +1,7 @@
 #lang typed/racket
 (require "types.rkt"
          "../ast-utils.rkt"
-         "resolver.rkt"
+         "typecheck-unify.rkt"
          "../common.rkt"
          "type-bag.rkt"
          racket/hash)
@@ -22,42 +22,6 @@
   (foldl (λ((t : Type) (acc : Type)) (TUnion t acc))
          (car v)
          (cdr v)))
-
-;; Converts from TVector to TVectorof
-(: to-tvector (-> (U TVectorof TVector) TVector))
-(define (to-tvector tvec)
-  (match tvec
-    [(TVectorof inner count)
-     (TVector (make-list count inner))]
-    [(? TVector? x) x]))
-
-;; Appends two vectors
-(: tappend (-> Type Type Type))
-(define (tappend left right)
-  (match (cons left right)
-    [(cons (TBytes n)
-           (TBytes m)) (TBytes (+ n m))]
-    ;; [T U ..] ++ [V W X ..]
-    [(cons (TVector left-types)
-           (TVector right-types)) (TVector (append left-types right-types))]
-    ;; [T; n] ++ [T; m]
-    [(cons (TVectorof left-type left-count)
-           (TVectorof right-type right-count))
-     (unless (equal? left-type right-type)
-       (context-error "tried to append vectors with mismatching types: ~a ++ ~a"
-                      left-type
-                      right-type))
-     (TVectorof left-type (+ left-count right-count))]
-    ;; [T T ..] ++ [T; n]
-    [(cons (? TVectorU? left)
-           (? TVectorU? right))
-     (tappend (to-tvector left)
-              (to-tvector right))]
-    [_
-     (context-error "cannot append non-vectors: ~a ++ ~a"
-                    left
-                    right)]
-    ))
 
 ;; A function
 (struct TFunction ((arg-types : (Listof Type))
@@ -181,16 +145,17 @@
                      (symbol->string var-name))))
 
 ;; Resolves a type or throws an error
-(: resolve-type (-> Type-Expr Type-Map Type))
+(: resolve-type (-> Type-Expr Type-Scope Type))
 (define (resolve-type texpr env)
   (match texpr
     [`(@type-var Any) (TAny)]
     [`(@type-var Nat) (TNat)]
-    ;[`(@type-var ,var) (lookup-type-var 
+    [`(@type-var ,var) (lookup-type-var env var)]
     ;[`(@type-var ,var) (context-error "cannot resolve type names yet")]
     ;[`(@type-vec ,vec) (TVector (map (lambda (x) (resolve-type x env)) vec))]
     [`(@type-vec ,vec) (TVector (map (λ((x : Type-Expr)) (resolve-type x env)) vec))]
     [`(@type-vecof ,var ,count) (TVectorof (resolve-type var env) count)]
+    [`(@type-dynvecof ,type) (TDynVectorof (resolve-type type env))] 
     [`(@type-bytes ,count) (TBytes count)]
     [`(@type-union ,x ,y)
      (TUnion (resolve-type x env)

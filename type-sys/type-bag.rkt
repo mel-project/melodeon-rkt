@@ -10,7 +10,22 @@
          Prim-Index
          PVar
          bag->type
+         bag-subtype-of?
          )
+
+
+(struct PNat () #:transparent)
+(struct PVec () #:transparent)
+(struct PTagged ((tag : Symbol)) #:transparent)
+(struct PVar ((sym : Symbol)) #:transparent)
+(struct PBytes () #:transparent)
+(define-type Prim-Type (U PNat PVec PVar Integer PBytes PTagged))
+
+(define-type Prim-Index (U 'root
+                           (List 'len Prim-Index)
+                           (List 'ref Prim-Index Integer)
+                           (List 'all-ref Prim-Index)))
+
 
 (define-type Bag-Case (HashTable Prim-Index Prim-Type))
 
@@ -44,12 +59,27 @@
              #:when elem) : (Setof Bag-Case)
      elem)))
 
-(: case-set (-> Bag-Case Prim-Index Prim-Type Bag-Case))
+(: case-ref (-> Bag-Case Prim-Index (Option Prim-Type)))
+(define (case-ref case key)
+  (cond
+    [(hash-has-key? case key) (hash-ref case key)]
+    [else (match key
+            [`(ref ,inner ,_) (hash-ref case `(all-ref ,inner) #f)]
+            [`(all-ref ,inner)
+             (with-handlers ([exn:fail? (λ _ #f)])
+               (define types
+                 (remove-duplicates
+                  (for/list ([idx (cast (hash-ref case `(len ,inner)) Integer)]) : (Listof Prim-Type)
+                    (hash-ref case `(ref ,inner ,idx)))))
+               (if (= 1 (length types)) (car types) #f))]
+            [_ #f])]))
+
+(: case-set (-> Bag-Case Prim-Index Prim-Type Bag-Case)) 
 (define (case-set case key value)
   (cond
-    [(hash-has-key? case key) (if (equal? (hash-ref case key) value)
-                                  case
-                                  (context-error "killing the whole thing"))]
+    [(case-ref case key) (if (equal? (case-ref case key) value)
+                             case
+                             (context-error "killing the whole thing"))]
     [else (hash-set case key value)]))
 
 (: case-union (-> Bag-Case Bag-Case Bag-Case))
@@ -58,9 +88,6 @@
             ([(k v) c2])
     (case-set accum k v)))
 
-(define-type Prim-Index (U 'root
-                           (List 'len Prim-Index)
-                           (List 'ref Prim-Index Integer)))
 
 (: pidx-project (-> Prim-Index Prim-Index Prim-Index))
 (define (pidx-project pidx new-root)
@@ -70,22 +97,10 @@
             [`(ref ,inner ,len) `(ref ,(pidx-project inner new-root) ,len)]
             [`(len ,inner) `(len ,(pidx-project inner new-root))]
             [_ (error "cannot project")])]))
-
-(struct PNat () #:transparent)
-(struct PVec () #:transparent)
-(struct PVar ((sym : Symbol)) #:transparent)
-(struct PBytes () #:transparent)
-(define-type Prim-Type (U PNat PVec PVar Index PBytes))
-
 ;; Converts a type belonging to the given index to a type-bag
 (: type->bag (-> Type Type-Bag))
 (define (type->bag type)
-  (bag-cleanup (type->bag/raw type 'root)))
-
-;; Cleans up a bag, by removing all empty elements
-(: bag-cleanup (-> Type-Bag Type-Bag))
-(define (bag-cleanup bag)
-  bag)
+  (type->bag/raw type 'root))
 
 (: type->bag/raw (-> Type Prim-Index Type-Bag))
 (define (type->bag/raw type idx)
@@ -101,9 +116,19 @@
                                       `(len ,idx) (ann n : Integer))
                                 Bag-Case)))]
     ; structs
-    [(TTagged _ types)
-     (type->bag/raw (TVector (cons (TNat) types)) idx)]
-    [(TVectorof t n) (type->bag/raw (TVector (make-list n t)) idx)]
+    [(TTagged tag types)
+     (for/fold ([accum (Type-Bag (set (hash idx (PTagged tag)
+                                            `(len ,idx) (+ (length types) 1))))])
+               ([type types]
+                [ctr (in-naturals)]) : Type-Bag
+       (bag-product accum (type->bag/raw type `(ref ,idx ,(+ 1 ctr)))))]
+    [(TDynVectorof t) (bag-product
+                       (Type-Bag (set (hash idx (PVec))))
+                       (type->bag/raw t `(all-ref ,idx)))]
+    [(TVectorof t n) (bag-product
+                      (Type-Bag (set (hash idx (PVec)
+                                           `(len ,idx) n)))
+                      (type->bag/raw t `(all-ref ,idx)))]
     [(TVector types)
      (for/fold ([accum (Type-Bag (set (hash idx (PVec)
                                             `(len ,idx) (length types))))])
@@ -121,12 +146,13 @@
 
 ;; Bag-based subtype function
 (: bag-subtype-of? (-> Type-Bag Type-Bag Boolean))
-(define (bag-subtype-of? t u)
-  ; trivial case: it's just a subset
-  ; does this always work?
-  ; no it doesn't, haha
-  (subset? (Type-Bag-inner t)
-           (Type-Bag-inner u)))
+(define (bag-subtype-of? u t)
+  ; every case in t must be a superset of all the cases in u
+  (for/and ([t-case (Type-Bag-inner t)]) : Boolean
+    (for/or ([u-case (Type-Bag-inner u)]) : Boolean
+      (for/and ([(t-key t-val) t-case]) : Boolean
+        (and (case-ref u-case t-key)
+             (equal? t-val (case-ref u-case t-key)))))))
 
 (: set-union* (All (a) (-> (Setof (Setof a)) (Setof a))))
 (define (set-union* sets)
@@ -159,7 +185,7 @@
                   ([(c-term-k c-term-v) c]) : Bag-Case
           (let ([subtracted (term-subtract (cons c-term-k c-term-v)
                                            (cons d-term-k d-term-v))])
-            (if subtracted (hash-set accum
+            (if subtracted (case-set accum
                                      (car subtracted)
                                      (cdr subtracted))
                 (error "fail now"))))))
@@ -192,9 +218,15 @@
 (define (bag-case->type/inner case pidx)
   (match (hash-ref case pidx #f)
     [#f (TAny)]
+
     [(PNat) (TNat)]
-    [(PVec) (define length (cast (hash-ref case `(len ,pidx)) Integer))
-            (TVector (for/list ([i length]) : (Listof Type)
-                       (bag-case->type/inner case `(ref ,pidx ,i))))]
+    [(PVec) (or (with-handlers ([exn:fail? (λ _ #f)])
+                  (define length (cast (hash-ref case `(len ,pidx)) Integer))
+                  (TVector (for/list ([i length]) : (Listof Type)
+                             (bag-case->type/inner case `(ref ,pidx ,i)))))
+                (with-handlers ([exn:fail? (λ _ (TAny))])
+                  (define inner-type (bag-case->type/inner (hash 'root
+                                                                 (hash-ref case `(all-ref ,pidx)))'root))
+                  (TDynVectorof inner-type)))]
     [(PBytes) (define length (cast (hash-ref case `(len ,pidx)) Nonnegative-Integer))
               (TBytes length)]))

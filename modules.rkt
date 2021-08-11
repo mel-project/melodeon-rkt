@@ -1,5 +1,6 @@
 #lang typed/racket
-(require "common.rkt")
+(require "common.rkt"
+         "ast-utils.rkt")
 (provide demodularize)
 
 ;; Fully "demodularizes" an @-Ast, given its filename and a file-loading function.
@@ -20,8 +21,9 @@
              (for/list ([definition (in-list definitions)]) : (Listof (Option @-Ast))
                (match definition
                  [`(@require ,dep-fname)
-                  (let ([dep-fname (build-path (path->string
-                                                (cast (path-only filename) Path)) dep-fname)])
+                  (let ([dep-fname (if (absolute-path? dep-fname) dep-fname
+                                       (build-path (path->string
+                                                    (cast (path-only filename) Path)) dep-fname))])
                     (demodularize (filename->ast dep-fname)
                                   dep-fname
                                   filename->ast))]
@@ -77,23 +79,46 @@
                                                          ast mangle
                                                          (set-union no-mangle
                                                                     (list->set (map (inst car Symbol) args)))))]
+      [`(@def-struct ,sym ,lalas)
+       `(@def-struct ,(automangle sym)
+                     ,(for/list ([elem lalas]) : (Listof (List Symbol Type-Expr))
+                        (match elem
+                          [(list sym texpr)
+                           (list (cast sym Symbol)
+                                 (mangle-type-expr (cast texpr Type-Expr)
+                                                   (λ((x : Symbol))
+                                                     (if (set-member? no-mangle x) x (mangle x)))))])))]
       [x x]))
   (parameterize ([current-context (context-of ast)])
     (contextualize
      (match (dectx ast)
        [`(@program ,defs ,inner) `(@program ,(map recurse-def defs)
                                             ,(recurse inner))]
-       [`(@let (,k ,v) ,inner)
-        `(@let (,(automangle k)
-                ,(recurse v))
-               ,(mangle-unprovided/inner inner mangle (set-add no-mangle k)))]
-       [`(@apply ,f ,args)
-        `(@apply ,(automangle f) ,(map recurse args))]
-       [`(@var ,sym)
-        `(@var ,(automangle sym))]
-       ;; all the other stupid cases. This is so stupid and slow it's ridiculous. Will be replaced by a "functor" style impl later
-       [(? list? whatever)
-        (cast (map (λ(x)
-                     (if (@-Ast? x) (recurse x) x))
-                   whatever) @-Ast)]
-       ))))
+       [node (ast-map (lambda ((node : @-Ast))
+                        (match node
+                          [`(@var ,x) `(@var ,(automangle x))]
+                          [`(@apply ,f ,args) `(@apply ,(automangle f) ,args)]
+                          [`(@let (,var ,val) ,expr) `(@let (,var ,(recurse val))
+                                                            ,(mangle-unprovided/inner expr
+                                                                                      mangle
+                                                                                      (set-add no-mangle var)))]
+                          [x x]))
+                      node)]))))
+
+(: mangle-type-expr (-> Type-Expr (-> Symbol Symbol) Type-Expr))
+(define (mangle-type-expr expr mangle)
+  (: recurse (-> Type-Expr Type-Expr))
+  (define (recurse expr)
+    (mangle-type-expr expr mangle))
+  (match expr
+    [`(@type-var Nat) expr]
+    [`(@type-var Any) expr]
+    [`(@type-var ,sym) `(@type-var ,(mangle sym))]
+    [`(@type-vec ,inner) `(@type-vec ,(map recurse inner))]
+    [`(@type-vecof ,t ,n) `(@type-vecof ,(recurse t) ,n)]
+    [`(@type-dynvecof ,t) `(@type-dynvecof ,(recurse t))]
+    [`(@type-union ,t ,u) `(@type-union ,(recurse t)
+                                        ,(recurse u))]
+    [`(@type-intersect ,t ,u) `(@type-intersect ,(recurse t)
+                                                ,(recurse u))]
+    [x x]))

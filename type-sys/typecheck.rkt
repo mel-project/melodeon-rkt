@@ -456,8 +456,8 @@
         ($-Ast-type $body)))]
     [_ accum]))
 
-(: add-def-var (-> Definition Type-Scope Type-Scope))
-(define (add-def-var def accum)
+(: add-var-def (-> Definition Type-Scope Type-Scope))
+(define (add-var-def def accum)
   (match def
     [`(@def-var ,var ,expr)
      (bind-var accum var (first (@-ast->type/inner expr accum)))]
@@ -465,11 +465,9 @@
 
 (: definitions->scope (-> (Listof Definition) Type-Scope))
 (define (definitions->scope defs)
-  (let ([struct-defs (foldl add-struct-def empty-ts defs)]
-        [var-defs (foldl add-def-var empty-ts defs)]
-        ;[alias-defs (foldl add-alias-def defs)]
-        [fun-defs (foldl add-fun-def empty-ts defs)])
-    (foldl ts-union empty-ts (list fun-defs var-defs struct-defs))))
+  (for/fold ([accum empty-ts])
+            ([def defs]) : Type-Scope
+    (add-fun-def def (add-var-def def (add-struct-def def accum)))))
 
 #;(module+ test
   (require "../parser.rkt")

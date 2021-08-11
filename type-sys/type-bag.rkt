@@ -218,9 +218,15 @@
 (define (bag-case->type/inner case pidx)
   (match (hash-ref case pidx #f)
     [#f (TAny)]
+
     [(PNat) (TNat)]
-    [(PVec) (define length (cast (hash-ref case `(len ,pidx)) Integer))
-            (TVector (for/list ([i length]) : (Listof Type)
-                       (bag-case->type/inner case `(ref ,pidx ,i))))]
+    [(PVec) (or (with-handlers ([exn:fail? (λ _ #f)])
+                  (define length (cast (hash-ref case `(len ,pidx)) Integer))
+                  (TVector (for/list ([i length]) : (Listof Type)
+                             (bag-case->type/inner case `(ref ,pidx ,i)))))
+                (with-handlers ([exn:fail? (λ _ (TAny))])
+                  (define inner-type (bag-case->type/inner (hash 'root
+                                                                 (hash-ref case `(all-ref ,pidx)))'root))
+                  (TDynVectorof inner-type)))]
     [(PBytes) (define length (cast (hash-ref case `(len ,pidx)) Nonnegative-Integer))
               (TBytes length)]))

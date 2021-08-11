@@ -1,11 +1,16 @@
-name: Test
+name: Build
 
 on:
+  push:
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -34,6 +39,9 @@ jobs:
 
       - name: Install Typed-map
         run: raco pkg install --auto typed-map
+
+      - name: Compile
+        run: raco make -v meloc.rkt
 
       - name: Run top-level unit tests
         run: racket *-test.rkt

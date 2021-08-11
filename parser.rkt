@@ -117,6 +117,12 @@
                                                                      `(@let (,$3 ,$5) ,$1))))
       
       ;; lowest-associativity (logical) operators
+      (<shl-expr> ((<shl-expr> SHL <shr-expr>) (pos-lift 1 3 `(@shl ,$1 ,$3)))
+                 ((<shr-expr>) $1))
+      (<shr-expr> ((<shr-expr> SHR <xor-expr>) (pos-lift 1 3 `(@shr ,$1 ,$3)))
+                 ((<xor-expr>) $1))
+      (<xor-expr> ((<xor-expr> XOR <or-expr>) (pos-lift 1 3 `(@xor ,$1 ,$3)))
+                 ((<or-expr>) $1))
       (<or-expr> ((<or-expr> OR <and-expr>) (pos-lift 1 3 `(@or ,$1 ,$3)))
                  ((<and-expr>) $1))
       (<and-expr> ((<and-expr> AND <eq-expr>) (pos-lift 1 3 `(@and ,$1 ,$3)))

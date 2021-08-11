@@ -13,12 +13,12 @@
 (define-empty-tokens syntax-tokens (OPEN-PAREN CLOSE-PAREN OPEN-BRACKET
                                     CLOSE-BRACKET LESS-THAN GREATER-THAN
                                     OPEN-BRACE CLOSE-BRACE COMMA EOF NEG
-                                    = == ++ + - * / OR AND ETC
+                                    = == ++ + - * / OR XOR AND ETC
+                                    SHL SHR
                                     ---
                                     TAND
                                     TNEG
                                     TOR
-                                    
                                     LET IN
                                     COLON HASH
                                     SEMICOLON
@@ -69,7 +69,10 @@
    ["require" 'REQUIRE]
    ["provide" 'PROVIDE]
    ["||" 'OR]
+   ["^" 'XOR]
    ["&&" 'AND]
+   ["<<" 'SHL]
+   [">>" 'SHR]
    ["not" 'NOT]
    ["cast" 'CAST]
    ["loop" 'LOOP]

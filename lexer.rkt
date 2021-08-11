@@ -101,7 +101,7 @@
    ["~" 'TNEG]
    [(:: "-" (:* #\space) "-" (:* #\space) "-") '---]
    ;; skip comments
-   [(:: "--" any-string #\newline) (return-without-pos (melo-lex-once input-port))]
+   [(:: "//" any-string #\newline) (return-without-pos (melo-lex-once input-port))]
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations

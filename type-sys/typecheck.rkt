@@ -275,8 +275,8 @@
          (cons
           ($-Ast (TNat)
                  ($bin (match op
-                         ['@bor 'bor]
-                         ['@band 'band]
+                         ['@bor 'or]
+                         ['@band 'and]
                          ['@xor 'xor]
                          ['@shl 'shl]
                          ['@shr 'shr]
@@ -438,7 +438,6 @@
                           (resolve-type (second x) accum)))
               accum
               args-with-types))
-     (pretty-write (dectx* body))
      (match-define (cons $body _) (@->$ body inner-type-scope))
      (define ret-type (if return-type
                           (resolve-type return-type accum)

@@ -95,8 +95,8 @@
 
 (define-type $-Binop
   (U '+
-     'bor
-     'band
+     'or
+     'and
      'xor
      'shl
      'shr

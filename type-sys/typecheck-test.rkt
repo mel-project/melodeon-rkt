@@ -9,10 +9,10 @@
 (define (prgrm-eq? str $prgm)
   (check-equal?
     (let ([@program (melo-parse-port (open-input-string str))])
-     ; (@-transform @program))
-    ; $prgm))
-      (format "~a" (@-transform @program)))
-    (format "~a" $prgm)))
+      (@-transform @program))
+     $prgm))
+    ;  (format "~a" (@-transform @program)))
+    ;(format "~a" $prgm)))
 
 (prgrm-eq?
   "0"
@@ -28,11 +28,11 @@
    (list
     ($fndef
      'Y-x
-     (list (list 'x45629 (TTagged 'Y (list (TNat)))))
+     (list (list '@x (TTagged 'Y (list (TNat)))))
      ($-Ast
       (TNat)
       ($index
-       ($-Ast (TTagged 'Y (list (TNat))) ($var 'x45629))
+       ($-Ast (TTagged 'Y (list (TNat))) ($var '@x))
        ($-Ast (TNat) ($lit-num 1))))))
    '()
    ($-Ast
@@ -59,19 +59,19 @@
    (list
     ($fndef
      'X-x
-     (list (list 'x45668 (TTagged 'X (list (TNat)))))
+     (list (list '@x (TTagged 'X (list (TNat)))))
      ($-Ast
       (TNat)
       ($index
-       ($-Ast (TTagged 'X (list (TNat))) ($var 'x45668))
+       ($-Ast (TTagged 'X (list (TNat))) ($var '@x))
        ($-Ast (TNat) ($lit-num 1)))))
     ($fndef
      'Y-x
-     (list (list 'x45667 (TTagged 'Y (list (TNat)))))
+     (list (list '@x (TTagged 'Y (list (TNat)))))
      ($-Ast
       (TNat)
       ($index
-       ($-Ast (TTagged 'Y (list (TNat))) ($var 'x45667))
+       ($-Ast (TTagged 'Y (list (TNat))) ($var '@x))
        ($-Ast (TNat) ($lit-num 1)))))
     ($fndef 'foo (list (list 'x (TNat))) ($-Ast (TNat) ($var 'x))))
    '()

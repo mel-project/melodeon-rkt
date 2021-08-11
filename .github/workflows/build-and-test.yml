@@ -43,10 +43,6 @@ jobs:
       - name: Compile
         run: raco make -v meloc.rkt
 
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
       - name: Run top-level unit tests
         run: racket *-test.rkt
 

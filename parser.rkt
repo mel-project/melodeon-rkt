@@ -75,7 +75,7 @@
       (<type-expr-2> ((<type-expr-3> TAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
                      ((<type-expr-3>) $1))
       (<type-expr-3> ((TYPE) `(@type-var ,$1))
-                     ((OPEN-BRACKET <type-expr> ETC CLOSE-BRACKET) `(@type-dynvecof ,$2))
+                     ((OPEN-BRACKET <type-expr> * CLOSE-BRACKET) `(@type-dynvecof ,$2))
                      ((HASH OPEN-BRACKET NUM CLOSE-BRACKET) `(@type-bytes ,$3))
                      ((OPEN-BRACKET <type-exprs> CLOSE-BRACKET) `(@type-vec ,$2))
                      ((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))

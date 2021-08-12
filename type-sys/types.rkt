@@ -14,6 +14,8 @@
 (struct TDynVectorof ((inner : Type)) #:transparent)
 (struct TBytes ((count : Nonnegative-Integer)
                 ) #:transparent)
+;; A byte string of unknown length
+(struct TDynBytes () #:transparent)
 
 (define TVectorU? (make-predicate (U TVectorof TVector)))
 
@@ -52,6 +54,7 @@
                      TAny
                      TTagged
                      TDynVectorof
+                     TDynBytes
                      TVector
                      TVectorof
                      TUnion

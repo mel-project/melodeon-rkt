@@ -19,6 +19,7 @@
                                     TAND
                                     TNEG
                                     TOR
+                                    PERCENT
                                     LET IN
                                     COLON HASH
                                     SEMICOLON
@@ -95,13 +96,14 @@
    ["<" 'LESS-THAN]
    [">" 'GREATER-THAN]
    ["#" 'HASH]
+   ["%" 'PERCENT]
    [";" 'SEMICOLON]
    ["|" 'TOR]
    ["&" 'TAND]
    ["~" 'TNEG]
    [(:: "-" (:* #\space) "-" (:* #\space) "-") '---]
    ;; skip comments
-   [(:: "##" (:* (:~ #\newline))) (return-without-pos (melo-lex-once input-port))]
+   [(:: "#" (:* (:~ #\newline))) (return-without-pos (melo-lex-once input-port))]
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations

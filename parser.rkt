@@ -65,6 +65,8 @@
                     ((PROVIDE TYPE) `(@provide ,$2))
                     ((STRUCT TYPE OPEN-BRACE <fun-args> CLOSE-BRACE)
                      `(@def-struct ,$2 ,$4))
+                    ((ALIAS TYPE = <type-expr>)
+                     `(@def-alias ,$2 ,$4))
                     )
       (<fun-args> ((<type-dec>) (list $1))
                   ((<type-dec> COMMA <fun-args>) (cons $1 $3))

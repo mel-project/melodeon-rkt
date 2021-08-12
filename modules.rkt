@@ -32,13 +32,16 @@
   ;; Mangle all of our dependencies
   (: mangled (Listof @-Ast))
   (define mangled (for/list ([dep dependencies])
-                    (define pfx (gensym 'mangle))
+                    (define pfx (gensym '__))
                     (mangle-unprovided
                      dep
                      (λ((x : Symbol))
-                       (string->symbol
-                        (string-append (symbol->string pfx)
-                                       (symbol->string x)))))))
+                       (if (string-contains? (symbol->string x)
+                                             (symbol->string pfx))
+                           x
+                           (string->symbol
+                            (string-append (symbol->string pfx)
+                                           (symbol->string x))))))))
   ;; "Inject" the dependencies
   (parameterize ([current-context (context-of ast)])
     (contextualize
@@ -94,14 +97,20 @@
      (match (dectx ast)
        [`(@program ,defs ,inner) `(@program ,(map recurse-def defs)
                                             ,(recurse inner))]
-       [node (ast-map (lambda ((node : @-Ast))
+       [node (ast-map #:pre-recurse
+                      (lambda ((node : @-Ast))
+                        (match node
+                          [`(@let (,var ,val) ,expr) (return
+                                                      `(@let (,var ,(recurse val))
+                                                             ,(mangle-unprovided/inner expr
+                                                                                       mangle
+                                                                                       (set-add no-mangle var))))]
+                          [x x]))
+                      #:post-recurse
+                      (lambda ((node : @-Ast))
                         (match node
                           [`(@var ,x) `(@var ,(automangle x))]
                           [`(@apply ,f ,args) `(@apply ,(automangle f) ,args)]
-                          [`(@let (,var ,val) ,expr) `(@let (,var ,(recurse val))
-                                                            ,(mangle-unprovided/inner expr
-                                                                                      mangle
-                                                                                      (set-add no-mangle var)))]
                           [x x]))
                       node)]))))
 

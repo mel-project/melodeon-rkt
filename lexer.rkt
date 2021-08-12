@@ -39,6 +39,7 @@
                                     STRUCT
                                     LOOP
                                     FAT-ARROW
+                                    ALIAS
                                     IF
                                     THEN
                                     ELSE
@@ -66,6 +67,7 @@
    ["=>" 'FAT-ARROW]
    ["where" 'WHERE]
    ["unsafe" 'UNSAFE]
+   ["alias" 'ALIAS]
    ["require" 'REQUIRE]
    ["provide" 'PROVIDE]
    ["||" 'OR]

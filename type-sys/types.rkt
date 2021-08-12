@@ -86,6 +86,7 @@
                                     " * "
                                     (number->string n)
                                     "]")]
+    [(TDynVectorof t) (format "[~a...]" (type->string t))]
     [(TUnion l r) (format "(~a | ~a)"
                           (type->string l)
                           (type->string r))]

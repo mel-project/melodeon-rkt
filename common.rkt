@@ -135,6 +135,7 @@
      (List '@type-dynvecof Type-Expr)
      (List '@type-union Type-Expr Type-Expr)
      (List '@type-intersect Type-Expr Type-Expr)
+     (List '@type-dynbytes)
      (List '@type-bytes Nonnegative-Integer)))
 
 (define-type @-Binop (U '@+ '@- '@* '@/ '@append '@xor '@bor '@band

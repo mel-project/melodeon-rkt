@@ -124,7 +124,7 @@
    [(:: lower-letter
         (:* (:or lower-letter upper-letter "_" digit))) (token-VAR (string->symbol lexeme))]
    [(:+ digit) (token-NUM (string->number lexeme))]
-   [(:: (:+ digit) #\. (:* digit)) (token-NUM (string->number lexeme))]
+   ;[(:: (:+ digit) #\. (:* digit)) (token-NUM (string->number lexeme))]
    [(:: "x"
         "\""
         (:* (:: hex-digit

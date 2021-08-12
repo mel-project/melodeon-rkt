@@ -150,6 +150,9 @@
                     ((VAR DOT VAR) (pos-lift 1 3 `(@accessor (@var ,$1) ,$3)))
                     ;; vector indexing
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> CLOSE-BRACKET) (pos-lift 1 4 `(@index ,$1 ,$3)))
+                    ;; vector slice
+                    ((<apply-expr> OPEN-BRACKET <terminal-expr> RANGE <terminal-expr> CLOSE-BRACKET)
+                     (pos-lift 1 4 `(@range ,$1 ,$3 ,$5)))
                     ;; vector update
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> FAT-ARROW <terminal-expr> CLOSE-BRACKET)
                      (pos-lift 1 6 `(@update ,$1 ,$3 ,$5)))

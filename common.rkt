@@ -90,6 +90,7 @@
      (List '@accessor @-Ast Symbol)
      (List '@block (Listof @-Ast))
      (List '@index @-Ast @-Ast)
+     (List '@range @-Ast @-Ast @-Ast)
      (List '@update @-Ast @-Ast @-Ast)
      (List '@unsafe-cast @-Ast Type-Expr)
      (List '@ann @-Ast Type-Expr)

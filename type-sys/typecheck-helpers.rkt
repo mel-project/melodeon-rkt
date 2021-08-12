@@ -157,6 +157,7 @@
     [`(@type-vecof ,var ,count) (TVectorof (resolve-type var env) count)]
     [`(@type-dynvecof ,type) (TDynVectorof (resolve-type type env))] 
     [`(@type-bytes ,count) (TBytes count)]
+    [`(@type-dynbytes) (TDynBytes)]
     [`(@type-union ,x ,y)
      (TUnion (resolve-type x env)
              (resolve-type y env))]

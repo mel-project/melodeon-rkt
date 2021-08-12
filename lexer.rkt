@@ -13,7 +13,7 @@
 (define-empty-tokens syntax-tokens (OPEN-PAREN CLOSE-PAREN OPEN-BRACKET
                                     CLOSE-BRACKET LESS-THAN GREATER-THAN
                                     OPEN-BRACE CLOSE-BRACE COMMA EOF NEG
-                                    = == ++ + - * / OR XOR AND ETC
+                                    = == ++ + - * / OR XOR AND ETC RANGE
                                     SHL SHR BAND BOR
                                     ---
                                     TAND
@@ -91,8 +91,9 @@
    ["is" 'IS]
    ;; punctuation
    ["," 'COMMA]
-   ["." 'DOT]
    ["..." 'ETC]
+   [".." 'RANGE]
+   ["." 'DOT]
    ["<" 'LESS-THAN]
    [">" 'GREATER-THAN]
    ["#" 'HASH]

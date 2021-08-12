@@ -3,12 +3,12 @@ provide CoinData
 provide Transaction
 
 struct CoinID {
-	txhash: #[32],
+	txhash: %[32],
 	index: Nat
 }
 
 struct CoinData {
-	covhash: #[32],
+	covhash: %[32],
 	value: Nat,
 	denom: Nat,
 	additional_data: Any,
@@ -16,8 +16,8 @@ struct CoinData {
 
 struct Transaction {
 	kind: Nat,
-	inputs: [CoinID...],
-	outputs: [CoinData...],
+	inputs: [CoinID *],
+	outputs: [CoinData *],
 	fee: Nat,
 	scripts: Any,
 	data: Any,

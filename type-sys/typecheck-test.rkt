@@ -58,11 +58,11 @@
        ($-Ast
         (TNat)
         ($bin
-         'bor
+         'or
          ($-Ast (TNat) ($lit-num 1))
          ($-Ast
           (TNat)
-          ($bin 'band ($-Ast (TNat) ($lit-num 2)) ($-Ast (TNat) ($lit-num 3))))))
+          ($bin 'and ($-Ast (TNat) ($lit-num 2)) ($-Ast (TNat) ($lit-num 3))))))
        ($-Ast (TNat) ($lit-num 4))))
      ($-Ast (TNat) ($lit-num 5))))))
 

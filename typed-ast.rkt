@@ -77,6 +77,12 @@
    [ref : $-Ast])
   #:transparent)
 
+(struct $range
+  ([data : $-Ast]
+   [from : $-Ast]
+   [to : $-Ast])
+  #:transparent)
+
 (struct $loop
   ([count : Nonnegative-Integer]
    [body : $-Ast])
@@ -144,4 +150,5 @@
      $for
      $block
      $index
+     $range
      $if))

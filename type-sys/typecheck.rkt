@@ -368,6 +368,22 @@
                 idx)
                ($index $val ($-Ast (TNat) ($lit-num idx))))
         tf-empty)]
+      [`(@range ,val ,from-expr ,to-expr)
+       ;(: idx Nonnegative-Integer)
+       (define to-idx (λ ((expr : @-Ast))
+         (match (dectx expr)
+           [`(@lit-num ,x) x]
+           [other (context-error "non-literal index ~a not yet supported"
+                                 other)])))
+       (define to (to-idx to-expr))
+       (define from (to-idx from-expr))
+       (match-define (cons $val _) (@->$ val type-scope))
+       (cons
+        ($-Ast (type-index ($type $val) to)
+               ($range $val
+                       ($-Ast (TNat) ($lit-num from))
+                       ($-Ast (TNat) ($lit-num to))))
+        tf-empty)]
       [`(@apply ,fun ,args)
        (match (lookup-fun type-scope fun)
          [(TFunction arg-types result)

@@ -125,6 +125,7 @@
     [(TDynVectorof t) (bag-product
                        (Type-Bag (set (hash idx (PVec))))
                        (type->bag/raw t `(all-ref ,idx)))]
+    [(TDynBytes) (Type-Bag (set (hash idx (PBytes))))]
     [(TVectorof t n) (bag-product
                       (Type-Bag (set (hash idx (PVec)
                                            `(len ,idx) n)))
@@ -228,5 +229,8 @@
                   (define inner-type (bag-case->type/inner (hash 'root
                                                                  (hash-ref case `(all-ref ,pidx)))'root))
                   (TDynVectorof inner-type)))]
-    [(PBytes) (define length (cast (hash-ref case `(len ,pidx)) Nonnegative-Integer))
-              (TBytes length)]))
+    [(PBytes) (or (with-handlers ([exn:fail? (λ _ #f)])
+                    (define length (cast (hash-ref case `(len ,pidx)) Nonnegative-Integer))
+                    (TBytes length))
+                  (with-handlers ([exn:fail? (λ _ (TAny))])
+                    (TDynBytes)))]))

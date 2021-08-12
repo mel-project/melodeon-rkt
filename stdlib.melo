@@ -2,17 +2,13 @@ provide CoinID
 provide CoinData
 provide Transaction
 
-alias RawTransaction = [Any, Any, Any, Any, Any, Any, Any]
-alias RawCoinID = [#[32], Nat]
-alias RawCoinData = [#[32], Nat, Nat, Any]
-
 struct CoinID {
-	txhash: #[32],
+	txhash: %[32],
 	index: Nat
 }
 
 struct CoinData {
-	covhash: #[32],
+	covhash: %[32],
 	value: Nat,
 	denom: Nat,
 	additional_data: Any,

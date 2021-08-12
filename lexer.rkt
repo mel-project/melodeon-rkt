@@ -13,12 +13,13 @@
 (define-empty-tokens syntax-tokens (OPEN-PAREN CLOSE-PAREN OPEN-BRACKET
                                     CLOSE-BRACKET LESS-THAN GREATER-THAN
                                     OPEN-BRACE CLOSE-BRACE COMMA EOF NEG
-                                    = == ++ + - * / OR XOR AND ETC
+                                    = == ++ + - * / OR XOR AND ETC RANGE
                                     SHL SHR BAND BOR
                                     ---
                                     TAND
                                     TNEG
                                     TOR
+                                    PERCENT
                                     LET IN
                                     COLON HASH
                                     SEMICOLON
@@ -92,18 +93,20 @@
    ["is" 'IS]
    ;; punctuation
    ["," 'COMMA]
-   ["." 'DOT]
    ["..." 'ETC]
+   [".." 'RANGE]
+   ["." 'DOT]
    ["<" 'LESS-THAN]
    [">" 'GREATER-THAN]
    ["#" 'HASH]
+   ["%" 'PERCENT]
    [";" 'SEMICOLON]
    ["|" 'TOR]
    ["&" 'TAND]
    ["~" 'TNEG]
    [(:: "-" (:* #\space) "-" (:* #\space) "-") '---]
    ;; skip comments
-   [(:: "##" (:* (:~ #\newline))) (return-without-pos (melo-lex-once input-port))]
+   [(:: "#" (:* (:~ #\newline))) (return-without-pos (melo-lex-once input-port))]
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations

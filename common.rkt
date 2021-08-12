@@ -90,6 +90,7 @@
      (List '@accessor @-Ast Symbol)
      (List '@block (Listof @-Ast))
      (List '@index @-Ast @-Ast)
+     (List '@range @-Ast @-Ast @-Ast)
      (List '@update @-Ast @-Ast @-Ast)
      (List '@unsafe-cast @-Ast Type-Expr)
      (List '@ann @-Ast Type-Expr)
@@ -135,6 +136,7 @@
      (List '@type-dynvecof Type-Expr)
      (List '@type-union Type-Expr Type-Expr)
      (List '@type-intersect Type-Expr Type-Expr)
+     (List '@type-dynbytes)
      (List '@type-bytes Nonnegative-Integer)))
 
 (define-type @-Binop (U '@+ '@- '@* '@/ '@append '@xor '@bor '@band

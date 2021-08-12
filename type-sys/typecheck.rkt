@@ -363,8 +363,6 @@
            [`(@lit-num ,x) x]
            [other (context-error "non-literal index ~a not yet supported" other)]))
        (match-define (cons $val _) (@->$ val type-scope))
-       (pretty-print ($type $val))
-       (pretty-print idx)
        (cons
         ($-Ast (type-index ($type $val)
                 idx)

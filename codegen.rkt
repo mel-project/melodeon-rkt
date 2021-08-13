@@ -52,8 +52,16 @@
                            [(TTagged _ _) 'v-get]
                            [(TVectorof _ _) 'v-get]
                            [(TVector _) 'v-get]
-                           [(TBytes _) 'b-concat]) ,(generate-mil-expr vec)
-                                                   ,(generate-mil-expr idx))]
+                           [(TBytes _) 'b-get]) ,(generate-mil-expr vec)
+                                                ,(generate-mil-expr idx))]
+    [($range vec from to) `(,(match ($-Ast-type vec)
+                               [(TTagged _ _) 'v-slice]
+                               [(TVectorof _ _) 'v-slice]
+                               [(TVector _) 'v-slice]
+                               [(TBytes _) 'b-slice])
+                             ,(generate-mil-expr vec)
+                             ,(generate-mil-expr from)
+                             ,(generate-mil-expr to))]
     [($if x y z) `(if ,(generate-mil-expr x)
                       ,(generate-mil-expr y)
                       ,(generate-mil-expr z))]

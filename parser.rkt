@@ -65,6 +65,8 @@
                     ((PROVIDE TYPE) `(@provide ,$2))
                     ((STRUCT TYPE OPEN-BRACE <fun-args> CLOSE-BRACE)
                      `(@def-struct ,$2 ,$4))
+                    ((ALIAS TYPE = <type-expr>)
+                     `(@def-alias ,$2 ,$4))
                     )
       (<fun-args> ((<type-dec>) (list $1))
                   ((<type-dec> COMMA <fun-args>) (cons $1 $3))
@@ -75,15 +77,16 @@
       (<type-expr-2> ((<type-expr-3> TAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
                      ((<type-expr-3>) $1))
       (<type-expr-3> ((TYPE) `(@type-var ,$1))
-                     ((OPEN-BRACKET <type-expr> ETC CLOSE-BRACKET) `(@type-dynvecof ,$2))
-                     ((HASH OPEN-BRACKET NUM CLOSE-BRACKET) `(@type-bytes ,$3))
+                     ((OPEN-BRACKET <type-expr> * CLOSE-BRACKET) `(@type-dynvecof ,$2))
+                     ((PERCENT OPEN-BRACKET NUM CLOSE-BRACKET) `(@type-bytes ,$3))
+                     ((PERCENT OPEN-BRACKET CLOSE-BRACKET) `(@type-dynbytes))
                      ((OPEN-BRACKET <type-exprs> CLOSE-BRACKET) `(@type-vec ,$2))
                      ((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
                      ((OPEN-PAREN <type-expr> CLOSE-PAREN) `$2))
       (<type-exprs> ((<type-expr>) (list $1))
                     ((<type-expr> COMMA <type-exprs>) (cons $1 $3)))
       ;; different kinds of exprs
-      (<expr> ((<or-expr>) $1)
+      (<expr> ((<shl-expr>) $1)
               ((<let-expr>) $1)
               ((<where-expr>) $1)
               ((<block-expr>) $1)
@@ -116,6 +119,17 @@
                     ((<where-expr> WHERE VAR = <add-expr>) (pos-lift 1 5
                                                                      `(@let (,$3 ,$5) ,$1))))
       
+      ;; bitwise operators
+      (<shl-expr> ((<shl-expr> SHL <shr-expr>) (pos-lift 1 3 `(@shl ,$1 ,$3)))
+                 ((<shr-expr>) $1))
+      (<shr-expr> ((<shr-expr> SHR <xor-expr>) (pos-lift 1 3 `(@shr ,$1 ,$3)))
+                 ((<xor-expr>) $1))
+      (<xor-expr> ((<xor-expr> XOR <bor-expr>) (pos-lift 1 3 `(@xor ,$1 ,$3)))
+                 ((<bor-expr>) $1))
+      (<bor-expr> ((<bor-expr> BOR <band-expr>) (pos-lift 1 3 `(@bor ,$1 ,$3)))
+                 ((<band-expr>) $1))
+      (<band-expr> ((<band-expr> BAND <or-expr>) (pos-lift 1 3 `(@band ,$1 ,$3)))
+                 ((<or-expr>) $1))
       ;; lowest-associativity (logical) operators
       (<or-expr> ((<or-expr> OR <and-expr>) (pos-lift 1 3 `(@or ,$1 ,$3)))
                  ((<and-expr>) $1))
@@ -138,6 +152,9 @@
                     ((VAR DOT VAR) (pos-lift 1 3 `(@accessor (@var ,$1) ,$3)))
                     ;; vector indexing
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> CLOSE-BRACKET) (pos-lift 1 4 `(@index ,$1 ,$3)))
+                    ;; vector slice
+                    ((<apply-expr> OPEN-BRACKET <terminal-expr> RANGE <terminal-expr> CLOSE-BRACKET)
+                     (pos-lift 1 4 `(@range ,$1 ,$3 ,$5)))
                     ;; vector update
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> FAT-ARROW <terminal-expr> CLOSE-BRACKET)
                      (pos-lift 1 6 `(@update ,$1 ,$3 ,$5)))

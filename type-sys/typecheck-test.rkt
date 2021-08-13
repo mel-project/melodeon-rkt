@@ -19,6 +19,54 @@
   ($program '() '() ($-Ast (TNat) ($lit-num 0))))
 
 (prgrm-eq?
+  "let v = [1,2,3,4] in v[0..2]"
+  ($program
+   '()
+   '()
+   ($-Ast
+    (TNat)
+    ($let
+     'v
+     ($-Ast
+      (TVector (list (TNat) (TNat) (TNat) (TNat)))
+      ($lit-vec
+       (list
+        ($-Ast (TNat) ($lit-num 1))
+        ($-Ast (TNat) ($lit-num 2))
+        ($-Ast (TNat) ($lit-num 3))
+        ($-Ast (TNat) ($lit-num 4)))))
+     ($-Ast
+      (TNat)
+      ($range
+       ($-Ast (TVector (list (TNat) (TNat) (TNat) (TNat))) ($var 'v))
+       ($-Ast (TNat) ($lit-num 0))
+       ($-Ast (TNat) ($lit-num 2))))))))
+
+(prgrm-eq?
+  "1 | 2 & 3 ^ 4 << 5"
+    ($program
+   '()
+   '()
+   ($-Ast
+    (TNat)
+    ($bin
+     'shl
+     ($-Ast
+      (TNat)
+      ($bin
+       'xor
+       ($-Ast
+        (TNat)
+        ($bin
+         'or
+         ($-Ast (TNat) ($lit-num 1))
+         ($-Ast
+          (TNat)
+          ($bin 'and ($-Ast (TNat) ($lit-num 2)) ($-Ast (TNat) ($lit-num 3))))))
+       ($-Ast (TNat) ($lit-num 4))))
+     ($-Ast (TNat) ($lit-num 5))))))
+
+(prgrm-eq?
   "
   struct Y { x : Nat }
   ---

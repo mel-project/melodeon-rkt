@@ -77,6 +77,12 @@
    [ref : $-Ast])
   #:transparent)
 
+(struct $range
+  ([data : $-Ast]
+   [from : $-Ast]
+   [to : $-Ast])
+  #:transparent)
+
 (struct $loop
   ([count : Nonnegative-Integer]
    [body : $-Ast])
@@ -95,6 +101,11 @@
 
 (define-type $-Binop
   (U '+
+     'or
+     'and
+     'xor
+     'shl
+     'shr
      '-
      '*
      '/))
@@ -139,4 +150,5 @@
      $for
      $block
      $index
+     $range
      $if))

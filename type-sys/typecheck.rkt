@@ -267,7 +267,7 @@
                                    ($eq (car x)
                                         (car y)))
                             tf-empty))]
-      [`(,(? (lambda(op) (member op '(@+ @- @* @/))) op) ,x ,y)
+      [`(,(? (lambda(op) (member op '(@band @bor @shl @shr @xor @+ @- @* @/))) op) ,x ,y)
        (match-let ([(cons $x _) (@->$ x type-scope)]
                    [(cons $y _) (@->$ y type-scope)])
          (assert-type x ($type $x) (TNat))
@@ -275,6 +275,11 @@
          (cons
           ($-Ast (TNat)
                  ($bin (match op
+                         ['@bor 'or]
+                         ['@band 'and]
+                         ['@xor 'xor]
+                         ['@shl 'shl]
+                         ['@shr 'shr]
                          ['@+ '+]
                          ['@- '-]
                          ['@* '*]
@@ -358,12 +363,26 @@
            [`(@lit-num ,x) x]
            [other (context-error "non-literal index ~a not yet supported" other)]))
        (match-define (cons $val _) (@->$ val type-scope))
-       (pretty-print ($type $val))
-       (pretty-print idx)
        (cons
         ($-Ast (type-index ($type $val)
                 idx)
                ($index $val ($-Ast (TNat) ($lit-num idx))))
+        tf-empty)]
+      [`(@range ,val ,from-expr ,to-expr)
+       ;(: idx Nonnegative-Integer)
+       (define to-idx (λ ((expr : @-Ast))
+         (match (dectx expr)
+           [`(@lit-num ,x) x]
+           [other (context-error "non-literal index ~a not yet supported"
+                                 other)])))
+       (define to (to-idx to-expr))
+       (define from (to-idx from-expr))
+       (match-define (cons $val _) (@->$ val type-scope))
+       (cons
+        ($-Ast (type-index ($type $val) to)
+               ($range $val
+                       ($-Ast (TNat) ($lit-num from))
+                       ($-Ast (TNat) ($lit-num to))))
         tf-empty)]
       [`(@apply ,fun ,args)
        (match (lookup-fun type-scope fun)
@@ -433,7 +452,6 @@
                           (resolve-type (second x) accum)))
               accum
               args-with-types))
-     (pretty-write (dectx* body))
      (match-define (cons $body _) (@->$ body inner-type-scope))
      (define ret-type (if return-type
                           (resolve-type return-type accum)

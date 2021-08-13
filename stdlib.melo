@@ -3,12 +3,12 @@ provide CoinData
 provide Transaction
 
 struct CoinID {
-	txhash: #[32],
+	txhash: %[32],
 	index: Nat
 }
 
 struct CoinData {
-	covhash: #[32],
+	covhash: %[32],
 	value: Nat,
 	denom: Nat,
 	additional_data: Any,
@@ -16,10 +16,21 @@ struct CoinData {
 
 struct Transaction {
 	kind: Nat,
-	inputs: [CoinID...],
-	outputs: [CoinData...],
+	inputs: [RawCoinID...],
+	outputs: [RawCoinData...],
 	fee: Nat,
 	scripts: Any,
 	data: Any,
 	sigs: Any
 }
+
+def spender_tx() =
+	let raw_tx = unsafe cast extern "SPENDER_TX" : RawTransaction in
+	Transaction {
+		unsafe cast raw_tx[0] : Nat,
+		unsafe cast raw_tx[1] : [RawCoinID...],
+		unsafe cast raw_tx[2] : [RawCoinData...],
+		raw_tx[4],
+		raw_tx[5],
+		raw_tx[6]
+	}

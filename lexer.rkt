@@ -13,12 +13,13 @@
 (define-empty-tokens syntax-tokens (OPEN-PAREN CLOSE-PAREN OPEN-BRACKET
                                     CLOSE-BRACKET LESS-THAN GREATER-THAN
                                     OPEN-BRACE CLOSE-BRACE COMMA EOF NEG
-                                    = == ++ + - * / OR AND ETC
+                                    = == ++ + - * / OR XOR AND ETC RANGE
+                                    SHL SHR BAND BOR
                                     ---
                                     TAND
                                     TNEG
                                     TOR
-                                    
+                                    PERCENT
                                     LET IN
                                     COLON HASH
                                     SEMICOLON
@@ -39,6 +40,7 @@
                                     STRUCT
                                     LOOP
                                     FAT-ARROW
+                                    ALIAS
                                     IF
                                     THEN
                                     ELSE
@@ -66,10 +68,16 @@
    ["=>" 'FAT-ARROW]
    ["where" 'WHERE]
    ["unsafe" 'UNSAFE]
+   ["alias" 'ALIAS]
    ["require" 'REQUIRE]
    ["provide" 'PROVIDE]
    ["||" 'OR]
+   ["|" 'BOR]
+   ["^" 'XOR]
    ["&&" 'AND]
+   ["&" 'BAND]
+   ["<<" 'SHL]
+   [">>" 'SHR]
    ["not" 'NOT]
    ["cast" 'CAST]
    ["loop" 'LOOP]
@@ -85,16 +93,20 @@
    ["is" 'IS]
    ;; punctuation
    ["," 'COMMA]
-   ["." 'DOT]
    ["..." 'ETC]
+   [".." 'RANGE]
+   ["." 'DOT]
    ["<" 'LESS-THAN]
    [">" 'GREATER-THAN]
    ["#" 'HASH]
+   ["%" 'PERCENT]
    [";" 'SEMICOLON]
    ["|" 'TOR]
    ["&" 'TAND]
    ["~" 'TNEG]
    [(:: "-" (:* #\space) "-" (:* #\space) "-") '---]
+   ;; skip comments
+   [(:: "#" (:* (:~ #\newline))) (return-without-pos (melo-lex-once input-port))]
    ;; skip all whitespace
    [(:+ (:or #\tab #\space #\newline)) (return-without-pos (melo-lex-once input-port))]
    ;; pass-through arithmetic operations
@@ -112,7 +124,7 @@
    [(:: lower-letter
         (:* (:or lower-letter upper-letter "_" digit))) (token-VAR (string->symbol lexeme))]
    [(:+ digit) (token-NUM (string->number lexeme))]
-   [(:: (:+ digit) #\. (:* digit)) (token-NUM (string->number lexeme))]
+   ;[(:: (:+ digit) #\. (:* digit)) (token-NUM (string->number lexeme))]
    [(:: "x"
         "\""
         (:* (:: hex-digit

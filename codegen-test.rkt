@@ -19,3 +19,7 @@
 (prgrm-eq?
   "let v = [1,2,3,4] in v[0..2]"
   '((let (v (vector 1 2 3 4)) (v-slice v 0 2))))
+
+(prgrm-eq?
+  "[1 ** 5]"
+  '((let (x 1 v (v-nil)) (loop 5 (set! v (v-push v x))) v)))

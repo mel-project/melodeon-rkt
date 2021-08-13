@@ -31,6 +31,10 @@
    [vec-expr : $-Ast])
   #:transparent)
 
+(struct $init-vec
+  ([val : $-Ast]
+   [size : Nonnegative-Integer]))
+
 ; Literal number
 (struct $lit-num
   ([val : Nonnegative-Integer])
@@ -134,10 +138,10 @@
 
 (define-type $-Ast-variant
   (U $let
-     ;(List $-Binop $-Ast $-Ast)
      $bin
      $eq
      $append
+     $init-vec
      $lit-num
      $lit-vec
      $lit-string

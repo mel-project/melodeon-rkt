@@ -82,6 +82,7 @@
      (List @-Binop @-Ast @-Ast)
      (List '@lit-num Nonnegative-Integer)
      (List '@lit-vec (Listof @-Ast))
+     (List '@init-vec @-Ast Nonnegative-Integer)
      (List '@instantiate Symbol (Listof @-Ast))
      (List '@var Symbol)
      (List '@program (Listof Definition) @-Ast)

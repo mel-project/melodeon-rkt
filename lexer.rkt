@@ -15,6 +15,7 @@
                                     OPEN-BRACE CLOSE-BRACE COMMA EOF NEG
                                     = == ++ + - * / OR XOR AND ETC RANGE
                                     SHL SHR BAND BOR
+                                    TWOSTARS
                                     ---
                                     TAND
                                     TNEG
@@ -104,6 +105,7 @@
    ["|" 'TOR]
    ["&" 'TAND]
    ["~" 'TNEG]
+   ["**" 'TWOSTARS]
    [(:: "-" (:* #\space) "-" (:* #\space) "-") '---]
    ;; skip comments
    [(:: "#" (:* (:~ #\newline))) (return-without-pos (melo-lex-once input-port))]

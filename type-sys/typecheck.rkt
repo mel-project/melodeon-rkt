@@ -160,6 +160,17 @@
                                 (TVector (map $type $vars))
                                 ($lit-vec $vars))
                                tf-empty)]
+      [`(@init-vec ,expr ,size)
+        ; TODO use this once we have constant generics?
+        ;(define $size (@->$ size type-expr))
+        ;(unless (not (subtype-of? ($type $size) (TNat)))
+        ;  (context-error "Expected size to be a subtype of Nat in vector
+        ;                  initialization, but its a ~a" ($type $size))
+        (match-define (cons $expr _) (@->$ expr type-scope))
+        (cons ($-Ast
+                (TVectorof ($type $expr) size)
+                ($init-vec $expr size))
+              tf-empty)]
       [`(@lit-bytes ,bts) (cons ($-Ast
                                  (TBytes (bytes-length bts))
                                  ($lit-bytes bts))

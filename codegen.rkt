@@ -62,6 +62,12 @@
                              ,(generate-mil-expr vec)
                              ,(generate-mil-expr from)
                              ,(generate-mil-expr to))]
+    [($init-vec expr size)
+     `(let (x ,(generate-mil-expr expr)
+            v (v-nil))
+        (loop ,size
+          (set! v (v-push v x)))
+        v)]
     [($if x y z) `(if ,(generate-mil-expr x)
                       ,(generate-mil-expr y)
                       ,(generate-mil-expr z))]

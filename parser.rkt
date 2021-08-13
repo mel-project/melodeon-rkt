@@ -100,6 +100,11 @@
                      ((<expr>) (list $1)))
       ;; vectors
       (<vector-expr> ((OPEN-BRACKET <multi-exprs> CLOSE-BRACKET) (pos-lift 1 3 `(@lit-vec ,$2))))
+      ; vector initialization
+      ; TODO this could be used instead when constant generics are in
+      ;(<init-vector> ((OPEN-BRACKET <expr> * <expr> CLOSE-BRACKET)
+      (<init-vector> ((OPEN-BRACKET <expr> TWOSTARS NUM CLOSE-BRACKET)
+                     (pos-lift 2 5 `(@init-vec ,$2 ,$4))))
       (<multi-exprs> ((<expr>) (list $1))
                      ((<expr> COMMA <multi-exprs>) (cons $1 $3))
                      (() empty))
@@ -170,6 +175,7 @@
                        ((VAR) (pos-lift 1 1 `(@var ,$1)))
                        ((OPEN-PAREN <expr> CLOSE-PAREN) (pos-lift 1 3 $2))
                        ((<vector-expr>) $1)
+                       ((<init-vector>) $1)
                        ((<vector-compreh>) $1)
                        ((UNSAFE CAST <expr> COLON <type-expr>) (pos-lift 1 5
                                                                          `(@unsafe-cast ,$3 ,$5)))

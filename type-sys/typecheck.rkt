@@ -446,6 +446,19 @@
         (resolve-type `(@type-struct ,name ,fields) env))]
     [_ env]))
 
+; Read a Definition ast node and if an alias definition,
+; add to the given type map. The given type map is also
+; used to potentitally resolve type variables in the struct.
+(: add-alias-def (-> Definition Type-Scope Type-Scope))
+(define (add-alias-def def env)
+  (match def
+    [`(@def-alias ,name ,whatever)
+     (bind-type-var
+      env
+      name
+      (resolve-type whatever env))]
+    [_ env]))
+
 ; takes a Type-Scope rather than just one map because
 ; types may need to be resolved and the function-scope
 ; should also be added to.
@@ -493,10 +506,10 @@
 (define (definitions->scope defs)
   (for/fold ([accum empty-ts])
             ([def defs]) : Type-Scope
-    (add-fun-def def (add-var-def def (add-struct-def def accum)))))
+    (add-fun-def def (add-var-def def (add-struct-def def (add-alias-def def accum))))))
 
 #;(module+ test
-  (require "../parser.rkt")
+    (require "../parser.rkt")
   (parameterize ([FILENAME "test.melo"])
     (time
      (@-transform

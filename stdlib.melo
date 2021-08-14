@@ -14,10 +14,13 @@ struct CoinData {
 	additional_data: Any,
 }
 
+alias RawCoinID = [%[32], Nat]
+alias RawCoinData = [%[32], Nat, Nat, Any]
+
 struct Transaction {
 	kind: Nat,
-	inputs: [RawCoinID...],
-	outputs: [RawCoinData...],
+	inputs: [RawCoinID *],
+	outputs: [RawCoinData *],
 	fee: Nat,
 	scripts: Any,
 	data: Any,
@@ -25,11 +28,12 @@ struct Transaction {
 }
 
 def spender_tx() =
-	let raw_tx = unsafe cast extern "SPENDER_TX" : RawTransaction in
+	let raw_tx = unsafe cast extern "SPENDER_TX" : [Any * 7] in
 	Transaction {
 		unsafe cast raw_tx[0] : Nat,
-		unsafe cast raw_tx[1] : [RawCoinID...],
-		unsafe cast raw_tx[2] : [RawCoinData...],
+		unsafe cast raw_tx[1] : [RawCoinID *],
+		unsafe cast raw_tx[2] : [RawCoinData *],
+		unsafe cast raw_tx[3] : Nat,
 		raw_tx[4],
 		raw_tx[5],
 		raw_tx[6]

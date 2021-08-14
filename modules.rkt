@@ -61,6 +61,7 @@
                                 (match def
                                   [`(@provide ,sym) sym]
                                   [else '__dummy]))))
+  (pretty-print provided)
   (mangle-unprovided/inner ast mangle provided))
 
 ;; Inner function that recursively keeps track of a list of not-to-mangle symbol names
@@ -91,6 +92,9 @@
                                  (mangle-type-expr (cast texpr Type-Expr)
                                                    (λ((x : Symbol))
                                                      (if (set-member? no-mangle x) x (mangle x)))))])))]
+      [`(@def-alias ,t ,u) `(@def-alias ,(automangle t) ,(mangle-type-expr (cast u Type-Expr)
+                                                                           (λ((x : Symbol))
+                                                                             (if (set-member? no-mangle x) x (mangle x)))))]
       [x x]))
   (parameterize ([current-context (context-of ast)])
     (contextualize
@@ -111,6 +115,8 @@
                         (match node
                           [`(@var ,x) `(@var ,(automangle x))]
                           [`(@apply ,f ,args) `(@apply ,(automangle f) ,args)]
+                          [`(@unsafe-cast ,x ,t) `(@unsafe-cast ,x ,(mangle-type-expr t
+                                                                                      automangle))]
                           [x x]))
                       node)]))))
 

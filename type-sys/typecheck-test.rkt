@@ -105,6 +105,7 @@
   "
   ($program
    (list
+    ($fndef 'foo (list (list 'x (TNat))) ($-Ast (TNat) ($var 'x)))
     ($fndef
      'X-x
      (list (list '@x (TTagged 'X (list (TNat)))))
@@ -120,8 +121,7 @@
       (TNat)
       ($index
        ($-Ast (TTagged 'Y (list (TNat))) ($var '@x))
-       ($-Ast (TNat) ($lit-num 1)))))
-    ($fndef 'foo (list (list 'x (TNat))) ($-Ast (TNat) ($var 'x))))
+       ($-Ast (TNat) ($lit-num 1))))))
    '()
    ($-Ast
     (TNat)
@@ -142,4 +142,3 @@
         (TNat)
         ($apply 'Y-x (list ($-Ast (TTagged 'Y (list (TNat))) ($var
                                                                'y)))))))))))
-

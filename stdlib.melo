@@ -3,6 +3,19 @@ provide CoinData
 provide Transaction
 provide RawCoinID
 provide RawCoinData
+provide Hash
+
+provide env_spender_tx
+provide env_spender_tx_hash
+provide env_parent_tx_hash
+provide env_parent_index
+provide env_self_hash
+provide env_parent_value
+provide env_parent_denom
+provide env_parent_data
+provide env_parent_height
+provide env_spender_index
+provide env_last_header
 
 struct CoinID {
 	txhash: %[32],
@@ -18,6 +31,7 @@ struct CoinData {
 
 alias RawCoinID = [%[32], Nat]
 alias RawCoinData = [%[32], Nat, Nat, Any]
+alias Hash = %[32]
 
 struct Transaction {
 	kind: Nat,
@@ -29,7 +43,9 @@ struct Transaction {
 	sigs: [%[]*]
 }
 
-def spender_tx() =
+# Wrappers for the environment
+
+def env_spender_tx() =
 	let raw_tx = unsafe cast extern "SPENDER_TX" : [Any * 7] in
 	Transaction {
 		unsafe cast raw_tx[0] : Nat,
@@ -40,3 +56,14 @@ def spender_tx() =
 		unsafe cast raw_tx[5] : %[],
 		unsafe cast raw_tx[5] : [%[]*]
 	}
+	
+def env_spender_tx_hash() = unsafe cast extern "SPENDER-TX-HASH" : Hash
+def env_parent_tx_hash() = unsafe cast extern "PARENT-TX-HASH" : Hash
+def env_parent_index() = unsafe cast extern "PARENT-INDEX" : Nat
+def env_self_hash() = unsafe cast extern "SELF-HASH" : Hash
+def env_parent_value() = unsafe cast extern "PARENT-VALUE" : Nat
+def env_parent_denom() = unsafe cast extern "PARENT-DENOM" : Nat
+def env_parent_data() = unsafe cast extern "PARENT-DATA" : %[]
+def env_parent_height() = unsafe cast extern "PARENT-HEIGHT" : Nat
+def env_spender_index = unsafe cast extern "SPENDER-INDEX" : Nat
+# TODO: last header

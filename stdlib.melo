@@ -65,5 +65,5 @@ def env_parent_value() = unsafe cast extern "PARENT-VALUE" : Nat
 def env_parent_denom() = unsafe cast extern "PARENT-DENOM" : Nat
 def env_parent_data() = unsafe cast extern "PARENT-DATA" : %[]
 def env_parent_height() = unsafe cast extern "PARENT-HEIGHT" : Nat
-def env_spender_index = unsafe cast extern "SPENDER-INDEX" : Nat
+def env_spender_index() = unsafe cast extern "SPENDER-INDEX" : Nat
 # TODO: last header

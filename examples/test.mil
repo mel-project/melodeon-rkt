@@ -11,8 +11,16 @@
 (fn Transaction-scripts (@x) (v-get @x 5))
 (fn Transaction-data (@x) (v-get @x 6))
 (fn Transaction-sigs (@x) (v-get @x 7))
+(fn env_parent_height () PARENT-HEIGHT)
+(fn env_parent_data () PARENT-DATA)
+(fn env_parent_denom () PARENT-DENOM)
+(fn env_parent_value () PARENT-VALUE)
+(fn env_self_hash () SELF-HASH)
+(fn env_parent_index () PARENT-INDEX)
+(fn env_parent_tx_hash () PARENT-TX-HASH)
+(fn env_spender_tx_hash () SPENDER-TX-HASH)
 (fn
- M719__spender_tx
+ env_spender_tx
  ()
  (let (raw_tx SPENDER_TX)
    (vector

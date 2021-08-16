@@ -120,12 +120,6 @@
          #f
          (hash->list (Type-Scope-type-vars ts))))
 
-
-;(: @-ast->type/inner (-> @-Ast Type-Scope (List (Option Type) Type-Facts)))
-
-(: @-ast->type/inner (-> @-Ast Type-Scope (List Type Type-Facts)))
-(define (@-ast->type/inner @-ast type-scope) (error "placeholder"))
-
 ;; This function is the "meat" of the typechecker.
 ;;    Given a @-Ast and a type scope, it returns:
 ;;    - A type-annotated $-Ast
@@ -499,7 +493,7 @@
 (define (add-var-def def accum)
   (match def
     [`(@def-var ,var ,expr)
-     (bind-var accum var (first (@-ast->type/inner expr accum)))]
+     (bind-var accum var ($-Ast-type (car (@->$ expr accum))))]
     [_ accum]))
 
 (: definitions->scope (-> (Listof Definition) Type-Scope))

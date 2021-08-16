@@ -46,7 +46,7 @@ struct Transaction {
 # Wrappers for the environment
 
 def env_spender_tx() =
-	let raw_tx = unsafe cast extern "SPENDER_TX" : [Any * 7] in
+	let raw_tx = unsafe cast extern "SPENDER-TX" : [Any * 7] in
 	Transaction {
 		unsafe cast raw_tx[0] : Nat,
 		unsafe cast raw_tx[1] : [RawCoinID *],

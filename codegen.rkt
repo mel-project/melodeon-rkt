@@ -123,7 +123,7 @@
                    (type->string y-type))]))
   (define x-sym (gensym 'eqx))
   (define y-sym (gensym 'eqy))
-  `(let (,x-sym ,(generate-mil x) ,y-sym ,(generate-mil y))
+  `(let (,x-sym ,(generate-mil-expr x) ,y-sym ,(generate-mil-expr y))
      ,(generate-eq-mil-code
        bigger-type
        x-sym

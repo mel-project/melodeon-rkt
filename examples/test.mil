@@ -22,7 +22,7 @@
 (fn
  env_spender_tx
  ()
- (let (raw_tx SPENDER_TX)
+ (let (raw_tx SPENDER-TX)
    (vector
     1158
     (v-get raw_tx 0)
@@ -32,4 +32,5 @@
     (v-get raw_tx 4)
     (v-get raw_tx 5)
     (v-get raw_tx 5))))
-(+ 1 2)
+(let (eqx720 (+ 1 2) eqy721 (Transaction-fee (env_spender_tx)))
+  (= eqx720 eqy721))

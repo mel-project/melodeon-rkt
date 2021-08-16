@@ -22,7 +22,7 @@
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
 
-     (define definitions (append initial-defs accessor-fn-defs))
+     (define definitions (append accessor-fn-defs initial-defs))
      (define type-scope (definitions->scope definitions))
 
      ; Stupid, mutation-based approach

@@ -12,7 +12,7 @@
 (fn Transaction-data (@x) (v-get @x 6))
 (fn Transaction-sigs (@x) (v-get @x 7))
 (fn
- __719spender_tx
+ M719__spender_tx
  ()
  (let (raw_tx SPENDER_TX)
    (vector
@@ -23,5 +23,5 @@
     (v-get raw_tx 3)
     (v-get raw_tx 4)
     (v-get raw_tx 5)
-    (v-get raw_tx 6))))
+    (v-get raw_tx 5))))
 (+ 1 2)

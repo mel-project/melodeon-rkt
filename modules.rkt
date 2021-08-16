@@ -32,7 +32,7 @@
   ;; Mangle all of our dependencies
   (: mangled (Listof @-Ast))
   (define mangled (for/list ([dep dependencies])
-                    (define pfx (gensym '__))
+                    (define pfx (gensym 'M))
                     (mangle-unprovided
                      dep
                      (λ((x : Symbol))
@@ -41,6 +41,7 @@
                            x
                            (string->symbol
                             (string-append (symbol->string pfx)
+                                           "__"
                                            (symbol->string x))))))))
   ;; "Inject" the dependencies
   (parameterize ([current-context (context-of ast)])

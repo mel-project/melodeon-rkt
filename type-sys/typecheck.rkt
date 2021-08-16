@@ -120,12 +120,6 @@
          #f
          (hash->list (Type-Scope-type-vars ts))))
 
-
-;(: @-ast->type/inner (-> @-Ast Type-Scope (List (Option Type) Type-Facts)))
-
-(: @-ast->type/inner (-> @-Ast Type-Scope (List Type Type-Facts)))
-(define (@-ast->type/inner @-ast type-scope) (error "placeholder"))
-
 ;; This function is the "meat" of the typechecker.
 ;;    Given a @-Ast and a type scope, it returns:
 ;;    - A type-annotated $-Ast
@@ -464,6 +458,19 @@
         (resolve-type `(@type-struct ,name ,fields) env))]
     [_ env]))
 
+; Read a Definition ast node and if an alias definition,
+; add to the given type map. The given type map is also
+; used to potentitally resolve type variables in the struct.
+(: add-alias-def (-> Definition Type-Scope Type-Scope))
+(define (add-alias-def def env)
+  (match def
+    [`(@def-alias ,name ,whatever)
+     (bind-type-var
+      env
+      name
+      (resolve-type whatever env))]
+    [_ env]))
+
 ; takes a Type-Scope rather than just one map because
 ; types may need to be resolved and the function-scope
 ; should also be added to.
@@ -504,17 +511,17 @@
 (define (add-var-def def accum)
   (match def
     [`(@def-var ,var ,expr)
-     (bind-var accum var (first (@-ast->type/inner expr accum)))]
+     (bind-var accum var ($-Ast-type (car (@->$ expr accum))))]
     [_ accum]))
 
 (: definitions->scope (-> (Listof Definition) Type-Scope))
 (define (definitions->scope defs)
   (for/fold ([accum empty-ts])
             ([def defs]) : Type-Scope
-    (add-fun-def def (add-var-def def (add-struct-def def accum)))))
+    (add-fun-def def (add-var-def def (add-struct-def def (add-alias-def def accum))))))
 
 #;(module+ test
-  (require "../parser.rkt")
+    (require "../parser.rkt")
   (parameterize ([FILENAME "test.melo"])
     (time
      (@-transform

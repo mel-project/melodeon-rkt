@@ -149,7 +149,7 @@
       ;; higher-associativity (apply-like) operators
       (<apply-expr> ((VAR OPEN-PAREN <multi-exprs> CLOSE-PAREN) (pos-lift 1 4 `(@apply ,$1 ,$3)))
                     ;; data field accessors
-                    ((VAR DOT VAR) (pos-lift 1 3 `(@accessor (@var ,$1) ,$3)))
+                    ((<apply-expr> DOT VAR) (pos-lift 1 3 `(@accessor ,$1 ,$3)))
                     ;; vector indexing
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> CLOSE-BRACKET) (pos-lift 1 4 `(@index ,$1 ,$3)))
                     ;; vector slice
@@ -170,7 +170,6 @@
                        ((VAR) (pos-lift 1 1 `(@var ,$1)))
                        ((OPEN-PAREN <expr> CLOSE-PAREN) (pos-lift 1 3 $2))
                        ((<vector-expr>) $1)
-                       ((<init-vector>) $1)
                        ((<vector-compreh>) $1)
                        ((UNSAFE CAST <expr> COLON <type-expr>) (pos-lift 1 5
                                                                          `(@unsafe-cast ,$3 ,$5)))
@@ -209,7 +208,7 @@
 
 require "helloworld.melo"
 
-def f(x: [Nat ...]) = x
+def f(x: [Nat *]) = x
 
 - - -
 

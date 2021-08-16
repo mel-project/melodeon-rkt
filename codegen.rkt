@@ -95,6 +95,7 @@
                                        (bytes->hex-string bts)))]
     [($block inner) `(let () . ,(map generate-mil-expr inner))]
     [($loop n body) `(loop ,n ,(generate-mil-expr body))]
+    [($extern s) (string->symbol s)]
     [other (error "invalid $-ast" other)]))
 
 (: generate-mil-def (-> $fndef Any))
@@ -122,7 +123,7 @@
                    (type->string y-type))]))
   (define x-sym (gensym 'eqx))
   (define y-sym (gensym 'eqy))
-  `(let (,x-sym ,(generate-mil x) ,y-sym ,(generate-mil y))
+  `(let (,x-sym ,(generate-mil-expr x) ,y-sym ,(generate-mil-expr y))
      ,(generate-eq-mil-code
        bigger-type
        x-sym

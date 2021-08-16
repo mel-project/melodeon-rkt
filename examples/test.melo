@@ -1,3 +1,4 @@
-
-
-1+2
+# We have no way of doing this cast safely right now/
+def self_propagate() = 
+	let first_output = (unsafe cast env_spender_tx().outputs : [RawCoinData * 1])[0] in
+	first_output[0] == env_self_hash()

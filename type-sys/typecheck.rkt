@@ -281,23 +281,41 @@
       [`(,(? (lambda(op) (member op '(@band @bor @shl @shr @xor @+ @- @* @/))) op) ,x ,y)
        (match-let ([(cons $x _) (@->$ x type-scope)]
                    [(cons $y _) (@->$ y type-scope)])
-         (assert-type x ($type $x) (TNat))
-         (assert-type y ($type $y) (TNat))
-         (cons
-          ($-Ast (TNat)
-                 ($bin (match op
-                         ['@bor 'or]
-                         ['@band 'and]
-                         ['@xor 'xor]
-                         ['@shl 'shl]
-                         ['@shr 'shr]
-                         ['@+ '+]
-                         ['@- '-]
-                         ['@* '*]
-                         ['@/ '/])
-                       $x
-                       $y))
-          tf-empty))]
+         (define x-type ($type $x))
+         (define y-type ($type $x))
+         ;(define generate-list (λ (l n)
+
+         ; vector multiply syntax
+         (cons (match (cons $x $y)
+           [(cons ($-Ast (TVector inner-types) ($lit-vec l)) ($-Ast _ ($lit-num n)))
+            (if (eq? 1 (length l))
+              ($-Ast (TVectorof (car inner-types) n)
+                     ($lit-vec (make-list n (car l))))
+              ($-Ast (TVectorof (TVector inner-types) n)
+                     ($lit-vec (cast (make-list n l) (Listof $-Ast)))))]
+           [(cons ($-Ast _ ($lit-num n)) ($-Ast (TVector inner-types) ($lit-vec l)))
+            (if (eq? 1 (length l))
+              ($-Ast (TVectorof (car inner-types) n)
+                     ($lit-vec (make-list n (car l))))
+              ($-Ast (TVectorof (TVector inner-types) n)
+                     ($lit-vec (cast (make-list n l) (Listof $-Ast)))))]
+           [_
+             (assert-type x ($type $x) (TNat))
+             (assert-type y ($type $y) (TNat))
+              ($-Ast (TNat)
+                     ($bin (match op
+                             ['@bor 'or]
+                             ['@band 'and]
+                             ['@xor 'xor]
+                             ['@shl 'shl]
+                             ['@shr 'shr]
+                             ['@+ '+]
+                             ['@- '-]
+                             ['@* '*]
+                             ['@/ '/])
+                           $x
+                           $y))])
+         tf-empty))]
       [`(@and ,x ,y)
        ; trivial desugaring
        (@->$ `(@let (@x ,x)

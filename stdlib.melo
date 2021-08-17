@@ -16,6 +16,10 @@ provide env_parent_data
 provide env_parent_height
 provide env_spender_index
 provide env_last_header
+provide vec_length
+
+provide vlen
+provide blen
 
 struct CoinID {
 	txhash: %[32],
@@ -67,3 +71,15 @@ def env_parent_data() = unsafe cast extern "PARENT-DATA" : %[]
 def env_parent_height() = unsafe cast extern "PARENT-HEIGHT" : Nat
 def env_spender_index() = unsafe cast extern "SPENDER-INDEX" : Nat
 # TODO: last header
+
+
+# Vector tools
+def vlen(vec: [Any *]) : Nat =
+	unsafe cast
+		unsafe extern call "v-len" (vec)
+	: Nat
+	
+def blen(bytes: %[]) : Nat =
+	unsafe cast
+		unsafe extern call "b-len" (bytes)
+	: Nat

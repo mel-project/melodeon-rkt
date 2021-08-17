@@ -102,6 +102,7 @@
      (List '@set! Symbol @-Ast)
      (List '@loop Nonnegative-Integer @-Ast)
      (List '@extern String)
+     (List '@extern-call String (Listof @-Ast))
      (List '@is @-Ast Type-Expr)
      (with-context @-Ast)))
 

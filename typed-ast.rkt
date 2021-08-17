@@ -71,6 +71,11 @@
    [body : $-Ast])
   #:transparent)
 
+(struct $extern-call
+  ([name : String]
+   [args : (Listof $-Ast)])
+  #:transparent)
+
 (struct $apply
   ([name : Symbol]
    [args : (Listof $-Ast)])
@@ -153,6 +158,7 @@
      $loop
      $for
      $block
+     $extern-call
      $index
      $range
      $if))

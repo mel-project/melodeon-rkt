@@ -180,12 +180,12 @@
 (module+ main
   (define ast (parameterize ([FILENAME "whatever.melo"])
                 (melo-parse-port (open-input-string #<<EOF
-
-let x = ann 0 : Nat in
-if x is Nat then
-  x + 10
-else
-  x * 10
+def labooyah() = 2
+def dup<T>(x: T) = [x, x]
+def getfirst<T>(x : [T, T]) = x[0]
+def roundtrip<T>(x: T) = getfirst(dup(x))
+- - - 
+roundtrip([1, 2, 3])[0] + roundtrip(5) + 6 + labooyah()
 EOF
                                                     ))))
   (displayln "@-Ast:")

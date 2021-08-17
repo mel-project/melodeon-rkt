@@ -6,7 +6,8 @@
          "typecheck-helpers.rkt"
          "typecheck-unify.rkt")
 (require racket/hash)
-(require typed-map)
+(require typed-map
+         compatibility/defmacro)
 
 (provide @-transform)
 
@@ -22,7 +23,7 @@
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
 
-     (define definitions (append accessor-fn-defs initial-defs))
+     (define definitions (append initial-defs accessor-fn-defs))
      (define type-scope (definitions->scope definitions))
 
      ; Stupid, mutation-based approach
@@ -30,12 +31,8 @@
      (define $definitions '())
      (: $vardefs (Listof $vardef))
      (define $vardefs '())
-     (for ([definition definitions])
-       (match definition
-         [`(@def-fun ,name
-                     ,args-with-types
-                     ,return-type
-                     ,body)
+     (define-macro (snippet)
+       '(let ()
           (define inner-type-scope
             (foldl (λ((x : (List Symbol Type-Expr))
                       (ts : Type-Scope))
@@ -56,7 +53,20 @@
                                                                       type-scope)))
                                                 args-with-types)
                                            $body)
-                                   $definitions))]
+                                   $definitions))))
+     (for ([definition definitions])
+       (match definition
+         [`(@def-fun ,name
+                     ,args-with-types
+                     ,return-type
+                     ,body)
+          (snippet)]
+         [`(@def-generic-fun ,name
+                             ,_
+                             ,args-with-types
+                             ,return-type
+                             ,body)
+          (snippet)]
          [`(@def-var ,name ,body)
           (match-define (cons $body _) (@->$ body type-scope))
           (set! $vardefs (cons ($vardef name $body) $vardefs))]
@@ -413,7 +423,10 @@
                        ($-Ast (TNat) ($lit-num to))))
         tf-empty)]
       [`(@apply ,fun ,args)
-       (match (lookup-fun type-scope fun)
+       (define $args
+         (map (λ((a : @-Ast)) (car (@->$ a type-scope))) args))
+       (define my-arg-types (map $type $args))
+       (match ((lookup-fun type-scope fun) my-arg-types)
          [(TFunction arg-types result)
           (unless (equal? (length arg-types) (length args))
             (error '@-ast->type "[~a] calling function ~a with ~a arguments instead of the expected ~a"
@@ -421,8 +434,7 @@
                    fun
                    (length args)
                    (length arg-types)))
-          (define $args
-            (map (λ((a : @-Ast)) (car (@->$ a type-scope))) args))
+
           (for ([arg args]
                 [$arg $args]
                 [arg-type arg-types])
@@ -481,36 +493,66 @@
 ; should also be added to.
 (: add-fun-def (-> Definition Type-Scope Type-Scope))
 (define (add-fun-def def accum)
+  ;; stupid hack
+  (define-macro (snippet)
+    '(parameterize ([current-context (context-of body)])
+       (define inner-type-scope
+         (foldl (λ((x : (List Symbol Type-Expr))
+                   (ts : Type-Scope))
+                  (bind-var ts (first x)
+                            (resolve-type (second x) accum)))
+                accum
+                args-with-types))
+       (match-define (cons $body _) (@->$ body inner-type-scope))
+       (define ret-type (if return-type
+                            (resolve-type return-type accum)
+                            ($-Ast-type $body)))
+       (unless (subtype-of? ($-Ast-type $body) ret-type)
+         (context-error "function ~a annotated with return type ~a but actually returns ~a"
+                        name
+                        (type->string ret-type)
+                        (type->string ($-Ast-type $body))))
+       (TFunction
+        (map (λ((x : Type-Expr))
+               (resolve-type x accum))
+             (map (λ((x : (List Symbol Type-Expr)))
+                    (second x)) args-with-types))
+        ($-Ast-type $body))))
   (match def
     [`(@def-fun ,name
                 ,args-with-types
                 ,return-type
                 ,body)
-     (define inner-type-scope
-       (foldl (λ((x : (List Symbol Type-Expr))
-                 (ts : Type-Scope))
-                (bind-var ts (first x)
-                          (resolve-type (second x) accum)))
-              accum
-              args-with-types))
-     (match-define (cons $body _) (@->$ body inner-type-scope))
-     (define ret-type (if return-type
-                          (resolve-type return-type accum)
-                          ($-Ast-type $body)))
-     (unless (subtype-of? ($-Ast-type $body) ret-type)
-       (context-error "function ~a annotated with return type ~a but actually returns ~a"
-                      name
-                      (type->string ret-type)
-                      (type->string ($-Ast-type $body))))
+     ;; A "noop" generic type
      (bind-fun accum
                name
-               (TFunction
-                (map (λ((x : Type-Expr))
-                       (resolve-type x accum))
-                     (map (λ((x : (List Symbol Type-Expr)))
-                            (second x)) args-with-types))
-                ($-Ast-type $body)))]
+               (λ _ (snippet)))]
+    [`(@def-generic-fun ,name
+                        ,generic-params
+                        ,args-with-types
+                        ,return-type
+                        ,body)
+     (define tf-with-params (snippet))
+     ;; do unification here
+     (bind-fun accum
+               name
+               (lambda ((callsite-arg-types : (Listof Type)))
+                 (match tf-with-params
+                   [(TFunction arg-types result-type)
+                    (define unification-table
+                      (for/fold ([accum : (Immutable-HashTable TVar Type) (hash)])
+                                ([arg-type arg-types]
+                                 [callsite-arg-type callsite-arg-types])
+                        (hash-union accum
+                                    (type-unify arg-type callsite-arg-type))))
+                    (TFunction (map (λ((x : Type))
+                                      (type-template-fill x unification-table))
+                                    arg-types)
+                               (type-template-fill result-type unification-table))
+                                      ])))]
+     
     [_ accum]))
+     
 
 (: add-var-def (-> Definition Type-Scope Type-Scope))
 (define (add-var-def def accum)
@@ -525,20 +567,16 @@
             ([def defs]) : Type-Scope
     (add-fun-def def (add-var-def def (add-struct-def def (add-alias-def def accum))))))
 
-#;(module+ test
+(module+ test
     (require "../parser.rkt")
     (parameterize ([FILENAME "test.melo"])
       (time
        (@-transform
         (melo-parse-port (open-input-string "
-def dup(x: Nat) = [x, x]
-def trip(x: Nat) = [x, x, x]
-
-struct Tagged {
-   x : Nat,
-   y : Nat
-}
-
+def labooyah() = 2
+def dup<T>(x: T) = [x, x]
+def getfirst<T>(x : [T, T]) = x[0]
+def roundtrip<T>(x: T) = getfirst(dup(x))
 - - - 
-x+1
+roundtrip([1, 2, 3])[0] + roundtrip(5) + 6
 "))))))

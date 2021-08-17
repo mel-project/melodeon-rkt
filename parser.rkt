@@ -57,9 +57,9 @@
                      `(@def-fun ,$2 ,$4 #f ,$7))
                     ((DEF VAR OPEN-PAREN <fun-args> CLOSE-PAREN COLON <type-expr> = <expr>)
                      `(@def-fun ,$2 ,$4 ,$7 ,$9))
-                    ((DEF VAR LESS-THAN TYPE GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN = <expr>)
+                    ((DEF VAR LESS-THAN <type-params> GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN = <expr>)
                      `(@def-generic-fun ,$2 ,$4 ,$7 #f ,$10))
-                    ((DEF VAR LESS-THAN TYPE GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN COLON <type-expr> = <expr>)
+                    ((DEF VAR LESS-THAN <type-params> GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN COLON <type-expr> = <expr>)
                      `(@def-generic-fun ,$2 ,$4 ,$7 ,$10 ,$12))
                     ((REQUIRE BYTES) `(@require ,(bytes->string/utf-8 $2)))
                     ((PROVIDE VAR) `(@provide ,$2))
@@ -69,6 +69,8 @@
                     ((ALIAS TYPE = <type-expr>)
                      `(@def-alias ,$2 ,$4))
                     )
+      (<type-params> ((TYPE) (list $1))
+                     ((TYPE COMMA <type-params>) (cons $1 $3)))
       (<fun-args> ((<type-dec>) (list $1))
                   ((<type-dec> COMMA <fun-args>) (cons $1 $3))
                   (() empty))
@@ -214,6 +216,8 @@
 require "helloworld.melo"
 
 def f(x: [Nat *]) = x | z
+
+def g<T>(x: T) = x
 
 - - -
 

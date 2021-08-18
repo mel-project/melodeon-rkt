@@ -27,12 +27,15 @@
 (struct TFunction ((arg-types : (Listof Type))
                    (result-type : Type)))
 
+;; a generic function is a function that returns a function type
+(define-type TGenFunction (-> (Listof Type) TFunction))
+
+
 ;; A type scope
 (struct Type-Scope ((vars : Type-Map)
                     (type-vars : Type-Map)
                     (bound-facts : (Immutable-HashTable Symbol Type-Facts))
-                    (funs : (Immutable-HashTable Symbol TFunction))) #:prefab)
-
+                    (funs : (Immutable-HashTable Symbol TGenFunction))) #:transparent)
 (: ts-empty Type-Scope)
 (define ts-empty (Type-Scope (hash) (hash) (hash) (hash)))
 
@@ -114,11 +117,11 @@
     [(Type-Scope vars type-vars type-facts funs)
      (Type-Scope (hash-set vars var-name var-type) type-vars type-facts funs)]))
 
-(: bind-fun (-> Type-Scope Symbol TFunction Type-Scope))
+(: bind-fun (-> Type-Scope Symbol TGenFunction Type-Scope))
 (define (bind-fun ts fun-name fun-type)
   (match ts
     [(Type-Scope vars type-vars type-facts funs)
-     (Type-Scope vars type-vars type-facts (hash-set funs fun-name  fun-type))]))
+     (Type-Scope vars type-vars type-facts (hash-set funs fun-name fun-type))]))
 
 (: bind-type-var (-> Type-Scope Symbol Type Type-Scope))
 (define (bind-type-var ts var-name var-type)
@@ -138,7 +141,7 @@
       (context-error "undefined type ~v"
                      (symbol->string var-name))))
 
-(: lookup-fun (-> Type-Scope Symbol TFunction))
+(: lookup-fun (-> Type-Scope Symbol TGenFunction))
 (define (lookup-fun ts var-name)
   (or (hash-ref (Type-Scope-funs ts) var-name #f)
       (context-error "undefined function ~v"
@@ -150,7 +153,7 @@
   (match texpr
     [`(@type-var Any) (TAny)]
     [`(@type-var Nat) (TNat)]
-    [`(@type-var ,var) (lookup-type-var env var)]
+    [`(@type-var ,var) (with-handlers ([exn:fail? (λ _ (TVar var))]) (lookup-type-var env var))]
     ;[`(@type-var ,var) (context-error "cannot resolve type names yet")]
     ;[`(@type-vec ,vec) (TVector (map (lambda (x) (resolve-type x env)) vec))]
     [`(@type-vec ,vec) (TVector (map (λ((x : Type-Expr)) (resolve-type x env)) vec))]

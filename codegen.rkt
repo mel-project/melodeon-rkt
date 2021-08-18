@@ -21,8 +21,8 @@
 (define (generate-mil prgrm)
   ;; TODO generate fns
   (append
-    (map generate-mil-def ($program-fun-defs prgrm))
-    (list (generate-mil-expr ($program-expr prgrm)))))
+   (map generate-mil-def ($program-fun-defs prgrm))
+   (list (generate-mil-expr ($program-expr prgrm)))))
 
 ;; turns a Melodeon $-ast to mil
 (: generate-mil-expr (-> $-Ast Any))
@@ -46,8 +46,8 @@
                         [(TVectorof _ _) 'v-concat]
                         [(TVector _) 'v-concat]
                         [(TBytes _) 'b-concat])
-                        ,(generate-mil-expr x)
-                        ,(generate-mil-expr y))]
+                     ,(generate-mil-expr x)
+                     ,(generate-mil-expr y))]
     [($index vec idx) `(,(match ($-Ast-type vec)
                            [(TTagged _ _) 'v-get]
                            [(TVectorof _ _) 'v-get]
@@ -59,14 +59,14 @@
                                [(TVectorof _ _) 'v-slice]
                                [(TVector _) 'v-slice]
                                [(TBytes _) 'b-slice])
-                             ,(generate-mil-expr vec)
-                             ,(generate-mil-expr from)
-                             ,(generate-mil-expr to))]
+                            ,(generate-mil-expr vec)
+                            ,(generate-mil-expr from)
+                            ,(generate-mil-expr to))]
     [($init-vec expr size)
      `(let (x ,(generate-mil-expr expr)
-            v (v-nil))
+              v (v-nil))
         (loop ,size
-          (set! v (v-push v x)))
+              (set! v (v-push v x)))
         v)]
     [($if x y z) `(if ,(generate-mil-expr x)
                       ,(generate-mil-expr y)
@@ -91,11 +91,12 @@
      `(let (,tmpsym ,(generate-mil-expr expr))
         ,(generate-is type tmpsym))]
     [($lit-bytes bts) (string->symbol
-                        (string-append "0x"
-                                       (bytes->hex-string bts)))]
+                       (string-append "0x"
+                                      (bytes->hex-string bts)))]
     [($block inner) `(let () . ,(map generate-mil-expr inner))]
     [($loop n body) `(loop ,n ,(generate-mil-expr body))]
     [($extern s) (string->symbol s)]
+    [($extern-call f body) `(,(string->symbol f) . ,(map generate-mil-expr body))]
     [other (error "invalid $-ast" other)]))
 
 (: generate-mil-def (-> $fndef Any))
@@ -105,9 +106,9 @@
      `(fn ,(mangle-sym name)
           ,(map mangle-sym (map (inst car Symbol Any) binds))
           ,(generate-mil-expr body))]))
-    ; TODO mil does not have globals
-    ;[($vardef var expr)
-    ; `(gl ,(mangle-sym var) ,(generate-mil expr))]
+; TODO mil does not have globals
+;[($vardef var expr)
+; `(gl ,(mangle-sym var) ,(generate-mil expr))]
 
 ;; generates code for equality
 (: generate-eq-mil (-> $-Ast $-Ast Any))
@@ -179,12 +180,12 @@
 (module+ main
   (define ast (parameterize ([FILENAME "whatever.melo"])
                 (melo-parse-port (open-input-string #<<EOF
-
-let x = ann 0 : Nat in
-if x is Nat then
-  x + 10
-else
-  x * 10
+def labooyah() = 2
+def dup<T>(x: T) = [x, x]
+def getfirst<T>(x : [T, T]) = x[0]
+def roundtrip<T>(x: T) = getfirst(dup(x))
+- - - 
+roundtrip([1, 2, 3])[0] + roundtrip(5) + 6 + labooyah()
 EOF
                                                     ))))
   (displayln "@-Ast:")

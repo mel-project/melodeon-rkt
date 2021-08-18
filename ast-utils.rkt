@@ -121,6 +121,7 @@
         ;[`(@set! _ ,expr) (ast-map expr)]
         [`(@loop ,count ,expr) `(@loop ,count ,(recurse expr))]
         [`(@is ,expr ,t) `(@is ,(recurse expr) ,t)]
+        [`(@extern-call ,fname ,args) `(@extern-call ,fname ,(map recurse args))]
         [`(@instantiate ,struct-name ,elems) `(@instantiate ,struct-name ,(map recurse elems))]
          [(with-context ctx matter) (with-context ctx (recurse matter))]
          )))))

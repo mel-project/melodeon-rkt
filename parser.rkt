@@ -19,13 +19,14 @@
   
   ;; melo-parse: (-> position-token) -> @-Ast
   (define melo-parse
-    (parser
+    (cfg-parser ; distinguishing type-expr from expr takes unlimited lookahead due to the shared | and & operators,m
+                ; so we use cfg-parser rather than parser (which complains of shift/reduce conflicts)
      (start <program>)
      (end EOF)
      (tokens value-tokens syntax-tokens)
      
      (src-pos)
-     ;(debug "/tmp/out.txt")
+     ; (debug "/tmp/out.txt")
      ;(yacc-output "/tmp/debug.y")
      (error (lambda (tok-ok? tok-name tok-value start-pos end-pos)
               (raise-syntax-error
@@ -56,9 +57,9 @@
                      `(@def-fun ,$2 ,$4 #f ,$7))
                     ((DEF VAR OPEN-PAREN <fun-args> CLOSE-PAREN COLON <type-expr> = <expr>)
                      `(@def-fun ,$2 ,$4 ,$7 ,$9))
-                    ((DEF VAR LESS-THAN TYPE GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN = <expr>)
+                    ((DEF VAR LESS-THAN <type-params> GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN = <expr>)
                      `(@def-generic-fun ,$2 ,$4 ,$7 #f ,$10))
-                    ((DEF VAR LESS-THAN TYPE GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN COLON <type-expr> = <expr>)
+                    ((DEF VAR LESS-THAN <type-params> GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN COLON <type-expr> = <expr>)
                      `(@def-generic-fun ,$2 ,$4 ,$7 ,$10 ,$12))
                     ((REQUIRE BYTES) `(@require ,(bytes->string/utf-8 $2)))
                     ((PROVIDE VAR) `(@provide ,$2))
@@ -68,13 +69,15 @@
                     ((ALIAS TYPE = <type-expr>)
                      `(@def-alias ,$2 ,$4))
                     )
+      (<type-params> ((TYPE) (list $1))
+                     ((TYPE COMMA <type-params>) (cons $1 $3)))
       (<fun-args> ((<type-dec>) (list $1))
                   ((<type-dec> COMMA <fun-args>) (cons $1 $3))
                   (() empty))
       (<type-dec> ((VAR COLON <type-expr>) (list $1 $3)))
-      (<type-expr> ((<type-expr> TOR <type-expr-2>) `(@type-union ,$1 ,$3))
+      (<type-expr> ((<type-expr> BOR <type-expr-2>) `(@type-union ,$1 ,$3))
                    ((<type-expr-2>) $1))
-      (<type-expr-2> ((<type-expr-3> TAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
+      (<type-expr-2> ((<type-expr-3> BAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
                      ((<type-expr-3>) $1))
       (<type-expr-3> ((TYPE) `(@type-var ,$1))
                      ((OPEN-BRACKET <type-expr> * CLOSE-BRACKET) `(@type-dynvecof ,$2))
@@ -148,6 +151,10 @@
                    ((<apply-expr>) $1))
       ;; higher-associativity (apply-like) operators
       (<apply-expr> ((VAR OPEN-PAREN <multi-exprs> CLOSE-PAREN) (pos-lift 1 4 `(@apply ,$1 ,$3)))
+                    ;; unsafe extern call "f" (args...)
+                    ((UNSAFE EXTERN CALL BYTES OPEN-PAREN <multi-exprs> CLOSE-PAREN)
+                     (pos-lift 1 7 `(@extern-call ,(bytes->string/utf-8 $4)
+                                                  ,$6)))
                     ;; data field accessors
                     ((<apply-expr> DOT VAR) (pos-lift 1 3 `(@accessor ,$1 ,$3)))
                     ;; vector indexing
@@ -208,7 +215,9 @@
 
 require "helloworld.melo"
 
-def f(x: [Nat *]) = x
+def f(x: [Nat *]) = x | z
+
+def g<T>(x: T) = x
 
 - - -
 
@@ -221,7 +230,7 @@ do
     [(1 + 2)];
   set! x = [1, 2, 3, 4, 5];
   set! x = x[1 => 2]
-done) + 123 == 456 && 4 + 5 == 9
+done) + 123 == 456 && 4 + 5 == 9 + unsafe extern call "atoi" (1)
 
 EOF
                                        ))))

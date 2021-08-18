@@ -35,6 +35,7 @@
                                     DOT
                                     IS
                                     EXTERN
+                                    CALL
                                     DONE
                                     FOR
                                     DEF
@@ -65,6 +66,7 @@
    ["in" 'IN]
    ["def" 'DEF]
    ["struct" 'STRUCT]
+   ["call" 'CALL]
    [":" 'COLON]
    ["=>" 'FAT-ARROW]
    ["where" 'WHERE]
@@ -102,9 +104,9 @@
    ["#" 'HASH]
    ["%" 'PERCENT]
    [";" 'SEMICOLON]
-   ["|" 'TOR]
-   ["&" 'TAND]
-   ["~" 'TNEG]
+   ;["|" 'TOR]
+   ;["&" 'TAND]
+   ;["~" 'TNEG]
    ["**" 'TWOSTARS]
    [(:: "-" (:* #\space) "-" (:* #\space) "-") '---]
    ;; skip comments

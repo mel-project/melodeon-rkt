@@ -4,6 +4,8 @@
          "../common.rkt")
 (provide type-index
          type-append
+         type-unify
+         type-template-fill
          subtype-of?)
 
 (: subtype-of? (-> Type Type Boolean))

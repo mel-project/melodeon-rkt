@@ -219,7 +219,7 @@
 (define (bag-case->type/inner case pidx)
   (match (hash-ref case pidx #f)
     [#f (TAny)]
-
+    [(PVar t) (TVar t)]
     [(PNat) (TNat)]
     [(PVec) (or (with-handlers ([exn:fail? (λ _ #f)])
                   (define length (cast (hash-ref case `(len ,pidx)) Integer))

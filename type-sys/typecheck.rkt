@@ -277,22 +277,25 @@
                    [(cons $y _) (@->$ y type-scope)])
          (define x-type ($type $x))
          (define y-type ($type $x))
-         ;(define generate-list (λ (l n)
+         (define generate-vec
+           (λ ((l : (Listof $-Ast))
+               (inner-types : (Listof Type))
+               (n : Nonnegative-Integer))
+            (if (eq? 1 (length l))
+              ($-Ast (TVectorof (car inner-types) n)
+                     ($lit-vec (make-list n (car l))))
+              ($-Ast (TVectorof (TVector inner-types) n)
+                     ($lit-vec (cast (make-list n l) (Listof $-Ast)))))))
 
          ; vector multiply syntax
          (cons (match (cons $x $y)
            [(cons ($-Ast (TVector inner-types) ($lit-vec l)) ($-Ast _ ($lit-num n)))
-            (if (eq? 1 (length l))
-              ($-Ast (TVectorof (car inner-types) n)
-                     ($lit-vec (make-list n (car l))))
-              ($-Ast (TVectorof (TVector inner-types) n)
-                     ($lit-vec (cast (make-list n l) (Listof $-Ast)))))]
+            (generate-vec l inner-types n)]
            [(cons ($-Ast _ ($lit-num n)) ($-Ast (TVector inner-types) ($lit-vec l)))
-            (if (eq? 1 (length l))
-              ($-Ast (TVectorof (car inner-types) n)
-                     ($lit-vec (make-list n (car l))))
-              ($-Ast (TVectorof (TVector inner-types) n)
-                     ($lit-vec (cast (make-list n l) (Listof $-Ast)))))]
+            (generate-vec l inner-types n)]
+           #|[(cons ($-Ast _ ($var var)) ($-Ast (TVector inner-types) ($lit-vec l)))
+            (let (n (type-scope-vars var))
+              (generate-vec l inner-types n))]|#
            [_
              (assert-type x ($type $x) (TNat))
              (assert-type y ($type $y) (TNat))

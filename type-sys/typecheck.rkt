@@ -24,6 +24,8 @@
                       (filter struct-def? initial-defs))))
 
      (define definitions (append initial-defs accessor-fn-defs))
+     (printf "DEFS\n")
+     (pretty-print (sort-topo definitions))
      (define type-scope (definitions->scope definitions))
 
      ; Stupid, mutation-based approach
@@ -104,6 +106,61 @@
             acc))
          (list (list 0 (car l)))
          (cdr l)))
+
+
+; Extract a list of names that a given @-Ast refers to (depends
+; on) and append them to the given list if they are not already
+; in it.
+;(: sort-topo-fold (All (A) (-> @-Ast (Listof A) (Listof A))))
+(: sort-topo-fold (-> @-Ast (Listof Symbol) (Listof Symbol)))
+(define (sort-topo-fold ast names)
+  (define if-new (λ ((name : Symbol)) : (Listof Symbol)
+    (if (member name names) '() (list name))))
+
+  (flatten1 (list
+    (flatten1 (ast-list-map
+      (λ ((ast : @-Ast))
+        (match (dectx ast)
+          [`(@apply ,name ,_) (if-new (cast name Symbol))]
+          [`(@instantiate ,name ,_) (if-new (cast name Symbol))]
+          [_ '()]))
+      ast))
+    names)))
+
+; TODO
+;(: def-sort-topo-fold (-> Definition (Listof Symbol) (Listof Symbol)))
+
+; Map a list of definitions to their inner @-Ast expression
+; which may refer to (depend on) other definitions. Then fold
+; over the expressions to build a list of definition names,
+; ordered by dependency. Finally map names to the original
+; definitions again.
+(: sort-topo (-> (Listof Definition) (Listof Definition)))
+(define (sort-topo defs)
+  (define get-def-with-name
+    (λ (name)
+       (car (filter (λ (def)
+       ;(findf
+         ;(λ (def) (match def
+         (match def
+           [`(@def-struct ,n ,_) (equal? n name)]
+           [`(@def-fun ,n ,_ ,_ ,_) (equal? n name)]
+           [_ #f]))
+         defs))))
+
+  (map get-def-with-name
+       (foldr sort-topo-fold
+              '()
+              ; Extract inner @-Ast expressions from definitions
+              ; which can used to determine dependencies
+              (cast (filter (compose not empty?) (map
+                (λ (def) (match def
+                  [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body) body]
+                  ;[`(@def-struct _ _) '()]
+                  ;[`(@def-alias _ _) '()]
+                  [`(@def-fun ,_ ,_ ,_ ,body) body]
+                  [_ '()]))
+                defs)) (Listof @-Ast)))))
 
 ; Convert a string to the sum of its ascii
 ; character encodings

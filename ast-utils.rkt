@@ -8,6 +8,7 @@
          struct-def?
          ast->list
          ast->list*
+         ast-fold
          ast-map
          ast-list-map
          (struct-out return))
@@ -30,6 +31,13 @@
 (: ast->list* (-> (Listof @-Ast) (Listof @-Ast)))
 (define (ast->list* v)
   (append* (map ast->list v)))
+
+;; Fold over an @-Ast into any type A
+(: ast-fold (All (A B) (-> (-> B A A) A (Listof B) A)))
+(define (ast-fold f v l)
+  (match l
+    ['() v]
+    [(cons x xs) (f x (ast-fold f v xs))]))
 
 ; Recursively serialize an ast into a list.
 ; Useful as a precursor to fold and map which expect a list.

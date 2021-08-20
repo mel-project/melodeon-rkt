@@ -1,6 +1,6 @@
 #lang typed/racket
-(require "common.rkt")
-(require "type-sys/types.rkt")
+;(require "raw-ast.rkt")
+(require "../type-sys/types.rkt")
 ;(require "type-sys/typecheck.rkt")
 
 (provide (all-defined-out))
@@ -33,7 +33,8 @@
 
 (struct $init-vec
   ([val : $-Ast]
-   [size : Nonnegative-Integer]))
+   [size : Nonnegative-Integer])
+  #:transparent)
 
 ; Literal number
 (struct $lit-num

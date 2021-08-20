@@ -1,15 +1,15 @@
 #lang typed/racket
-(require "../common.rkt"
-         "../ast-utils.rkt"
+(require "../asts/raw-ast.rkt"
+         "../asts/ast-utils.rkt"
          "types.rkt"
-         "../typed-ast.rkt"
+         "../asts/typed-ast.rkt"
          "typecheck-helpers.rkt"
          "typecheck-unify.rkt")
 (require racket/hash)
 (require typed-map
          compatibility/defmacro)
 
-(provide @-transform)
+(provide @-transform) 
 
 ;; Entry point: transforms a whole program
 (: @-transform (-> @-Ast $program))
@@ -568,7 +568,7 @@
     (add-fun-def def (add-var-def def (add-struct-def def (add-alias-def def accum))))))
 
 (module+ test
-    (require "../parser.rkt")
+    (require "../grammar/parser.rkt")
     (parameterize ([FILENAME "test.melo"])
       (time
        (@-transform

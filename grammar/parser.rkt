@@ -1,9 +1,9 @@
 #lang typed/racket
-(require "common.rkt")
+(require "../asts/raw-ast.rkt")
 ;; untyped internal impl
 (module untyped racket
   (require "lexer.rkt")
-  (require (prefix-in T "common.rkt"))
+  (require (prefix-in T "../asts/raw-ast.rkt"))
   (require parser-tools/lex)
   (require parser-tools/cfg-parser)
   (require parser-tools/yacc)

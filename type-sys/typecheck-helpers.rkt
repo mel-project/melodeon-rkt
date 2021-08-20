@@ -1,8 +1,8 @@
 #lang typed/racket
 (require "types.rkt"
-         "../ast-utils.rkt"
+         "../asts/ast-utils.rkt"
          "typecheck-unify.rkt"
-         "../common.rkt"
+         "../asts/raw-ast.rkt"
          "type-bag.rkt"
          racket/hash)
 (provide (all-defined-out))

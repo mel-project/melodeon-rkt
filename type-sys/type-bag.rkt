@@ -1,6 +1,6 @@
 #lang typed/racket
 (require "types.rkt"
-         "../common.rkt"
+         "../asts/raw-ast.rkt"
          racket/hash)
 (provide type->bag
          (struct-out Type-Bag)

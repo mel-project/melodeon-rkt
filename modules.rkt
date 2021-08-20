@@ -1,6 +1,6 @@
 #lang typed/racket
-(require "common.rkt"
-         "ast-utils.rkt")
+(require "asts/raw-ast.rkt"
+         "asts/ast-utils.rkt")
 (provide demodularize)
 
 ;; Fully "demodularizes" an @-Ast, given its filename and a file-loading function.

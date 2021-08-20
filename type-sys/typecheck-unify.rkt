@@ -1,7 +1,7 @@
 #lang typed/racket
 (require "type-bag.rkt"
          "types.rkt"
-         "../common.rkt")
+         "../asts/raw-ast.rkt")
 (provide type-index
          type-append
          type-unify

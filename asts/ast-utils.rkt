@@ -1,6 +1,6 @@
 #lang typed/racket
-(require "common.rkt"
-         "type-sys/types.rkt")
+(require "raw-ast.rkt"
+         "../type-sys/types.rkt")
 (require racket/hash)
 (require typed-map)
 (provide Type-Map

@@ -1,11 +1,11 @@
 #lang typed/racket
-(require "parser.rkt"
+(require "grammar/parser.rkt"
          "type-sys/typecheck-unify.rkt"
          "type-sys/typecheck.rkt"
          "type-sys/type-bag.rkt"
          "type-sys/types.rkt"
-         "typed-ast.rkt"
-         "common.rkt")
+         "asts/typed-ast.rkt"
+         "asts/raw-ast.rkt")
 (require/typed file/sha1
                (bytes->hex-string (-> Bytes String)))
 (provide generate-mil)

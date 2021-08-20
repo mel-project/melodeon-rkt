@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require rackunit
-         "parser.rkt"
+         "grammar/parser.rkt"
          "codegen.rkt"
          "type-sys/typecheck.rkt")
 

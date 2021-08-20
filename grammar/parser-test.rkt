@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require rackunit
-         "common.rkt"
+         "../asts/raw-ast.rkt"
          "parser.rkt")
 
 (define (parse-eq? str prgm)

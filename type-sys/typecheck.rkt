@@ -23,9 +23,10 @@
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
 
-     (define definitions (append initial-defs accessor-fn-defs))
-     (printf "DEFS\n")
-     (pretty-print (sort-topo definitions))
+     (define definitions (sort-topo (append initial-defs accessor-fn-defs)))
+     ;(printf "DEFS\n")
+     ;(pretty-print (sort-topo definitions))
+     ;(pretty-print definitions)
      (define type-scope (definitions->scope definitions))
 
      ; Stupid, mutation-based approach
@@ -111,9 +112,8 @@
 ; Extract a list of names that a given @-Ast refers to (depends
 ; on) and append them to the given list if they are not already
 ; in it.
-;(: sort-topo-fold (All (A) (-> @-Ast (Listof A) (Listof A))))
-(: sort-topo-fold (-> @-Ast (Listof Symbol) (Listof Symbol)))
-(define (sort-topo-fold ast names)
+(: ast-sort-topo-fold (-> @-Ast (Listof Symbol) (Listof Symbol)))
+(define (ast-sort-topo-fold ast names)
   (define if-new (λ ((name : Symbol)) : (Listof Symbol)
     (if (member name names) '() (list name))))
 
@@ -121,14 +121,31 @@
     (flatten1 (ast-list-map
       (λ ((ast : @-Ast))
         (match (dectx ast)
-          [`(@apply ,name ,_) (if-new (cast name Symbol))]
-          [`(@instantiate ,name ,_) (if-new (cast name Symbol))]
+          [`(@apply ,name ,_) (if-new name)]
+          [`(@instantiate ,name ,_) (if-new name)]
           [_ '()]))
       ast))
     names)))
 
-; TODO
-;(: def-sort-topo-fold (-> Definition (Listof Symbol) (Listof Symbol)))
+; Serialize the given definition into its own name and the name of all
+; definitions it depends on in order of dependency.
+(: def-sort-topo-fold (-> Definition (Listof Symbol) (Listof Symbol)))
+(define (def-sort-topo-fold def names)
+  (define push-if-new (λ ((n : Symbol) (names : (Listof Symbol))) : (Listof Symbol)
+    (if (member n names) names (cons n names))))
+
+  (match def
+    [`(@def-generic-fun ,n ,_ ,_ ,_ ,body)
+      ;(cons n (ast-sort-topo-fold body names))]
+      (push-if-new n (ast-sort-topo-fold body names))]
+    ; TODO
+    ;[`(@def-struct ,n ,_) '()]
+    ;[`(@def-alias ,n ,_) '()]
+    [`(@def-fun ,n ,_ ,_ ,body)
+      ;(cons n (ast-sort-topo-fold body names))]
+      (push-if-new n (ast-sort-topo-fold body names))]
+    [_ names]))
+
 
 ; Map a list of definitions to their inner @-Ast expression
 ; which may refer to (depend on) other definitions. Then fold
@@ -149,29 +166,13 @@
          defs))))
 
   (map get-def-with-name
-       (foldr sort-topo-fold
-              '()
-              ; Extract inner @-Ast expressions from definitions
-              ; which can used to determine dependencies
-              (cast (filter (compose not empty?) (map
-                (λ (def) (match def
-                  [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body) body]
-                  ;[`(@def-struct _ _) '()]
-                  ;[`(@def-alias _ _) '()]
-                  [`(@def-fun ,_ ,_ ,_ ,body) body]
-                  [_ '()]))
-                defs)) (Listof @-Ast)))))
+       (foldl def-sort-topo-fold '() defs)))
 
 ; Convert a string to the sum of its ascii
 ; character encodings
-;(: string->uint (-> String Nonnegative-Integer))
 (: string->uint (-> String Integer))
 (define (string->uint s)
-  ;(foldl (λ ((c : Char) (acc : Nonnegative-Integer))
   (foldl (λ ((c : Char) (acc : Integer))
-           ;(foldl (λ (c acc)
-           ;(ann (char->integer c) Nonnegative-Integer))
-           ;(cast (+ acc (char->integer c)) Nonnegative-Integer))
            (+ acc (char->integer c)))
          0
          (string->list s)))

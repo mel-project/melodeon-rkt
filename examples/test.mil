@@ -11,6 +11,18 @@
 (fn Transaction-scripts (@x) (v-get @x 5))
 (fn Transaction-data (@x) (v-get @x 6))
 (fn Transaction-sigs (@x) (v-get @x 7))
+(fn
+ self_propagate
+ ()
+ (let (outputs (Transaction-outputs (env_spender_tx)))
+   (let (@x (let (eqx12642 (vlen outputs) eqy12643 1) (= eqx12642 eqy12643)))
+     (if @x
+       (let (first_output (v-get (Transaction-outputs (env_spender_tx)) 0))
+         (let (eqx12644 (v-get first_output 0) eqy12645 (env_self_hash))
+           (= (bytes->u256 eqx12644) (bytes->u256 eqy12645))))
+       @x))))
+(fn blen (bytes) (b-len bytes))
+(fn vlen (vec) (v-len vec))
 (fn env_spender_index () SPENDER-INDEX)
 (fn env_parent_height () PARENT-HEIGHT)
 (fn env_parent_data () PARENT-DATA)
@@ -33,10 +45,4 @@
     (v-get raw_tx 4)
     (v-get raw_tx 5)
     (v-get raw_tx 5))))
-(let (@x
-      (let (eqx720
-            (Transaction-fee (env_spender_tx))
-            eqy721
-            (env_parent_value))
-        (= eqx720 eqy721)))
-  (if @x (let (eqx722 (env_parent_denom) eqy723 109) (= eqx722 eqy723)) @x))
+0

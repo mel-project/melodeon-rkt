@@ -89,12 +89,13 @@
                                     " * "
                                     (number->string n)
                                     "]")]
-    [(TDynVectorof t) (format "[~a...]" (type->string t))]
+    [(TDynVectorof t) (format "[~a *]" (type->string t))]
     [(TUnion l r) (format "(~a | ~a)"
                           (type->string l)
                           (type->string r))]
     [(TIntersect l r) (format "(~a & ~a)"
                               (type->string l)
                               (type->string r))]
-    [(TBytes n) (format "Bytes[~a]" n)]))
+    [(TBytes n) (format "%[~a]" n)]
+    [(TDynBytes) "%[]"]))
 

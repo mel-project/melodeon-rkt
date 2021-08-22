@@ -94,9 +94,13 @@
   (cond
     [(equal? pidx new-root) 'root]
     [else (match pidx
+            [`(all-ref ,inner) (match new-root
+                                 [`(ref root ,_) inner]
+                                 [_ `(all-ref ,(pidx-project inner new-root))])]
             [`(ref ,inner ,len) `(ref ,(pidx-project inner new-root) ,len)]
             [`(len ,inner) `(len ,(pidx-project inner new-root))]
             [_ (error "cannot project")])]))
+
 ;; Converts a type belonging to the given index to a type-bag
 (: type->bag (-> Type Type-Bag))
 (define (type->bag type)
@@ -225,12 +229,17 @@
                   (define length (cast (hash-ref case `(len ,pidx)) Integer))
                   (TVector (for/list ([i length]) : (Listof Type)
                              (bag-case->type/inner case `(ref ,pidx ,i)))))
-                (with-handlers ([exn:fail? (λ _ (TAny))])
-                  (define inner-type (bag-case->type/inner (hash 'root
-                                                                 (hash-ref case `(all-ref ,pidx)))'root))
+                (let ([inner-type (with-handlers ([exn:fail? (λ _ (TAny))])
+                                    (bag-case->type/inner (hash 'root
+                                                                (hash-ref case `(all-ref ,pidx)))'root))])
                   (TDynVectorof inner-type)))]
     [(PBytes) (or (with-handlers ([exn:fail? (λ _ #f)])
                     (define length (cast (hash-ref case `(len ,pidx)) Nonnegative-Integer))
                     (TBytes length))
                   (with-handlers ([exn:fail? (λ _ (TAny))])
                     (TDynBytes)))]))
+
+(define T (TVectorof (TVector (list (TBytes 32)
+                                    (TNat)
+                                    (TNat)
+                                    (TAny))) 1))

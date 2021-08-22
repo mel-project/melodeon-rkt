@@ -3,7 +3,6 @@
          "type-sys/typecheck.rkt"
          "type-sys/types.rkt"
          "asts/raw-ast.rkt"
-         "monomorphize.rkt"
          "asts/typed-ast.rkt"
          "codegen.rkt"
          "modules.rkt"

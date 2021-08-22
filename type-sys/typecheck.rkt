@@ -9,7 +9,54 @@
 (require typed-map
          compatibility/defmacro)
 
-(provide @-transform) 
+(provide @-transform)
+
+
+;; Sorts all the definitions in a @program. Right now, does so with a ridiculous naive algorithm.
+(: definitions-sort
+   (-> (Listof Definition)
+       (Listof Definition)))
+(define (definitions-sort definitions)
+  (define parent-of? (λ ((x : Definition)
+                         (y : Definition))
+                       (define x-name
+                         (match x
+                           [`(@def-var ,name ,_) name]
+                           [`(@def-generic-fun ,name . ,_) name]
+                           [`(@def-struct ,name . ,_) name]
+                           [`(@def-alias ,name . ,_) name]
+                           [`(@def-fun ,name . ,_) (string->symbol
+                                                    (car (string-split (symbol->string name)
+                                                                       "-")))]
+                           [_ #f]))
+                       (define res (member x-name (flatten (dectx* y))))
+                       (and (member x-name (flatten (dectx* y))) #t)))
+  ;; define a parent hashtable
+  (: parents-map (HashTable Definition (Listof Definition)))
+  (define parents-map (make-hasheq))
+  (for ([def definitions])
+    (for ([pot-par definitions])
+      (when (parent-of? pot-par def)
+        (hash-set! parents-map def
+                   (cons pot-par
+                         (hash-ref parents-map def (λ () '())))))))
+  ;; go through the whole thing
+  (: result (Listof Definition))
+  (define result '())
+  (: seen (Setof Definition))
+  (define seen (seteq))
+  (: emit (-> Definition Void))
+  (define (emit def)
+    (define parents (hash-ref parents-map def (λ () '())))
+    (unless (set-member? seen def)
+      (set! seen (set-add seen def))
+      (unless (set-member? seen def)
+        (error "Wtf?"))
+      (for-each emit parents)
+      (set! result (cons def result))))
+  (for ([def definitions])
+    (emit def))
+  (reverse result))
 
 ;; Entry point: transforms a whole program
 (: @-transform (-> @-Ast $program))
@@ -23,7 +70,8 @@
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
 
-     (define definitions (append initial-defs accessor-fn-defs))
+     (define definitions (definitions-sort
+                           (append initial-defs accessor-fn-defs)))
      (define type-scope (definitions->scope definitions))
 
      ; Stupid, mutation-based approach
@@ -573,10 +621,11 @@
       (time
        (@-transform
         (melo-parse-port (open-input-string "
+def f(x: Nat) = x * x
+def roundtrip<T>(x: T) = getfirst(dup(x))
 def labooyah() = 2
 def dup<T>(x: T) = [x, x]
 def getfirst<T>(x : [T, T]) = x[0]
-def roundtrip<T>(x: T) = getfirst(dup(x))
 - - - 
 roundtrip([1, 2, 3])[0] + roundtrip(5) + 6
 "))))))

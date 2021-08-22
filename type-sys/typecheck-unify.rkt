@@ -15,8 +15,6 @@
 
 (: type-index (-> Type Integer Type))
 (define (type-index type idx)
-  (printf "indexing into ~a\n"
-          (type->string type))
   (define bagged (type->bag type))
   ;; we first make sure the vector has the right length, because projection is infallible --- it returns a set of facts, not a type
   (for ([length-case (Type-Bag-inner (bag-project bagged `(len root)))])
@@ -30,7 +28,6 @@
                      length)))
   ;; then we find the possible types
   (define projected (bag-project bagged `(ref root ,idx)))
-  (printf "projected: ~v\n" projected)
   (bag->type (bag-project bagged `(ref root ,idx))))
 
 (: type-append (-> Type Type Type))

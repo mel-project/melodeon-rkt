@@ -117,7 +117,8 @@
     ; vectors: pairwise
     [(TBytes n) (Type-Bag (set (cast
                                 (hash idx (PBytes)
-                                      `(len ,idx) (ann n : Integer))
+                                      `(len ,idx) (ann n : Integer)
+                                      `(all-ref ,idx) (PNat))
                                 Bag-Case)))]
     ; structs
     [(TTagged tag types)

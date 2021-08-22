@@ -3,28 +3,6 @@
          "asts/ast-utils.rkt")
 (provide demodularize)
 
-
-;; Sorts all the definitions in a @program. Right now, does so with a ridiculous naive algorithm.
-(: definitions-sort
-   (-> @-Ast
-       @-Ast))
-(define (definitions-sort ast)
-  (match-define `(@program ,definitions, inner) (dectx ast))
-  ;; x is "less than" another y if y's flattened form contains x
-  `(@program ,(sort definitions
-                    (λ ((x : Definition)
-                        (y : Definition))
-                      (define x-name
-                        (match x
-                          [`(@def-var ,name ,_) name]
-                          [`(@def-generic-fun ,name . ,_) name]
-                          [`(@def-struct ,name . ,_) name]
-                          [`(@def-alias ,name . ,_) name]
-                          [`(@def-fun ,name . ,_) name]
-                          [_ #f]))
-                      (and (member x-name (flatten y)) #t)))
-             ,inner))
-
 ;; Fully "demodularizes" an @-Ast, given its filename and a file-loading function.
 (: demodularize
    (-> @-Ast
@@ -68,13 +46,12 @@
   ;; "Inject" the dependencies
   (parameterize ([current-context (context-of ast)])
     (contextualize
-     (definitions-sort 
-       `(@program ,(append (append* (map (λ((x : @-Ast))
-                                           (match (dectx x)
-                                             [`(@program ,defs ,_) defs]))
-                                         mangled))
-                           definitions)
-                  ,inner)))))
+     `(@program ,(append (append* (map (λ((x : @-Ast))
+                                         (match (dectx x)
+                                           [`(@program ,defs ,_) defs]))
+                                       mangled))
+                         definitions)
+                ,inner))))
 
 ;; Mangles the unprovided names of a fully demodularized @-Ast, given a function that maps a symbol to a symbol
 (: mangle-unprovided (-> @-Ast (-> Symbol Symbol) @-Ast))

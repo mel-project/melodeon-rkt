@@ -83,3 +83,5 @@ def blen(bytes: %[]) : Nat =
 	unsafe cast
 		unsafe extern call "b-len" (bytes)
 	: Nat
+	
+

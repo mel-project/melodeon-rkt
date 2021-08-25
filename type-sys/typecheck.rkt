@@ -146,6 +146,11 @@
       (push-if-new n (ast-sort-topo-fold body names))]
     [_ names]))
 
+; TODO
+; Serialize the type expression into its own name and its dependencies in
+; topological order
+;(: type-expr-sort-topo-fold (-> Type-Expr (Listof Symbol) (Listof Symbol)))
+
 
 ; Map a list of definitions to their inner @-Ast expression
 ; which may refer to (depend on) other definitions. Then fold

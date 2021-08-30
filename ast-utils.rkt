@@ -11,6 +11,7 @@
          ast-fold
          ast-map
          ast-list-map
+         texpr-list-map
          (struct-out return))
 
 
@@ -135,6 +136,8 @@
          )))))
 
 
+; Map a function f over an @-Ast recursively, concatenating
+; the results into a list
 (: ast-list-map (All (A) (-> (-> @-Ast A) @-Ast (Listof A))))
 (define (ast-list-map f ast)
   (define rec (λ((x : @-Ast)) (ast-list-map f x)))
@@ -181,3 +184,25 @@
      [`(@instantiate ,struct-name ,elems) (flatten1 (map rec elems))]
      ;[(with-context ctx matter) (with-context ctx (rec matter))]
      )))
+
+; Map a function f over a type expression recursively, concatenating
+; the results into a list
+(: texpr-list-map (All (A) (-> (-> Type-Expr A) Type-Expr (Listof A))))
+(define (texpr-list-map f te)
+  (define rec (λ((x : Type-Expr)) (texpr-list-map f x)))
+
+  (cons (f te)
+   (match te
+     [`(@type-var ,_) '()]
+     [`(@type-bytes ,_) '()]
+     [`(@type-dynbytes ,_) '()]
+     [`(@type-struct ,_ ,fields)
+       (flatten1 (map rec (map cadr fields)))]
+     [`(@type-vec ,ts)
+       (flatten1 (map rec ts))]
+     [`(@type-vecof ,type ,_) (rec type)]
+     [`(@type-dynvecof ,type) (rec type)]
+     [`(@type-union ,u ,v)
+       (flatten1 (list (rec u) (rec v)))]
+     [`(@type-intersect ,u ,v)
+       (flatten1 (list (rec u) (rec v)))])))

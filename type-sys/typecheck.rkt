@@ -23,10 +23,11 @@
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
 
-     (define definitions (sort-topo (append initial-defs accessor-fn-defs)))
-     ;(printf "DEFS\n")
-     ;(pretty-print (sort-topo definitions))
-     ;(pretty-print definitions)
+     (define definitions (append initial-defs accessor-fn-defs))
+     (printf "SORTED DEFS\n")
+     (pretty-print (sort-topo definitions))
+     (printf "DEFS\n")
+     (pretty-print definitions)
      (define type-scope (definitions->scope definitions))
 
      ; Stupid, mutation-based approach
@@ -127,6 +128,36 @@
       ast))
     names)))
 
+; Serialize the type expression into its own name and its dependencies in
+; topological order
+(: texpr-sort-topo-fold (-> Type-Expr (Listof Symbol) (Listof Symbol)))
+(define (texpr-sort-topo-fold te names)
+  ; TODO find a better way to get this list
+  (define builtin-types '(Nat Bytes Any))
+
+  (define if-new (λ ((name : Symbol)) : (Listof Symbol)
+    (if (member name names) '() (list name))))
+
+  (flatten1 (list
+    (flatten1 (texpr-list-map
+      (λ ((te : Type-Expr))
+        (match te
+          [`(@type-var ,name)
+            (if (or (member name builtin-types)
+                    (member name names))
+                '()
+                (list name))]
+          [`(@type-struct ,name ,fields)
+            (append
+              (if-new name)
+              (flatten1
+                (map (λ (field)
+                       (texpr-sort-topo-fold (cadr field) names))
+                     fields)))]
+          [_ '()]))
+      te))
+    names)))
+
 ; Serialize the given definition into its own name and the name of all
 ; definitions it depends on in order of dependency.
 (: def-sort-topo-fold (-> Definition (Listof Symbol) (Listof Symbol)))
@@ -136,21 +167,21 @@
 
   (match def
     [`(@def-generic-fun ,n ,_ ,_ ,_ ,body)
-      ;(cons n (ast-sort-topo-fold body names))]
       (push-if-new n (ast-sort-topo-fold body names))]
-    ; TODO
-    ;[`(@def-struct ,n ,_) '()]
+    [`(@def-struct ,n ,fields)
+      (push-if-new
+        n
+        (flatten1 (map
+          (λ(texpr)
+            (flatten1 (texpr-list-map
+              (λ((te : Type-Expr))
+                (texpr-sort-topo-fold te names))
+              texpr)))
+            (map cadr fields))))]
     ;[`(@def-alias ,n ,_) '()]
     [`(@def-fun ,n ,_ ,_ ,body)
-      ;(cons n (ast-sort-topo-fold body names))]
       (push-if-new n (ast-sort-topo-fold body names))]
     [_ names]))
-
-; TODO
-; Serialize the type expression into its own name and its dependencies in
-; topological order
-;(: type-expr-sort-topo-fold (-> Type-Expr (Listof Symbol) (Listof Symbol)))
-
 
 ; Map a list of definitions to their inner @-Ast expression
 ; which may refer to (depend on) other definitions. Then fold
@@ -167,7 +198,7 @@
          (match def
            [`(@def-struct ,n ,_) (equal? n name)]
            [`(@def-fun ,n ,_ ,_ ,_) (equal? n name)]
-           [_ #f]))
+           [(var x) (equal? x name)]))
          defs))))
 
   (map get-def-with-name

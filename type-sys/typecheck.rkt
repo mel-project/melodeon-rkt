@@ -23,9 +23,9 @@
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
 
-     (define definitions (append initial-defs accessor-fn-defs))
-     (printf "SORTED DEFS\n")
-     (pretty-print (sort-topo definitions))
+     (define definitions (sort-topo (append initial-defs accessor-fn-defs)))
+     ;(printf "SORTED DEFS\n")
+     ;(pretty-print (sort-topo definitions))
      (printf "DEFS\n")
      (pretty-print definitions)
      (define type-scope (definitions->scope definitions))
@@ -118,15 +118,16 @@
   (define if-new (λ ((name : Symbol)) : (Listof Symbol)
     (if (member name names) '() (list name))))
 
-  (flatten1 (list
+  (define new-names
     (flatten1 (ast-list-map
       (λ ((ast : @-Ast))
         (match (dectx ast)
           [`(@apply ,name ,_) (if-new name)]
           [`(@instantiate ,name ,_) (if-new name)]
           [_ '()]))
-      ast))
-    names)))
+      ast)))
+
+  (append new-names names))
 
 ; Serialize the type expression into its own name and its dependencies in
 ; topological order
@@ -135,55 +136,47 @@
   ; TODO find a better way to get this list
   (define builtin-types '(Nat Bytes Any))
 
-  (define if-new (λ ((name : Symbol)) : (Listof Symbol)
-    (if (member name names) '() (list name))))
+  (define if-new (λ ((n : Symbol) (etc : (Listof Symbol))) : (Listof Symbol)
+    (if (member n names) '() (cons n etc))))
 
-  (flatten1 (list
-    (flatten1 (texpr-list-map
-      (λ ((te : Type-Expr))
-        (match te
-          [`(@type-var ,name)
-            (if (or (member name builtin-types)
-                    (member name names))
-                '()
-                (list name))]
-          [`(@type-struct ,name ,fields)
-            (append
-              (if-new name)
-              (flatten1
-                (map (λ (field)
-                       (texpr-sort-topo-fold (cadr field) names))
-                     fields)))]
-          [_ '()]))
-      te))
-    names)))
+  (match te
+    [`(@type-var ,name)
+      (if (or (member name builtin-types)
+              (member name names))
+          names
+          (cons name names))]
+    [`(@type-struct ,name ,fields)
+      (if-new
+        name
+        (foldl texpr-sort-topo-fold names (map cadr fields)))]
+    [`(@type-vec ,texprs)
+      (foldl texpr-sort-topo-fold names texprs)]
+    ;TODO complete the remaining cases
+    [_ names]))
 
 ; Serialize the given definition into its own name and the name of all
 ; definitions it depends on in order of dependency.
 (: def-sort-topo-fold (-> Definition (Listof Symbol) (Listof Symbol)))
 (define (def-sort-topo-fold def names)
-  (define push-if-new (λ ((n : Symbol) (names : (Listof Symbol))) : (Listof Symbol)
-    (if (member n names) names (cons n names))))
+  (define if-new (λ ((n : Symbol) (etc : (Listof Symbol))) : (Listof Symbol)
+    (if (member n names) '() (cons n etc))))
 
   (match def
     [`(@def-generic-fun ,n ,_ ,_ ,_ ,body)
-      (push-if-new n (ast-sort-topo-fold body names))]
+      (if-new n (ast-sort-topo-fold body names))]
     [`(@def-struct ,n ,fields)
-      (push-if-new
+      (if-new
         n
-        (flatten1 (map
-          (λ(texpr)
-            (flatten1 (texpr-list-map
-              (λ((te : Type-Expr))
-                (texpr-sort-topo-fold te names))
-              texpr)))
-            (map cadr fields))))]
-    ;[`(@def-alias ,n ,_) '()]
+        (foldl texpr-sort-topo-fold names (map cadr fields)))]
+    [`(@def-alias ,n ,texpr)
+      (if-new
+        n
+        (foldl texpr-sort-topo-fold names (list texpr)))]
     [`(@def-fun ,n ,_ ,_ ,body)
-      (push-if-new n (ast-sort-topo-fold body names))]
+      (if-new n (ast-sort-topo-fold body names))]
     [_ names]))
 
-; Map a list of definitions to their inner @-Ast expression
+; Map a list )of definitions to their inner @-Ast expression
 ; which may refer to (depend on) other definitions. Then fold
 ; over the expressions to build a list of definition names,
 ; ordered by dependency. Finally map names to the original
@@ -192,11 +185,12 @@
 (define (sort-topo defs)
   (define get-def-with-name
     (λ (name)
+       ;(printf "looking for ~a in ~a\n" name defs)
        (car (filter (λ (def)
-       ;(findf
-         ;(λ (def) (match def
+         ;(printf "comparing ~a and ~a\n\n" name def)
          (match def
            [`(@def-struct ,n ,_) (equal? n name)]
+           [`(@def-alias ,n ,_) (equal? n name)]
            [`(@def-fun ,n ,_ ,_ ,_) (equal? n name)]
            [(var x) (equal? x name)]))
          defs))))

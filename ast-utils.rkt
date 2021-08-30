@@ -151,6 +151,7 @@
      [`(@var ,x) '()]
      [`(@extern ,s) '()]
 
+     [`(@extern-call ,s ,exprs) (flatten1 (map rec exprs))]
      [`(@let (,var ,val) ,expr) (flatten1 (list (rec val) (rec expr)))]
      [`(,(? @-Binop? op) ,a ,b) (flatten1 (list (rec a) (rec b)))]
      [`(@lit-vec ,v) (flatten1 (map rec v))]
@@ -195,7 +196,7 @@
    (match te
      [`(@type-var ,_) '()]
      [`(@type-bytes ,_) '()]
-     [`(@type-dynbytes ,_) '()]
+     [`(@type-dynbytes) '()]
      [`(@type-struct ,_ ,fields)
        (flatten1 (map rec (map cadr fields)))]
      [`(@type-vec ,ts)

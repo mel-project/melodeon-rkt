@@ -137,14 +137,14 @@
   (define builtin-types '(Nat Bytes Any))
 
   (define if-new (λ ((n : Symbol) (etc : (Listof Symbol))) : (Listof Symbol)
-    (if (member n names) '() (cons n etc))))
+    (if (member n names) '() (append etc (list n)))))
 
   (match te
     [`(@type-var ,name)
       (if (or (member name builtin-types)
               (member name names))
           names
-          (cons name names))]
+          (append names (list name)))]
     [`(@type-struct ,name ,fields)
       (if-new
         name
@@ -159,19 +159,15 @@
 (: def-sort-topo-fold (-> Definition (Listof Symbol) (Listof Symbol)))
 (define (def-sort-topo-fold def names)
   (define if-new (λ ((n : Symbol) (etc : (Listof Symbol))) : (Listof Symbol)
-    (if (member n names) '() (cons n etc))))
+    (if (member n names) '() (append etc (list n)))))
 
   (match def
     [`(@def-generic-fun ,n ,_ ,_ ,_ ,body)
       (if-new n (ast-sort-topo-fold body names))]
     [`(@def-struct ,n ,fields)
-      (if-new
-        n
-        (foldl texpr-sort-topo-fold names (map cadr fields)))]
+      (if-new n (foldl texpr-sort-topo-fold names (map cadr fields)))]
     [`(@def-alias ,n ,texpr)
-      (if-new
-        n
-        (foldl texpr-sort-topo-fold names (list texpr)))]
+      (if-new n (foldl texpr-sort-topo-fold names (list texpr)))]
     [`(@def-fun ,n ,_ ,_ ,body)
       (if-new n (ast-sort-topo-fold body names))]
     [_ names]))

@@ -17,15 +17,12 @@
   (match (dectx ast)
     [`(@program ,initial-defs
                 ,body)
-     ;(define type-scope (definitions->scope definitions))
      ; Generate accessor fns for all struct types defined
      (define accessor-fn-defs
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
 
      (define definitions (sort-topo (append initial-defs accessor-fn-defs)))
-     ;(printf "SORTED DEFS\n")
-     ;(pretty-print (sort-topo definitions))
      (printf "DEFS\n")
      (pretty-print definitions)
      (define type-scope (definitions->scope definitions))
@@ -110,15 +107,58 @@
          (cdr l)))
 
 
+; Extract the name of a definition
+(define (def->name def)
+   (match def
+      #|
+     [`(@def-struct ,n ,_) (equal? n name)]
+     [`(@def-alias ,n ,_) (equal? n name)]
+     [`(@def-fun ,n ,_ ,_ ,_) (equal? n name)]
+     [`(@def-generic-fun ,n ,_ ,_ ,_ ,_) (equal? n name)]
+     [`(@provide ,n) (equal? n name)]
+     [`(@require ,s) (equal? (string->symbol (cast s String)) name)]
+     [`(@def-var ,n) (equal? n name)]
+     |#
+     [`(@def-struct ,n ,_) n]
+     [`(@def-alias ,n ,_) n]
+     [`(@def-fun ,n ,_ ,_ ,_) n]
+     [`(@def-generic-fun ,n ,_ ,_ ,_ ,_) n]
+     [`(@provide ,n) n]
+     [`(@require ,s) (string->symbol (cast s String))]
+     [`(@def-var ,n) n]
+     [_ #f]))
+
+; Find a definition by its name in a list
+(: find-def-by-name (-> Symbol (Listof Definition) Definition))
+(define (find-def-by-name name defs)
+  (car (filter (λ (def)
+    (equal? (def->name name) name))
+    defs)))
+
 ; Extract a list of names that a given @-Ast refers to (depends
 ; on) and append them to the given list if they are not already
 ; in it.
-(: ast-sort-topo-fold (-> @-Ast (Listof Symbol) (Listof Symbol)))
-(define (ast-sort-topo-fold ast names)
-  (define if-new (λ ((name : Symbol)) : (Listof Symbol)
-    (if (member name names) '() (list name))))
+;(: ast-sort-topo-fold (-> @-Ast (Listof Symbol) (Listof Symbol)))
+;(: ast-sort-topo-fold (-> @-Ast (Listof Definition) (Listof Definition)))
+(: ast-sort-topo
+   (-> (Listof Definition)
+       (-> @-Ast (Listof Definition) (Listof Definition))))
+(define (ast-sort-topo defs)
+  (λ(ast acc-defs) (let ()
+  (define names (map def->name defs))
+  (define def-sort-topo-fold (def-sort-topo defs))
+  (define if-new (λ ((name : Symbol)) : (Listof Definition)
+    ;(if (member name names) '() (list name))))
+    (if (member name names)
+        acc-defs
+        (def-sort-topo-fold (find-def-by-name name defs) acc-defs))))
 
-  (define new-names
+  (match (dectx ast)
+    [`(@apply ,name ,_) (if-new name)]
+    [`(@instantiate ,name ,_) (if-new name)]
+    [_ acc-defs]))))
+   #|
+  (define new-defs
     (flatten1 (ast-list-map
       (λ ((ast : @-Ast))
         (match (dectx ast)
@@ -126,73 +166,126 @@
           [`(@instantiate ,name ,_) (if-new name)]
           [_ '()]))
       ast)))
+  |#
 
-  (append new-names names))
+  ;(append names new-names))
+  ;(append acc-defs new-defs))))
 
 ; Serialize the type expression into its own name and its dependencies in
 ; topological order
-(: texpr-sort-topo-fold (-> Type-Expr (Listof Symbol) (Listof Symbol)))
-(define (texpr-sort-topo-fold te names)
+;(: texpr-sort-topo-fold (-> Type-Expr (Listof Symbol) (Listof Symbol)))
+;(: texpr-sort-topo-fold (-> Type-Expr (Listof Definition) (Listof Definition)))
+(: texpr-sort-topo
+   (-> (Listof Definition)
+       (-> Type-Expr (Listof Definition) (Listof Definition))))
+(define (texpr-sort-topo defs)
+  (λ(te acc-defs) (let ()
   ; TODO find a better way to get this list
   (define builtin-types '(Nat Bytes Any))
-
-  (define if-new (λ ((n : Symbol) (etc : (Listof Symbol))) : (Listof Symbol)
-    (if (member n names) '() (append etc (list n)))))
+  (define names (map def->name defs))
+  (define def-sort-topo-fold (def-sort-topo defs))
+  (define ast-sort-topo-fold (ast-sort-topo defs))
+  (define texpr-sort-topo-fold (texpr-sort-topo defs))
+  (define if-new (λ ((n : Symbol) (etc : (Listof Definition))) : (Listof Definition)
+    ;(if (member n names) names (append etc (list n)))))
+    (if (member n names)
+        acc-defs
+        (def-sort-topo-fold (find-def-by-name n defs) etc))))
 
   (match te
     [`(@type-var ,name)
       (if (or (member name builtin-types)
               (member name names))
-          names
-          (append names (list name)))]
+          ;names
+          acc-defs
+          ;(append names (list name)))]
+          (append acc-defs (list (find-def-by-name name acc-defs))))]
     [`(@type-struct ,name ,fields)
       (if-new
         name
-        (foldl texpr-sort-topo-fold names (map cadr fields)))]
+        ;(foldl texpr-sort-topo-fold names (map cadr fields)))]
+        (foldl texpr-sort-topo-fold acc-defs (map cadr fields)))]
     [`(@type-vec ,texprs)
-      (foldl texpr-sort-topo-fold names texprs)]
-    ;TODO complete the remaining cases
-    [_ names]))
+      ;(foldl texpr-sort-topo-fold names texprs)]
+      (foldl texpr-sort-topo-fold acc-defs texprs)]
+    [`(@type-vecof ,type ,_)
+      ;(texpr-sort-topo-fold type names)]
+      (texpr-sort-topo-fold type acc-defs)]
+    [`(@type-dynvecof ,type)
+      ;(texpr-sort-topo-fold type names)]
+      (texpr-sort-topo-fold type acc-defs)]
+    [`(@type-union ,u ,v)
+      (foldl texpr-sort-topo-fold acc-defs (list u v))]
+    [`(@type-intersect ,u ,v)
+      (foldl texpr-sort-topo-fold acc-defs (list u v))]
+    [`(@type-dynbytes) acc-defs]
+    [`(@type-bytes ,_) acc-defs]))))
 
 ; Serialize the given definition into its own name and the name of all
 ; definitions it depends on in order of dependency.
-(: def-sort-topo-fold (-> Definition (Listof Symbol) (Listof Symbol)))
-(define (def-sort-topo-fold def names)
-  (define if-new (λ ((n : Symbol) (etc : (Listof Symbol))) : (Listof Symbol)
-    (if (member n names) '() (append etc (list n)))))
+;(: def-sort-topo-fold (-> Definition (Listof Symbol) (Listof Symbol)))
+;(: def-sort-topo-fold (-> Definition (Listof Definition) (Listof Definition)))
+(: def-sort-topo
+   (-> (Listof Definition)
+       (-> Definition (Listof Definition) (Listof Definition))))
+;(define (def-sort-topo-fold def acc-defs)
+(define (def-sort-topo defs)
+  (λ(def acc-defs) (let ()
+  (define names (map def->name defs))
+  (define def-sort-topo-fold (def-sort-topo defs))
+  (define ast-sort-topo-fold (ast-sort-topo defs))
+  (define texpr-sort-topo-fold (texpr-sort-topo defs))
+
+  (define if-new (λ ((n : Symbol) (etc : (Listof Definition))) : (Listof Definition)
+    ;(if (member n names) names (append etc (list n)))))
+    (if (member n names)
+        acc-defs
+        (def-sort-topo-fold (find-def-by-name n defs) etc))))
 
   (match def
     [`(@def-generic-fun ,n ,_ ,_ ,_ ,body)
-      (if-new n (ast-sort-topo-fold body names))]
+      (if-new n (ast-sort-topo-fold body acc-defs))]
     [`(@def-struct ,n ,fields)
-      (if-new n (foldl texpr-sort-topo-fold names (map cadr fields)))]
+      (if-new n (foldl texpr-sort-topo-fold acc-defs (map cadr fields)))]
     [`(@def-alias ,n ,texpr)
-      (if-new n (foldl texpr-sort-topo-fold names (list texpr)))]
+      (if-new n (foldl texpr-sort-topo-fold acc-defs (list texpr)))]
     [`(@def-fun ,n ,_ ,_ ,body)
-      (if-new n (ast-sort-topo-fold body names))]
-    [_ names]))
+      (printf "def-sort-topo on ~a\n" acc-defs)
+      (if-new n (ast-sort-topo-fold body acc-defs))]
+    [`(@def-generic-fun ,n ,_ ,_ ,_ ,body)
+      (if-new n (ast-sort-topo-fold body acc-defs))]
+    [`(@def-var ,n ,body)
+      (if-new n (ast-sort-topo-fold body acc-defs))]
+    [`(@provide ,n) (if-new n acc-defs)]
+    [`(@require ,n) (if-new (string->symbol n) acc-defs)]))))
 
-; Map a list )of definitions to their inner @-Ast expression
+; Map a list of definitions to their inner @-Ast expression
 ; which may refer to (depend on) other definitions. Then fold
 ; over the expressions to build a list of definition names,
-; ordered by dependency. Finally map names to the original
+; ordered by dependency. Finally map names to the oRiginal
 ; definitions again.
 (: sort-topo (-> (Listof Definition) (Listof Definition)))
 (define (sort-topo defs)
+  #|
   (define get-def-with-name
     (λ (name)
-       ;(printf "looking for ~a in ~a\n" name defs)
        (car (filter (λ (def)
-         ;(printf "comparing ~a and ~a\n\n" name def)
          (match def
            [`(@def-struct ,n ,_) (equal? n name)]
            [`(@def-alias ,n ,_) (equal? n name)]
            [`(@def-fun ,n ,_ ,_ ,_) (equal? n name)]
-           [(var x) (equal? x name)]))
+           [`(@def-generic-fun ,n ,_ ,_ ,_ ,_) (equal? n name)]
+           [`(@provide ,n) (equal? n name)]
+           [`(@require ,s) (equal? (string->symbol (cast s String)) name)]
+           [`(@def-var ,n) (equal? n name)]
+           [_ #f]))
          defs))))
+  |#
 
-  (map get-def-with-name
-       (foldl def-sort-topo-fold '() defs)))
+  (define def-sort-topo-fold (def-sort-topo defs))
+
+  (foldl def-sort-topo-fold '() defs))
+
 
 ; Convert a string to the sum of its ascii
 ; character encodings

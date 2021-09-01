@@ -1,13 +1,14 @@
 #lang typed/racket
 (require "raw-ast.rkt"
          "../type-sys/types.rkt")
-(require racket/hash)
+;(require racket/hash)
 (require typed-map)
 (provide Type-Map
          flatten1
          struct-def?
          ast->list
          ast->list*
+         ast-fold
          ast-map
          (struct-out return))
 
@@ -75,7 +76,7 @@
     (contextualize
      (f
       (match (g (dectx a))
-        [(Return a) a]
+        ;[(Return a) a]
         ; trivials
         [`(@lit-num ,n) `(@lit-num ,n)]
         [`(@lit-bytes ,b) `(@lit-bytes ,b)]
@@ -124,3 +125,54 @@
         [`(@instantiate ,struct-name ,elems) `(@instantiate ,struct-name ,(map recurse elems))]
          [(with-context ctx matter) (with-context ctx (recurse matter))]
          )))))
+
+(: ast-fold (All (A) (-> (-> @-Ast A A) @-Ast A A)))
+(define (ast-fold f ast initial)
+  (f (dectx ast)
+   (match (dectx ast)
+     [`(@lit-num ,n) initial]
+     [`(@var ,x) initial]
+     [`(@let (,var ,val) ,expr)
+       (ast-fold f expr
+                (ast-fold f val initial))]
+     [`(@apply ,_ ,asts)
+       (foldl (λ(ast v) (ast-fold f ast v)) initial asts)]
+     [_ initial])))
+     ; trivials
+     #|
+     [`(@lit-bytes ,b) '()]
+     [`(@extern ,s) '()]
+     [`(@extern-call ,s ,exprs) (flatten1 (map rec exprs))]
+     [`(,(? @-Binop? op) ,a ,b) (flatten1 (list (rec a) (rec b)))]
+     [`(@lit-vec ,v) (flatten1 (map rec v))]
+     [`(@program ,defs ,expr)
+       (flatten1 (list (flatten1 (map (λ (def)
+         (match def
+           [`(@def-var ,sym ,ast) '()]
+           [`(@def-generic-fun ,name
+                               ,type-params
+                               ,arguments
+                               ,return-type
+                               ,body)
+            (rec body)]
+           [`(@def-fun ,name
+                       ,arguments
+                       ,return-type
+                       ,body)
+            (rec body)]
+           [x '()])) defs))
+         (rec expr)))]
+     [`(@apply ,name ,v) (flatten1 (map rec v))]
+     [`(@block ,v) (flatten1 (map rec v))]
+     [`(@index ,x ,y) (flatten1 (list (rec x) (rec y)))]
+     [`(@update ,e1 ,e2 ,e3) (flatten1 (list (rec e1) (rec e2) (rec e3)))]
+     [`(@unsafe-cast ,e ,t) (rec e)]
+     [`(@ann ,expr ,t) (rec expr)]
+     [`(@if ,p ,tru ,fls) (flatten1 (list (rec p) (rec tru) (rec fls)))]
+     [`(@for ,e1 ,var ,e2) (flatten1 (list (rec e1) (rec e2)))]
+     [`(@loop ,count ,expr) (rec expr)]
+     [`(@is ,expr ,t) (rec expr)]
+     [`(@instantiate ,struct-name ,elems) (flatten1 (map rec elems))]
+     ;[(with-context ctx matter) (with-context ctx (rec matter))]
+     |#
+     ;)))

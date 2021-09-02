@@ -9,6 +9,7 @@
          ast->list
          ast->list*
          ast-fold
+         def-fold
          ast-map
          (struct-out return))
 
@@ -76,7 +77,7 @@
     (contextualize
      (f
       (match (g (dectx a))
-        ;[(Return a) a]
+        [(Return a) a]
         ; trivials
         [`(@lit-num ,n) `(@lit-num ,n)]
         [`(@lit-bytes ,b) `(@lit-bytes ,b)]
@@ -126,10 +127,60 @@
          [(with-context ctx matter) (with-context ctx (recurse matter))]
          )))))
 
+; Fold over a definition, calling ast-fold  on inner ast nodes
+(: def-fold (All (A) (-> (-> @-Ast A A) Definition A A)))
+(define (def-fold f def initial)
+   (match def
+     [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body)
+       (ast-fold f body initial)]
+     [`(@def-struct ,_ ,fields)
+       ; TODO
+       ;(foldl (texpr-fold f body initial) (map cadr fields))]))))
+       initial]
+       #|
+     [`(@def-alias ,n ,texpr)
+       |#
+     [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body)
+       (ast-fold f body initial)]
+     [`(@def-var ,_ ,body)
+       (ast-fold f body initial)]
+     #|
+     [`(@provide ,n) (if-new n acc-defs)]
+     [`(@require ,n) (if-new (string->symbol n) acc-defs)]
+     |#
+     [`(@def-fun ,_ ,_ ,_ ,body)
+       (ast-fold f body initial)]
+     [_ initial]))
+
+; Fold over an @-Ast, recursing on inner nodes
 (: ast-fold (All (A) (-> (-> @-Ast A A) @-Ast A A)))
 (define (ast-fold f ast initial)
   (f (dectx ast)
    (match (dectx ast)
+     [`(@program ,defs ,body)
+       (ast-fold f body (foldl (λ(def acc) (def-fold f def acc)) initial defs))]
+       #|
+         [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body)
+           (ast-fold f body initial)]
+         [`(@def-struct ,_ ,fields)
+           ; TODO
+           ;(foldl (texpr-fold f body initial) (map cadr fields))]))))
+           initial]
+           #|
+         [`(@def-alias ,n ,texpr)
+           |#
+         [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body)
+           (ast-fold f body initial)]
+         [`(@def-var ,_ ,body)
+           (ast-fold f body initial)]
+         #|
+         [`(@provide ,n) (if-new n acc-defs)]
+         [`(@require ,n) (if-new (string->symbol n) acc-defs)]
+         |#
+         [`(@def-fun ,_ ,_ ,_ ,body)
+           (ast-fold f body initial)]
+         [_ initial])))
+           |#
      [`(@lit-num ,n) initial]
      [`(@var ,x) initial]
      [`(@let (,var ,val) ,expr)

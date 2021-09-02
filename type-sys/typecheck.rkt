@@ -3,6 +3,7 @@
          "../asts/ast-utils.rkt"
          "types.rkt"
          "../asts/typed-ast.rkt"
+         "../asts/topo-sort.rkt"
          "typecheck-helpers.rkt"
          "typecheck-unify.rkt")
 (require racket/hash)
@@ -35,11 +36,21 @@
   (: parents-map (HashTable Definition (Listof Definition)))
   (define parents-map (make-hasheq))
   (for ([def definitions])
+    (hash-set! parents-map def
+      (map (λ(name) (find-def-by-name name definitions))
+        ;(car (def-fold add-parents def `(,(list) . ,(list)))))))
+        ;(car (def-fold add-parents def (cons (list) (list)))))))
+        (car (def-fold add-parents def
+                       (ann (cons (list) (list))
+       (Pairof (Listof Symbol)
+               (Listof Symbol))))))))
+  #|
     (for ([pot-par definitions])
       (when (parent-of? pot-par def)
         (hash-set! parents-map def
                    (cons pot-par
                          (hash-ref parents-map def (λ () '())))))))
+  |#
   ;; go through the whole thing
   (: result (Listof Definition))
   (define result '())

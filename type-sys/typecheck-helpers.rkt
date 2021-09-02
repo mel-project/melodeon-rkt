@@ -184,15 +184,6 @@
 ; Extract the name of a definition
 (define (def->name def)
    (match def
-      #|
-     [`(@def-struct ,n ,_) (equal? n name)]
-     [`(@def-alias ,n ,_) (equal? n name)]
-     [`(@def-fun ,n ,_ ,_ ,_) (equal? n name)]
-     [`(@def-generic-fun ,n ,_ ,_ ,_ ,_) (equal? n name)]
-     [`(@provide ,n) (equal? n name)]
-     [`(@require ,s) (equal? (string->symbol (cast s String)) name)]
-     [`(@def-var ,n) (equal? n name)]
-     |#
      [`(@def-struct ,n ,_) n]
      [`(@def-alias ,n ,_) n]
      [`(@def-fun ,n ,_ ,_ ,_) n]
@@ -206,5 +197,5 @@
 (: find-def-by-name (-> Symbol (Listof Definition) Definition))
 (define (find-def-by-name name defs)
   (car (filter (λ (def)
-    (equal? (def->name name) name))
+    (equal? (def->name def) name))
     defs)))

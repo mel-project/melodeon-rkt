@@ -9,7 +9,8 @@
          ast->list
          ast->list*
          ast-fold
-         def-fold
+         ast-fold-def
+         def->ast
          ast-map
          (struct-out return))
 
@@ -128,8 +129,8 @@
          )))))
 
 ; Fold over a definition, calling ast-fold  on inner ast nodes
-(: def-fold (All (A) (-> (-> @-Ast A A) Definition A A)))
-(define (def-fold f def initial)
+(: ast-fold-def (All (A) (-> (-> @-Ast A A) Definition A A)))
+(define (ast-fold-def f def initial)
    (match def
      [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body)
        (ast-fold f body initial)]
@@ -154,11 +155,13 @@
 
 ; Fold over an @-Ast, recursing on inner nodes
 (: ast-fold (All (A) (-> (-> @-Ast A A) @-Ast A A)))
-(define (ast-fold f ast initial)
-  (f (dectx ast)
+(define (ast-fold f ast acc)
+  (: initial A)
+  (define initial (f (dectx ast) acc))
+
    (match (dectx ast)
      [`(@program ,defs ,body)
-       (ast-fold f body (foldl (λ(def acc) (def-fold f def acc)) initial defs))]
+       (ast-fold f body (foldl (λ(def acc) (ast-fold-def f def acc)) initial defs))]
        #|
          [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body)
            (ast-fold f body initial)]
@@ -188,7 +191,7 @@
                 (ast-fold f val initial))]
      [`(@apply ,_ ,asts)
        (foldl (λ(ast v) (ast-fold f ast v)) initial asts)]
-     [_ initial])))
+     [_ initial]))
      ; trivials
      #|
      [`(@lit-bytes ,b) '()]
@@ -227,3 +230,9 @@
      ;[(with-context ctx matter) (with-context ctx (rec matter))]
      |#
      ;)))
+
+; Wraps a definition in a root-level
+; @program ast node.
+(: def->ast (-> Definition @-Ast))
+(define (def->ast def)
+  `(@program ,(list def) (@empty)))

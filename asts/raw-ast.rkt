@@ -104,6 +104,7 @@
      (List '@extern String)
      (List '@extern-call String (Listof @-Ast))
      (List '@is @-Ast Type-Expr)
+     (List '@empty)
      (with-context @-Ast)))
 
 (define @-Ast? (make-predicate @-Ast))

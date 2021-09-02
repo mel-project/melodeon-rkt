@@ -18,22 +18,6 @@
    (-> (Listof Definition)
        (Listof Definition)))
 (define (definitions-sort definitions)
-  #|
-  (define parent-of? (λ ((x : Definition)
-                         (y : Definition))
-                       (define x-name
-                         (match x
-                           [`(@def-var ,name ,_) name]
-                           [`(@def-generic-fun ,name . ,_) name]
-                           [`(@def-struct ,name . ,_) name]
-                           [`(@def-alias ,name . ,_) name]
-                           [`(@def-fun ,name . ,_) (string->symbol
-                                                    (car (string-split (symbol->string name)
-                                                                       "-")))]
-                           [_ #f]))
-                       (define res (member x-name (flatten (dectx* y))))
-                       (and (member x-name (flatten (dectx* y))) #t)))
-  |#
   ;; define a parent hashtable
   (: parents-map (HashTable Definition (Listof Definition)))
   (define parents-map (make-hasheq))
@@ -44,13 +28,6 @@
                        (ann (cons (list) (list))
                             (Pairof (Listof Symbol)
                                     (Listof Symbol))))))))
-  #|
-    (for ([pot-par definitions])
-      (when (parent-of? pot-par def)
-        (hash-set! parents-map def
-                   (cons pot-par
-                         (hash-ref parents-map def (λ () '())))))))
-  |#
   ;; go through the whole thing
   (: result (Listof Definition))
   (define result '())

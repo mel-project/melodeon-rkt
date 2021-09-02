@@ -145,10 +145,6 @@
        (ast-fold f body initial)]
      [`(@def-var ,_ ,body)
        (ast-fold f body initial)]
-     #|
-     [`(@provide ,n) (if-new n acc-defs)]
-     [`(@require ,n) (if-new (string->symbol n) acc-defs)]
-     |#
      [`(@def-fun ,_ ,_ ,_ ,body)
        (ast-fold f body initial)]
      [_ initial]))
@@ -162,28 +158,6 @@
    (match (dectx ast)
      [`(@program ,defs ,body)
        (ast-fold f body (foldl (λ(def acc) (ast-fold-def f def acc)) initial defs))]
-       #|
-         [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body)
-           (ast-fold f body initial)]
-         [`(@def-struct ,_ ,fields)
-           ; TODO
-           ;(foldl (texpr-fold f body initial) (map cadr fields))]))))
-           initial]
-           #|
-         [`(@def-alias ,n ,texpr)
-           |#
-         [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body)
-           (ast-fold f body initial)]
-         [`(@def-var ,_ ,body)
-           (ast-fold f body initial)]
-         #|
-         [`(@provide ,n) (if-new n acc-defs)]
-         [`(@require ,n) (if-new (string->symbol n) acc-defs)]
-         |#
-         [`(@def-fun ,_ ,_ ,_ ,body)
-           (ast-fold f body initial)]
-         [_ initial])))
-           |#
      [`(@lit-num ,n) initial]
      [`(@var ,x) initial]
      [`(@let (,var ,val) ,expr)

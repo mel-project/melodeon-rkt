@@ -1,6 +1,7 @@
 #lang typed/racket
 (require "raw-ast.rkt"
-         "../type-sys/types.rkt")
+         "../type-sys/types.rkt"
+         compatibility/defmacro)
 ;(require racket/hash)
 (require typed-map)
 (provide Type-Map
@@ -203,10 +204,66 @@
      [`(@instantiate ,struct-name ,elems) (flatten1 (map rec elems))]
      ;[(with-context ctx matter) (with-context ctx (rec matter))]
      |#
-     ;)))
+;)))
 
 ; Wraps a definition in a root-level
 ; @program ast node.
 (: def->ast (-> Definition @-Ast))
 (define (def->ast def)
   `(@program ,(list def) (@empty)))
+
+(: memoize-thunk (All (a) (-> (-> a) (-> a))))
+(define (memoize-thunk th)
+  (: memory (Listof a))
+  (define memory '())
+  (lambda ()
+    (if (empty? memory)
+        (let ([res (th)])
+          (set! memory (list res))
+          res)
+        (car memory))))
+
+
+
+;; A general-purpose ast transformer. Takes in a function with three arguments: an ast node, a function that, given a 1-index number n, returns the nth subexpression processed through the same function, and an integer which counts the number of subexpressions.
+;; The ast-recombine function may be useful when transforming an ast into an ast.
+(: @ast-recurse (All (a) (-> (-> @-Ast (-> Integer a) Nonnegative-Integer a) @-Ast a)))
+(define (@ast-recurse fun ast)
+  (: devec (All (b) (-> (Vectorof (-> b)) (-> Integer b))))
+  (define (devec vec)
+    (λ(n) ((vector-ref vec n))))
+  (: recurse (-> @-Ast a))
+  (define (recurse ast)
+    (@ast-recurse fun ast))
+
+  (define-macro (% . rst)
+    `(devec (vector . ,(map (λ(elem) `(memoize-thunk (λ() (recurse ,elem)))) rst))))
+  
+  (match ast
+    [(with-context ctx inner) (fun ast (% inner) 1)]
+    ; trivials
+    [`(@lit-num ,n) (fun ast (%) 0)]
+    [`(@lit-bytes ,b) (fun ast (%) 0)]
+    [`(@var ,x) (fun ast (%) 0)]
+    [`(@extern ,s) (fun ast (%) 0)]
+    ; others
+    [`(@let (,var ,val) ,expr) (fun ast (% val expr) 2)]
+    [`(,(? @-Binop? op) ,a ,b) (fun ast (% a b) 2)]
+    [`(@lit-vec ,v) (fun ast (devec (list->vector (map (λ(elem) (memoize-thunk (λ() (recurse elem)))) v))) 1)]
+    ))
+
+(: @ast-unshadowed-symbols (-> @-Ast (Setof Symbol)))
+(define (@ast-unshadowed-symbols ast)
+  ((inst @ast-recurse (Setof Symbol))
+   (λ (ast $ N)
+     (match ast
+       [`(@var ,(? symbol? x)) (set x)]
+       [`(@let (,var ,_) ,_) (set-remove (set-union ($ 0)
+                                                    ($ 1))
+                                         var)]
+       [_ (for/fold ([accum : (Setof Symbol) (set)])
+                    ([counter N])
+            (set-union accum ($ counter)))]))
+   ast))
+
+(@ast-unshadowed-symbols '(@let (x (@let (y (@lit-num 2)) (@var y))) (@var y)))

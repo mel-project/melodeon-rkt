@@ -266,4 +266,23 @@
             (set-union accum ($ counter)))]))
    ast))
 
+;; Demo of a "scopeful" use-case: the same function, implemented with a "blacklist" strategy
+(: @demo (-> @-Ast (Setof Symbol) (Setof Symbol)))
+(define (@demo ast blacklist)
+  ((inst @ast-recurse (Setof Symbol))
+   (λ (ast $ N)
+     (match ast
+       [`(@var ,(? symbol? x)) (set x)]
+       [`(@let (,var ,var-bind) ,inner)
+        ;; Manually recurse *for this one case*
+        (set-union (@demo var-bind blacklist)
+                   (@demo inner (set-add blacklist var)))
+        ]
+       [_ (for/fold ([accum : (Setof Symbol) (set)])
+                    ([counter N])
+            (set-union accum ($ counter)))]))
+   ast))
+
 (@ast-unshadowed-symbols '(@let (x (@let (y (@lit-num 2)) (@var y))) (@var y)))
+(@demo '(@let (x (@let (y (@lit-num 2)) (@var y))) (@var y))
+       (set))

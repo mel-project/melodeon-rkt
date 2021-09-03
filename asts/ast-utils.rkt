@@ -11,8 +11,10 @@
          ast->list*
          ast-fold
          ast-fold-def
-         def->ast
+         ;def->ast
          ast-map
+         @ast-parents
+         @def-parents
          (struct-out return))
 
 
@@ -167,50 +169,14 @@
      [`(@apply ,_ ,asts)
        (foldl (λ(ast v) (ast-fold f ast v)) initial asts)]
      [_ initial]))
-     ; trivials
-     #|
-     [`(@lit-bytes ,b) '()]
-     [`(@extern ,s) '()]
-     [`(@extern-call ,s ,exprs) (flatten1 (map rec exprs))]
-     [`(,(? @-Binop? op) ,a ,b) (flatten1 (list (rec a) (rec b)))]
-     [`(@lit-vec ,v) (flatten1 (map rec v))]
-     [`(@program ,defs ,expr)
-       (flatten1 (list (flatten1 (map (λ (def)
-         (match def
-           [`(@def-var ,sym ,ast) '()]
-           [`(@def-generic-fun ,name
-                               ,type-params
-                               ,arguments
-                               ,return-type
-                               ,body)
-            (rec body)]
-           [`(@def-fun ,name
-                       ,arguments
-                       ,return-type
-                       ,body)
-            (rec body)]
-           [x '()])) defs))
-         (rec expr)))]
-     [`(@apply ,name ,v) (flatten1 (map rec v))]
-     [`(@block ,v) (flatten1 (map rec v))]
-     [`(@index ,x ,y) (flatten1 (list (rec x) (rec y)))]
-     [`(@update ,e1 ,e2 ,e3) (flatten1 (list (rec e1) (rec e2) (rec e3)))]
-     [`(@unsafe-cast ,e ,t) (rec e)]
-     [`(@ann ,expr ,t) (rec expr)]
-     [`(@if ,p ,tru ,fls) (flatten1 (list (rec p) (rec tru) (rec fls)))]
-     [`(@for ,e1 ,var ,e2) (flatten1 (list (rec e1) (rec e2)))]
-     [`(@loop ,count ,expr) (rec expr)]
-     [`(@is ,expr ,t) (rec expr)]
-     [`(@instantiate ,struct-name ,elems) (flatten1 (map rec elems))]
-     ;[(with-context ctx matter) (with-context ctx (rec matter))]
-     |#
-;)))
 
 ; Wraps a definition in a root-level
 ; @program ast node.
+#|
 (: def->ast (-> Definition @-Ast))
 (define (def->ast def)
   `(@program ,(list def) (@empty)))
+|#
 
 (: memoize-thunk (All (a) (-> (-> a) (-> a))))
 (define (memoize-thunk th)
@@ -238,22 +204,63 @@
 
   (define-macro (% . rst)
     `(devec (vector . ,(map (λ(elem) `(memoize-thunk (λ() (recurse ,elem)))) rst))))
-  
+  ; Same thing a % but on a list
+  (define-macro (%-vec v)
+    `(devec (list->vector
+      (map (λ(elem) (memoize-thunk (λ() (recurse elem))))
+           ,v))))
+
   (match ast
     [(with-context ctx inner) (fun ast (% inner) 1)]
     ; trivials
-    [`(@lit-num ,n) (fun ast (%) 0)]
-    [`(@lit-bytes ,b) (fun ast (%) 0)]
-    [`(@var ,x) (fun ast (%) 0)]
-    [`(@extern ,s) (fun ast (%) 0)]
+    [`(@lit-num ,_) (fun ast (%) 0)]
+    [`(@lit-bytes ,_) (fun ast (%) 0)]
+    [`(@var ,_) (fun ast (%) 0)]
+    [`(@extern ,_) (fun ast (%) 0)]
+    ;[`(@empty) (fun ast (%) 0)]
     ; others
     [`(@let (,var ,val) ,expr) (fun ast (% val expr) 2)]
     [`(,(? @-Binop? op) ,a ,b) (fun ast (% a b) 2)]
-    [`(@lit-vec ,v) (fun ast (devec (list->vector (map (λ(elem) (memoize-thunk (λ() (recurse elem)))) v))) 1)]
+    [`(@unsafe-cast ,e ,_) (fun ast (% e) 1)]
+    [`(@index ,e1 ,e2) (fun ast (% e1 e2) 2)]
+    [`(@init-vec ,e ,_) (fun ast (% e) 1)]
+    [`(@program ,_ ,e) (fun ast (% e) 1)]
+    [`(@accessor ,e ,_) (fun ast (% e) 1)]
+    [`(@ann ,e ,_) (fun ast (% e) 1)]
+    [`(@is ,e ,_) (fun ast (% e) 1)]
+    [`(@loop ,_ ,e) (fun ast (% e) 1)]
+    [`(@range ,a ,b ,c) (fun ast (% a b c) 3)]
+    [`(@update ,a ,b ,c) (fun ast (% a b c) 3)]
+    [`(@if ,a ,b ,c) (fun ast (% a b c) 3)]
+    [`(@for ,a ,_ ,b) (fun ast (% a b) 2)]
+    [`(@block ,v)
+      (fun ast (%-vec v) (length v))]
+    [`(@lit-vec ,v)
+      (fun ast (%-vec v) (length v))]
+    [`(@instantiate ,_ ,v)
+      (fun ast (%-vec v) (length v))]
+    [`(@apply ,_ ,v)
+      (fun ast (%-vec v) (length v))]
+    [`(@extern-call ,_ ,v)
+      (fun ast (%-vec v) (length v))]
     ))
 
-(: @ast-unshadowed-symbols (-> @-Ast (Setof Symbol)))
-(define (@ast-unshadowed-symbols ast)
+(: @def-parents (-> Definition (Setof Symbol)))
+(define (@def-parents def)
+  (match def
+    ; TODO check type expr for parents
+    [`(@def-fun ,n ,params ,_ ,body)
+      (foldl (λ(param acc) (set-remove acc param))
+             (@ast-parents body)
+             (map car params))]
+    [`(@def-generic-fun ,n ,tvars ,params ,_ ,body)
+      (foldl (λ(param acc) (set-remove acc param))
+             (@ast-parents body)
+             (append tvars (map car params)))]
+    [_ (set)]))
+
+(: @ast-parents (-> @-Ast (Setof Symbol)))
+(define (@ast-parents ast)
   ((inst @ast-recurse (Setof Symbol))
    (λ (ast $ N)
      (match ast
@@ -266,7 +273,9 @@
             (set-union accum ($ counter)))]))
    ast))
 
+
 ;; Demo of a "scopeful" use-case: the same function, implemented with a "blacklist" strategy
+#|
 (: @demo (-> @-Ast (Setof Symbol) (Setof Symbol)))
 (define (@demo ast blacklist)
   ((inst @ast-recurse (Setof Symbol))
@@ -282,7 +291,8 @@
                     ([counter N])
             (set-union accum ($ counter)))]))
    ast))
+|#
 
-(@ast-unshadowed-symbols '(@let (x (@let (y (@lit-num 2)) (@var y))) (@var y)))
-(@demo '(@let (x (@let (y (@lit-num 2)) (@var y))) (@var y))
-       (set))
+;(@ast-unshadowed-symbols '(@let (x (@let (y (@lit-num 2)) (@var y))) (@var x)))
+;(@demo '(@let (x (@let (y (@lit-num 2)) (@var y))) (@var y))
+;       (set))

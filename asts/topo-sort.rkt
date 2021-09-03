@@ -50,7 +50,8 @@
     [`(@program ,defs ,_)
       (foldl add-parents-in-def acc defs)]
     [`(@let (,var ,_) ,_)
-      (cons parents (cons var blacklist))]
+      ;(cons parents (cons var blacklist))]
+      (cons (remove var parents) blacklist)]
     [`(@apply ,name ,_)
       (cons (add-n name) blacklist)]
     [`(@instantiate ,name ,_)

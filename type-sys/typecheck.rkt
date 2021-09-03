@@ -24,10 +24,7 @@
   (for ([def definitions])
     (hash-set! parents-map def
       (map (λ(name) (find-def-by-name name definitions))
-        (car (ast-fold add-parents (def->ast def)
-                       (ann (cons (list) (list))
-                            (Pairof (Listof Symbol)
-                                    (Listof Symbol))))))))
+        (set->list (@def-parents def)))))
   ;; go through the whole thing
   (: result (Listof Definition))
   (define result '())

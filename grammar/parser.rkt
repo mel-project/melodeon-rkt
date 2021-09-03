@@ -91,6 +91,8 @@
       ;; different kinds of exprs
       (<expr> ((<shl-expr>) $1)
               ((<let-expr>) $1)
+              ((<fold-expr>) $1)
+              ((<vector-compreh>) $1)
               ((<where-expr>) $1)
               ((<block-expr>) $1)
               ((<set!-expr>) $1)
@@ -109,6 +111,9 @@
       ; Vector comprehension
       (<vector-compreh> ((OPEN-BRACKET <expr> FOR VAR IN <expr> CLOSE-BRACKET)
                          (pos-lift 1 3 `(@for ,$2 ,$4 ,$6))))
+      ; fold syntax
+      (<fold-expr> ((FOLD <expr> FOR VAR VAR FROM <expr> IN <expr>)
+                   (pos-lift 1 8 `(@fold ,$2 ,$4 ,$5 ,$7 ,$9))))
       ;; let x = y in expr
       (<let-expr> ((LET VAR = <expr> IN <expr>) (pos-lift 1 6
                                                           `(@let (,$2 ,$4) ,$6)))
@@ -177,7 +182,6 @@
                        ((VAR) (pos-lift 1 1 `(@var ,$1)))
                        ((OPEN-PAREN <expr> CLOSE-PAREN) (pos-lift 1 3 $2))
                        ((<vector-expr>) $1)
-                       ((<vector-compreh>) $1)
                        ((UNSAFE CAST <expr> COLON <type-expr>) (pos-lift 1 5
                                                                          `(@unsafe-cast ,$3 ,$5)))
                        ((ANN <expr> COLON <type-expr>) (pos-lift 1 4

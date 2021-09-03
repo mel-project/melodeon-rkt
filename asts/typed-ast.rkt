@@ -1,7 +1,5 @@
 #lang typed/racket
-;(require "raw-ast.rkt")
 (require "../type-sys/types.rkt")
-;(require "type-sys/typecheck.rkt")
 
 (provide (all-defined-out))
 
@@ -29,6 +27,14 @@
   ([expr : $-Ast]
    [var : Symbol]
    [vec-expr : $-Ast])
+  #:transparent)
+
+(struct $fold
+  ([expr : $-Ast]
+   [var : Symbol]
+   [acc-var : Symbol]
+   [ini-val : $-Ast]
+   [l : $-Ast])
   #:transparent)
 
 (struct $init-vec
@@ -157,6 +163,7 @@
      $apply
      $is
      $loop
+     $fold
      $for
      $block
      $extern-call

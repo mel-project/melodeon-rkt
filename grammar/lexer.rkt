@@ -38,6 +38,8 @@
                                     CALL
                                     DONE
                                     FOR
+                                    FOLD
+                                    FROM
                                     DEF
                                     STRUCT
                                     LOOP
@@ -91,6 +93,8 @@
    ["do" 'DO]
    ["done" 'DONE]
    ["for" 'FOR]
+   ["fold" 'FOLD]
+   ["from" 'FROM]
    ["set!" 'SET!]
    ["extern" 'EXTERN]
    ["is" 'IS]

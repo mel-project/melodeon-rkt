@@ -71,6 +71,22 @@
     [($if x y z) `(if ,(generate-mil-expr x)
                       ,(generate-mil-expr y)
                       ,(generate-mil-expr z))]
+    [($fold expr var acc-var ini-val vec)
+     (let ([count (match ($-Ast-type vec)
+                    [(TVectorof _ count) count]
+                    [(TVector v) (length v)]
+                    [(TBytes b) b])])
+       `(let (v ,(generate-mil-expr vec)
+              acc ,(generate-mil-expr ini-val)
+              i 0)
+          (loop ,count
+            (set-let ()
+              (set! acc
+                (let (,var (v-get v i)
+                      ,acc-var acc)
+                  ,(generate-mil-expr expr)))
+              (set! i (+ i 1))))
+          acc))]
     [($for expr var-name vec-val)
      (let ([count (match ($-Ast-type vec-val)
                     [(TVectorof _ count) count]

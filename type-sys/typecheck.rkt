@@ -269,14 +269,43 @@
                                (cons ($-Ast ($type (car body))
                                             ($loop count (car body)))
                                      (cdr body)))]
+      [`(@fold ,expr ,var ,acc-var ,ini-val ,l)
+        (letrec
+          ;([$expr (car (@->$ expr type-scope))]
+          ([$ini-val (car (@->$ ini-val type-scope))]
+           [$l (car (@->$ l type-scope))]
+           [l-type ($-Ast-type $l)]
+           [ts (bind-var type-scope acc-var ($-Ast-type $ini-val))])
+         (match l-type
+           ; If mapping on a Vectorof, return an $-Ast
+           [(TVectorof inner-type count)
+            (letrec
+                ([inner-ts (bind-var ts var inner-type)]
+                 [$expr    (car (@->$ expr inner-ts))])
+              ; Return an $-Ast
+              (cons ($-Ast
+                     (TVectorof ($-Ast-type $expr) count)
+                     ($fold $expr var acc-var $ini-val $l))
+                    tf-empty))]
+           [(? TVector? tvec)
+            (letrec
+                ([inner-type (tvector-inner-type tvec)]
+                 [inner-ts (bind-var ts var inner-type)]
+                 [$expr    (car (@->$ expr inner-ts))])
+              (cons ($-Ast
+                     (TVectorof ($-Ast-type $expr)
+                                (length (TVector-lst tvec)))
+                     ($fold $expr var acc-var $ini-val $l))
+                    tf-empty))]
+           ; Otherwise error
+           [(var t) (context-error "fold needs to iterate over a
+                                    vector, but a ~a was provided"
+                                   (type->string t))]))]
       [`(@for ,expr ,var-name ,vec-expr)
        (letrec
-           ; TODO don't pass along type-facts in vec-pair
-           ([$vec-pair (@->$ vec-expr type-scope)]
-            [$vec-expr (car $vec-pair)]
+           ([$vec-expr (car (@->$ vec-expr type-scope))]
+            ;[$vec-expr (car $vec-pair)]
             [vec-type ($-Ast-type $vec-expr)])
-         ; TODO should this somehow check if vec-type is a subtype of some
-         ; kind of general vector?
          (match vec-type
            ; If mapping on a Vectorof, return an $-Ast
            [(TVectorof inner-type count)

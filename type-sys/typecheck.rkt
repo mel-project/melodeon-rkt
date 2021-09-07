@@ -23,8 +23,11 @@
   (define parents-map (make-hasheq))
   (for ([def definitions])
     (hash-set! parents-map def
-      (map (λ(name) (find-def-by-name name definitions))
-        (set->list (@def-parents def)))))
+               (cast
+                (filter (λ (x) x)
+                        (map (λ(name) (find-def-by-name name definitions))
+                             (set->list (@def-parents def))))
+                (Listof Definition))))
   ;; go through the whole thing
   (: result (Listof Definition))
   (define result '())
@@ -54,9 +57,11 @@
      (define accessor-fn-defs
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
-
+     #;(printf "******* ~a\n\n"
+             accessor-fn-defs)
      (define definitions (definitions-sort
                            (append initial-defs accessor-fn-defs)))
+     (pretty-print definitions)
      (define type-scope (definitions->scope definitions))
 
      ; Stupid, mutation-based approach

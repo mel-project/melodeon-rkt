@@ -240,9 +240,9 @@
     [`(@instantiate ,_ ,v)
       (fun ast (%-vec v) (length v))]
     [`(@apply ,_ ,v)
-      (fun ast (%-vec v) (length v))]
+     (fun ast (%-vec v) (length v))]
     [`(@extern-call ,_ ,v)
-      (fun ast (%-vec v) (length v))]
+     (fun ast (%-vec v) (length v))]
     ))
 
 (: @def-parents (-> Definition (Setof Symbol)))
@@ -250,13 +250,19 @@
   (match def
     ; TODO check type expr for parents
     [`(@def-fun ,n ,params ,_ ,body)
-      (foldl (λ(param acc) (set-remove acc param))
-             (@ast-parents body)
-             (map car params))]
+     (set-union (for/fold ([accum : (Setof Symbol) (set)])
+                          ([pair : (List Symbol Type-Expr) params])
+                  (set-union accum (type-expr-parents (second pair))))
+                (foldl (λ(param acc) (set-remove acc param))
+                       (@ast-parents body)
+                       (map car params)))]
     [`(@def-generic-fun ,n ,tvars ,params ,_ ,body)
-      (foldl (λ(param acc) (set-remove acc param))
-             (@ast-parents body)
-             (append tvars (map car params)))]
+     (set-union (for/fold ([accum : (Setof Symbol) (set)])
+                          ([pair : (List Symbol Type-Expr) params])
+                  (set-union accum (type-expr-parents (second pair))))
+                (foldl (λ(param acc) (set-remove acc param))
+                       (@ast-parents body)
+                       (append tvars (map car params))))]
     [_ (set)]))
 
 (: @ast-parents (-> @-Ast (Setof Symbol)))
@@ -265,6 +271,10 @@
    (λ (ast $ N)
      (match ast
        [`(@var ,(? symbol? x)) (set x)]
+       [`(@apply ,(? symbol? fun-name) ,body) (set-union (set fun-name)
+                                                         (for/fold ([accum : (Setof Symbol) (set)])
+                                                                   ([counter (length body)])
+                                                           (set-union accum ($ counter))))]
        [`(@let (,var ,_) ,_) (set-remove (set-union ($ 0)
                                                     ($ 1))
                                          var)]
@@ -272,6 +282,24 @@
                     ([counter N])
             (set-union accum ($ counter)))]))
    ast))
+
+(: type-expr-parents (-> Type-Expr (Setof Symbol)))
+(define (type-expr-parents texpr)
+  (match texpr
+    [`(@type-var ,sym) (set sym)]
+    [`(@type-struct ,_ ,pairs) (for/fold ([accum : (Setof Symbol) (set)])
+                                         ([pair pairs])
+                                 (set-union (type-expr-parents (cast (second pair) Type-Expr)) accum))]
+    [`(@type-vec ,lst) (for/fold ([accum : (Setof Symbol) (set)])
+                                 ([elem lst])
+                         (set-union (type-expr-parents elem) accum))]
+    [`(@type-vecof ,expr ,_) (type-expr-parents expr)]
+    [`(@type-dynvecof ,expr) (type-expr-parents expr)]
+    [`(@type-union ,t ,u) (set-union (type-expr-parents t)
+                                     (type-expr-parents u))]
+    [`(@type-intersect ,t ,u) (set-union (type-expr-parents t)
+                                         (type-expr-parents u))]
+    [_ (set)]))
 
 
 ;; Demo of a "scopeful" use-case: the same function, implemented with a "blacklist" strategy

@@ -216,25 +216,12 @@
 (module+ test
   (dectx*
    (melo-parse-port (open-input-string #<<EOF
-
-require "helloworld.melo"
-
-def f(x: [Nat *]) = x | z
-
-def g<T>(x: T) = x
-
-- - -
-
-(loop 123 in
-do
-  1;
-  2;
-  3+x
-    (5, 6, 7)
-    [(1 + 2)];
-  set! x = [1, 2, 3, 4, 5];
-  set! x = x[1 => 2]
-done) + 123 == 456 && 4 + 5 == 9 + unsafe extern call "atoi" (1)
-
+# We have no way of doing this cast safely right now
+def self_propagate() = 
+	let outputs = env_spender_tx().outputs in
+	vlen(outputs) == 1 &&
+		(let first_output = ann (unsafe cast env_spender_tx().outputs : [RawCoinData * 1])[0] : RawCoinData in
+		first_output[0] == env_self_hash())
+		
 EOF
                                        ))))

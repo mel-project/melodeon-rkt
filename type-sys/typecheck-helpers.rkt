@@ -165,11 +165,11 @@
      (TUnion (resolve-type x env)
              (resolve-type y env))]
     [`(@type-struct ,name ,fields)
-      (TTagged
-        name
-        (map (lambda ([x : (List Symbol Type-Expr)])
-               (resolve-type (cadr x) env))
-             fields))]
+     (TTagged
+      name
+      (map (lambda ([x : (List Symbol Type-Expr)])
+             (resolve-type (cadr x) env))
+           fields))]
     [_ (error "wtf man" texpr)]
     ))
 
@@ -183,19 +183,20 @@
 
 ; Extract the name of a definition
 (define (def->name def)
-   (match def
-     [`(@def-struct ,n ,_) n]
-     [`(@def-alias ,n ,_) n]
-     [`(@def-fun ,n ,_ ,_ ,_) n]
-     [`(@def-generic-fun ,n ,_ ,_ ,_ ,_) n]
-     [`(@provide ,n) n]
-     [`(@require ,s) (string->symbol (cast s String))]
-     [`(@def-var ,n) n]
-     [_ #f]))
+  (match def
+    [`(@def-struct ,n ,_) n]
+    [`(@def-alias ,n ,_) n]
+    [`(@def-fun ,n ,_ ,_ ,_) n]
+    [`(@def-generic-fun ,n ,_ ,_ ,_ ,_) n]
+    [`(@provide ,n) n]
+    [`(@require ,s) (string->symbol (cast s String))]
+    [`(@def-var ,n) n]
+    [_ #f]))
 
 ; Find a definition by its name in a list
-(: find-def-by-name (-> Symbol (Listof Definition) Definition))
+(: find-def-by-name (-> Symbol (Listof Definition) (Option Definition)))
 (define (find-def-by-name name defs)
-  (car (filter (λ (def)
-    (equal? (def->name def) name))
-    defs)))
+  (with-handlers ([exn:fail? (λ _ #f)])
+    (car (filter (λ (def)
+                   (equal? (def->name def) name))
+                 defs))))

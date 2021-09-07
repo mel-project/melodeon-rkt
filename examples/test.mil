@@ -1,1 +1,55 @@
-(+ 1 2)
+(fn
+ self_propagate
+ ()
+ (let (outputs (Transaction-outputs (env_spender_tx)))
+   (let (@x (let (eqx13833 (vlen outputs) eqy13834 1) (= eqx13833 eqy13834)))
+     (if @x
+       (let (first_output (v-get (Transaction-outputs (env_spender_tx)) 0))
+         (let (eqx13835 (v-get first_output 0) eqy13836 (env_self_hash))
+           (= (bytes->u256 eqx13835) (bytes->u256 eqy13836))))
+       @x))))
+(fn blen (bytes) (b-len bytes))
+(fn vlen (vec) (v-len vec))
+(fn env_spender_index () SPENDER-INDEX)
+(fn env_parent_height () PARENT-HEIGHT)
+(fn env_parent_data () PARENT-DATA)
+(fn env_parent_denom () PARENT-DENOM)
+(fn env_parent_value () PARENT-VALUE)
+(fn env_self_hash () SELF-HASH)
+(fn env_parent_index () PARENT-INDEX)
+(fn env_parent_tx_hash () PARENT-TX-HASH)
+(fn env_spender_tx_hash () SPENDER-TX-HASH)
+(fn
+ env_spender_tx
+ ()
+ (let (raw_tx SPENDER-TX)
+   (vector
+    1158
+    (v-get raw_tx 0)
+    (v-get raw_tx 1)
+    (v-get raw_tx 2)
+    (v-get raw_tx 3)
+    (v-get raw_tx 4)
+    (v-get raw_tx 5)
+    (v-get raw_tx 5))))
+(fn Transaction-sigs (@x) (v-get @x 7))
+(fn Transaction-data (@x) (v-get @x 6))
+(fn Transaction-scripts (@x) (v-get @x 5))
+(fn Transaction-fee (@x) (v-get @x 4))
+(fn Transaction-outputs (@x) (v-get @x 3))
+(fn Transaction-inputs (@x) (v-get @x 2))
+(fn Transaction-kind (@x) (v-get @x 1))
+(fn CoinData-additional_data (@x) (v-get @x 4))
+(fn CoinData-denom (@x) (v-get @x 3))
+(fn CoinData-value (@x) (v-get @x 2))
+(fn CoinData-covhash (@x) (v-get @x 1))
+(fn CoinID-index (@x) (v-get @x 2))
+(fn CoinID-txhash (@x) (v-get @x 1))
+(let (@x (self_propagate))
+  (if @x
+    (let (eqx13837
+          (b-get (Transaction-data (env_spender_tx)) 0)
+          eqy13838
+          (b-get (env_parent_data) 0))
+      (= eqx13837 eqy13838))
+    @x))

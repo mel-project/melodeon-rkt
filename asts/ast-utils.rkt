@@ -278,6 +278,7 @@
        [`(@let (,var ,_) ,_) (set-remove (set-union ($ 0)
                                                     ($ 1))
                                          var)]
+       [`(@unsafe-cast ,_ ,texpr) (type-expr-parents texpr)]
        [_ (for/fold ([accum : (Setof Symbol) (set)])
                     ([counter N])
             (set-union accum ($ counter)))]))

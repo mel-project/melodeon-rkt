@@ -54,13 +54,19 @@
                 ,body)
      ;(define type-scope (definitions->scope definitions))
      ; Generate accessor fns for all struct types defined
-     (define accessor-fn-defs
+     #;(define accessor-fn-defs
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
      #;(printf "******* ~a\n\n"
              accessor-fn-defs)
-     (define definitions (definitions-sort
-                           (append initial-defs accessor-fn-defs)))
+     (define definitions
+       (reverse (for/fold ([accum : (Listof Definition) '()])
+                          ([def (definitions-sort
+                           initial-defs)])
+                  (cond
+                    [(struct-def? def) (append (generate-accessors def)
+                                               (list def) accum)]
+                    [else (cons def accum)]))))
      (pretty-print definitions)
      (define type-scope (definitions->scope definitions))
 

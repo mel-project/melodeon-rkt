@@ -5,14 +5,21 @@
 (struct TNat () #:transparent)
 (struct TAny () #:transparent)
 
+;; Constant expressions on generics
+(define-type Op (U '+ '- '* '/ '^))
+(define-type Const-Expr
+  (U (List Op (Listof Const-Expr))
+     Integer))
+
 ;; Composite types
 (struct TVector ((lst : (Listof Type))) #:transparent)
 (struct TVectorof ((inner : Type)
-                   (count : Nonnegative-Integer)
+                   ;(count : Nonnegative-Integer)
+                   (count : Const-Expr)
                    ) #:transparent)
 ;; A vector where the length is unknown, but all values of are the given type
 (struct TDynVectorof ((inner : Type)) #:transparent)
-(struct TBytes ((count : Nonnegative-Integer)
+(struct TBytes ((count : Const-Expr)
                 ) #:transparent)
 ;; A byte string of unknown length
 (struct TDynBytes () #:transparent)

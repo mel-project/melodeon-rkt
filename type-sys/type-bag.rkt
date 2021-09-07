@@ -1,7 +1,14 @@
 #lang typed/racket
 (require "types.rkt"
          "../asts/raw-ast.rkt"
+         ;"../../racket-cas"
          racket/hash)
+(define-type Sexpr (U (Listof Any) Any))
+(require/typed rascas
+               ;[substitute (-> (Listof Any) (U (Listof Any) Symbol) Any Any)]
+               [substitute (-> Sexpr Sexpr Sexpr Sexpr)]
+               ;[algebraic-expand (-> (Listof Any) (Listof Any))])
+               [algebraic-expand (-> Sexpr Sexpr)])
 (provide type->bag
          (struct-out Type-Bag)
          bag-subtract
@@ -19,7 +26,12 @@
 (struct PTagged ((tag : Symbol)) #:transparent)
 (struct PVar ((sym : Symbol)) #:transparent)
 (struct PBytes () #:transparent)
-(define-type Prim-Type (U PNat PVec PVar Integer PBytes PTagged))
+
+(algebraic-expand '(* (+ x 1) (- x 1)))
+(algebraic-expand (substitute '(* (+ x 1) (- x 1)) 'x 3))
+
+;(define-type Prim-Type (U PNat PVec PVar Integer PBytes PTagged))
+(define-type Prim-Type (U PNat PVec PVar Const-Expr PBytes PTagged))
 
 (define-type Prim-Index (U 'root
                            (List 'len Prim-Index)
@@ -117,7 +129,8 @@
     ; vectors: pairwise
     [(TBytes n) (Type-Bag (set (cast
                                 (hash idx (PBytes)
-                                      `(len ,idx) (ann n : Integer)
+                                      ;`(len ,idx) (ann n : Integer)
+                                      `(len ,idx) n
                                       `(all-ref ,idx) (PNat))
                                 Bag-Case)))]
     ; structs

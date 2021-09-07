@@ -46,7 +46,7 @@
               [(cons (TVector t-list)
                      (TVector u-list)) (TVector (append t-list u-list))]
               [(cons (TBytes n)
-                     (TBytes m)) (TBytes (+ n m))]
+                     (TBytes m)) (TBytes `(+ ,n ,m))]
               [_ (context-error "cannot append types ~a and ~a"
                                 (type->string t)
                                 (type->string u))]))))
@@ -114,3 +114,9 @@
 
 #;(type-unify (TUnion (TVar 'a) (TNat))
             (TUnion (TNat) (TBytes 5)))
+
+; Substitute variables in a constant expression with numbers
+; and simplify into a number
+(: subst-const-expr (-> Const-Expr
+                        (HashTable Symbol Nonnegative-Integer)
+                        Nonnegative-Integer))

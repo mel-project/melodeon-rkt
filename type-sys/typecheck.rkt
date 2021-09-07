@@ -502,14 +502,16 @@
                    (length args)
                    (length arg-types)))
 
+          ; Check that parameter types match definition
           (for ([arg args]
                 [$arg $args]
                 [arg-type arg-types])
             (assert-type arg ($type $arg) arg-type))
+
           (cons ($-Ast result
                        ($apply fun $args))
                 tf-empty)]
-                       
+
          [_ (error '@-ast->type "[~a] undefined function ~a"
                    (context->string (get-context @-ast)) fun)])]
       [`(@is ,expr ,type)
@@ -594,6 +596,12 @@
      (bind-fun accum
                name
                (λ _ (snippet)))]
+    [`(@def-const-generic-fun
+                        ,name
+                        ,generic-params
+                        ,args-with-types
+                        ,return-type
+                        ,body)
     [`(@def-generic-fun ,name
                         ,generic-params
                         ,args-with-types

@@ -43,10 +43,19 @@
     (TUnion accum
             (match (cons (bag-case->type t-case)
                          (bag-case->type u-case))
+              [(cons (TVectorof inner-t const-expr-t)
+                     (TVectorof inner-u const-expr-u))
+               (if (equal? inner-u inner-t)
+                 (TVectorof inner-t
+                            (normal-form `(+ ,const-expr-t ,const-expr-u)))
+                 (context-error "Inner types of vectors must match in append,
+                                ~a and ~a"
+                                (type->string inner-t)
+                                (type->string inner-u)))]
               [(cons (TVector t-list)
                      (TVector u-list)) (TVector (append t-list u-list))]
               [(cons (TBytes n)
-                     (TBytes m)) (TBytes `(+ ,n ,m))]
+                     (TBytes m)) (TBytes (normal-form `(+ ,n ,m)))]
               [_ (context-error "cannot append types ~a and ~a"
                                 (type->string t)
                                 (type->string u))]))))
@@ -112,11 +121,11 @@
                                   (recurse y))]
     [x x]))
 
-#;(type-unify (TUnion (TVar 'a) (TNat))
-            (TUnion (TNat) (TBytes 5)))
+;#(type-unify (TUnion (TVar 'a) (TNat))
+;            (TUnion (TNat) (TBytes 5)))
 
 ; Substitute variables in a constant expression with numbers
 ; and simplify into a number
-(: subst-const-expr (-> Const-Expr
-                        (HashTable Symbol Nonnegative-Integer)
-                        Nonnegative-Integer))
+;(: subst-const-expr (-> Const-Expr
+;                        (HashTable Symbol Nonnegative-Integer)
+;                        Nonnegative-Integer))

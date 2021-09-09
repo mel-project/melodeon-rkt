@@ -101,6 +101,7 @@
           (snippet)]
          [`(@def-generic-fun ,name
                              ,_
+                             ,_
                              ,args-with-types
                              ,return-type
                              ,body)
@@ -596,14 +597,9 @@
      (bind-fun accum
                name
                (λ _ (snippet)))]
-    [`(@def-const-generic-fun
-                        ,name
-                        ,generic-params
-                        ,args-with-types
-                        ,return-type
-                        ,body)
     [`(@def-generic-fun ,name
                         ,generic-params
+                        ,const-generic-params
                         ,args-with-types
                         ,return-type
                         ,body)
@@ -612,6 +608,7 @@
      (bind-fun accum
                name
                (lambda ((callsite-arg-types : (Listof Type)))
+                        ;(callsite-consts : (Listof Const-Expr)))
                  (match tf-with-params
                    [(TFunction arg-types result-type)
                     (define unification-table

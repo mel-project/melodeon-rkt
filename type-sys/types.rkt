@@ -8,8 +8,14 @@
 ;; Constant expressions on generics
 (define-type Op (U '+ '- '* '/ '^))
 (define-type Const-Expr
-  (U (List Op (Listof Const-Expr))
+  ;(U (List Op (Listof Const-Expr))
+  (U (List Op Const-Expr Const-Expr)
+     Symbol
      Integer))
+
+(define const-expr? (make-predicate Const-Expr))
+;(const-expr? '(+ n 2))
+;(const-expr? '(* (+ x 1) (- x 1)))
 
 ;; Composite types
 (struct TVector ((lst : (Listof Type))) #:transparent)
@@ -91,10 +97,11 @@
                    (string-append "["
                                   (string-join inner-names ", ")
                                   "]")]
-    [(TVectorof t n) (string-append "["
+    [(TVectorof t e) (string-append "["
                                     (type->string t)
                                     " * "
-                                    (number->string n)
+                                    (symbol->string 'e)
+                                    ;(number->string n)
                                     "]")]
     [(TDynVectorof t) (format "[~a *]" (type->string t))]
     [(TUnion l r) (format "(~a | ~a)"

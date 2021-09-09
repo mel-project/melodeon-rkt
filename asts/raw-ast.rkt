@@ -113,7 +113,8 @@
 (define-type Definition
   (U (List '@def-var Symbol @-Ast)
      (List '@def-generic-fun Symbol
-           (Listof Symbol)
+           (Listof Symbol) ; Generic type vars
+           (Listof Symbol) ; Constant generic vars
            (Listof (List Symbol Type-Expr))
            (Option Type-Expr)
            @-Ast)

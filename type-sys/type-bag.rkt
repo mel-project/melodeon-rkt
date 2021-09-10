@@ -251,7 +251,8 @@
     [#f (TAny)]
     [(PVar t) (TVar t)]
     [(PNat) (TNat)]
-    [(PVec) (or
+    [(PVec)
+     (or
       ; if len is an int, make a TVector
       (with-handlers ([exn:fail? (λ _ #f)])
         (define length (cast (hash-ref case `(len ,pidx)) Integer))
@@ -262,7 +263,10 @@
       (let ([inner-type (with-handlers ([exn:fail? (λ _ (TAny))])
                           (bag-case->type/inner
                             (hash 'root (hash-ref case `(all-ref ,pidx)))'root))])
-        (define len (hash-ref case `(len ,pidx)))
+        (define len
+          (with-handlers ([exn:fail? (λ _ #f)])
+                         (hash-ref case `(len ,pidx))))
+
         (if (const-expr? len)
           (TVectorof inner-type len)
           ; if no len found, make it dynamic

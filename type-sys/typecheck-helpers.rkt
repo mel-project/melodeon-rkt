@@ -187,7 +187,7 @@
     [`(@def-struct ,n ,_) n]
     [`(@def-alias ,n ,_) n]
     [`(@def-fun ,n ,_ ,_ ,_) n]
-    [`(@def-generic-fun ,n ,_ ,_ ,_ ,_) n]
+    [`(@def-generic-fun ,n ,_ ,_ ,_ ,_ ,_) n]
     [`(@provide ,n) n]
     [`(@require ,s) (string->symbol (cast s String))]
     [`(@def-var ,n) n]

@@ -599,7 +599,7 @@
                (λ _ (snippet)))]
     [`(@def-generic-fun ,name
                         ,generic-params
-                        ,const-generic-params
+                        ,const-params
                         ,args-with-types
                         ,return-type
                         ,body)

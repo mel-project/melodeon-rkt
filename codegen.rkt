@@ -160,15 +160,25 @@
               `(and ,a ,b))
             1
             pairwise-eqq)]
-    [(TVectorof t n)
+    [(TVectorof t e)
+     (define n (int-or-err e))
      (TVector (make-list n t))]
-    [(TBytes n)
+    [(TBytes e)
+     (define n (int-or-err e))
      (unless (= n 32)
        (error "cannot compare bytestrings of length other than 32"))
      `(= (bytes->u256 ,x-sym)
          (bytes->u256 ,y-sym))]
     [(? Type? t) (error "cannot compare values of non-concrete type"
                         (type->string t))]))
+
+(: int-or-err (-> Const-Expr Integer))
+(define (int-or-err e)
+   (define n (normal-form e))
+   (if (integer? n)
+     n
+     (error (format "Constant expression did not resolve to a concrete form:
+                    ~a" e))))
 
 (: generate-is (-> Type Any Any)) 
 (define (generate-is type sym)
@@ -177,7 +187,8 @@
     [(TBytes n) `(if (= (typeof ,sym) 1)
                      (= (blength ,sym) ,n)
                      0)]
-    [(TVectorof t n)
+    [(TVectorof t e)
+     (define n (int-or-err e))
      (generate-is (TVector (make-list n t)) sym)]
     [(TVector types)
      (define pairwise-is

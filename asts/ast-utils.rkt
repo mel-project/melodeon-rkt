@@ -97,11 +97,13 @@
                                                       [`(@def-var ,sym ,ast) `(@def-var ,sym ,ast)]
                                                       [`(@def-generic-fun ,name
                                                                           ,type-params
+                                                                          ,const-params
                                                                           ,arguments
                                                                           ,return-type
                                                                           ,body)
                                                        `(@def-generic-fun ,name
                                                                           ,type-params
+                                                                          ,const-params
                                                                           ,arguments
                                                                           ,return-type
                                                                           ,(recurse body))]
@@ -135,7 +137,7 @@
 (: ast-fold-def (All (A) (-> (-> @-Ast A A) Definition A A)))
 (define (ast-fold-def f def initial)
    (match def
-     [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body)
+     [`(@def-generic-fun ,_ ,_ ,_ ,_ ,_ ,body)
        (ast-fold f body initial)]
      [`(@def-struct ,_ ,fields)
        ; TODO
@@ -144,7 +146,7 @@
        #|
      [`(@def-alias ,n ,texpr)
        |#
-     [`(@def-generic-fun ,_ ,_ ,_ ,_ ,body)
+     [`(@def-generic-fun ,_ ,_ ,_ ,_ ,_ ,body)
        (ast-fold f body initial)]
      [`(@def-var ,_ ,body)
        (ast-fold f body initial)]
@@ -256,13 +258,13 @@
                 (foldl (λ(param acc) (set-remove acc param))
                        (@ast-parents body)
                        (map car params)))]
-    [`(@def-generic-fun ,n ,tvars ,params ,_ ,body)
+    [`(@def-generic-fun ,n ,tvars ,cvars ,params ,_ ,body)
      (set-union (for/fold ([accum : (Setof Symbol) (set)])
                           ([pair : (List Symbol Type-Expr) params])
                   (set-union accum (type-expr-parents (second pair))))
                 (foldl (λ(param acc) (set-remove acc param))
                        (@ast-parents body)
-                       (append tvars (map car params))))]
+                       (append cvars tvars (map car params))))]
     [_ (set)]))
 
 (: @ast-parents (-> @-Ast (Setof Symbol)))

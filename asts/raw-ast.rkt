@@ -1,5 +1,6 @@
 #lang typed/racket
 (provide (all-defined-out))
+(require "../type-sys/types.rkt")
 (require/typed parser-tools/lex
                [#:struct position ([offset : Integer] [line : Integer] [col : Integer ])])
 ;(provide position)
@@ -137,12 +138,14 @@
      ;(List '@type-alias Symbol (Listof (List Symbol Type-Expr)))
      (List '@type-struct Symbol (Listof (List Symbol Type-Expr)))
      (List '@type-vec (Listof Type-Expr))
-     (List '@type-vecof Type-Expr Nonnegative-Integer)
+     ;(List '@type-vecof Type-Expr Nonnegative-Integer)
+     (List '@type-vecof Type-Expr Const-Expr)
      (List '@type-dynvecof Type-Expr)
      (List '@type-union Type-Expr Type-Expr)
      (List '@type-intersect Type-Expr Type-Expr)
      (List '@type-dynbytes)
-     (List '@type-bytes Nonnegative-Integer)))
+     ;(List '@type-bytes Nonnegative-Integer)))
+     (List '@type-bytes Const-Expr)))
 
 (define-type @-Binop (U '@+ '@- '@* '@/ '@append '@xor '@bor '@band
                         '@shl '@shr '@or '@and '@eq))

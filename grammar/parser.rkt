@@ -1,9 +1,11 @@
 #lang typed/racket
-(require "../asts/raw-ast.rkt")
+(require "../asts/raw-ast.rkt"
+         "../type-sys/typecheck-helpers.rkt")
 ;; untyped internal impl
 (module untyped racket
   (require "lexer.rkt")
   (require (prefix-in T "../asts/raw-ast.rkt"))
+  (require "../type-sys/type-bag.rkt")
   (require parser-tools/lex)
   (require parser-tools/cfg-parser)
   (require parser-tools/yacc)
@@ -91,11 +93,13 @@
       (<type-expr-3> ((TYPE) `(@type-var ,$1))
                      ((OPEN-BRACKET <type-expr> * CLOSE-BRACKET) `(@type-dynvecof ,$2))
                      ;((PERCENT OPEN-BRACKET NUM CLOSE-BRACKET) `(@type-bytes ,$3))
-                     ((PERCENT OPEN-BRACKET <const-expr> CLOSE-BRACKET) `(@type-bytes ,$3))
+                     ((PERCENT OPEN-BRACKET <const-expr> CLOSE-BRACKET)
+                      `(@type-bytes ,(normal-form $3)))
                      ((PERCENT OPEN-BRACKET CLOSE-BRACKET) `(@type-dynbytes))
                      ((OPEN-BRACKET <type-exprs> CLOSE-BRACKET) `(@type-vec ,$2))
                      ;((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
-                     ((OPEN-BRACKET <type-expr> * <const-expr> CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
+                     ((OPEN-BRACKET <type-expr> * <const-expr> CLOSE-BRACKET)
+                      `(@type-vecof ,$2 ,(normal-form $4)))
                      ((OPEN-PAREN <type-expr> CLOSE-PAREN) `$2))
       (<type-exprs> ((<type-expr>) (list $1))
                     ((<type-expr> COMMA <type-exprs>) (cons $1 $3)))

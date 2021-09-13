@@ -8,6 +8,7 @@
          type-template-fill
          subtype-of?)
 
+; Check if t2 is a subtype of t1
 (: subtype-of? (-> Type Type Boolean))
 (define (subtype-of? t1 t2)
   (bag-subtype-of? (type->bag t1)
@@ -123,9 +124,3 @@
 
 ;#(type-unify (TUnion (TVar 'a) (TNat))
 ;            (TUnion (TNat) (TBytes 5)))
-
-; Substitute variables in a constant expression with numbers
-; and simplify into a number
-;(: subst-const-expr (-> Const-Expr
-;                        (HashTable Symbol Nonnegative-Integer)
-;                        Nonnegative-Integer))

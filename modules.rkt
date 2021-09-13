@@ -62,7 +62,7 @@
                                 (match def
                                   [`(@provide ,sym) sym]
                                   [else '__dummy]))))
-  (pretty-print provided)
+  ;(pretty-print provided)
   (mangle-unprovided/inner ast mangle provided))
 
 ;; Inner function that recursively keeps track of a list of not-to-mangle symbol names

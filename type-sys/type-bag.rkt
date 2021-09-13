@@ -7,6 +7,7 @@
 (define-type Sexpr (U (Listof Any) Any))
 (require/typed rascas
                [substitute (-> Sexpr Sexpr Sexpr Sexpr)]
+               [automatic-simplify (-> Sexpr Sexpr)]
                [algebraic-expand (-> Sexpr Sexpr)])
 
 (provide type->bag
@@ -22,6 +23,7 @@
          bag->type
          bag-subtype-of?
          normal-form
+         subst-const-expr
          )
 
 
@@ -35,8 +37,16 @@
 (define (normal-form e)
   (cast (algebraic-expand e) Const-Expr))
 
-(algebraic-expand '(* (+ x 1) (- x 1)))
-(algebraic-expand (substitute '(* (+ x 1) (- x 1)) 'x 3))
+; Substitute a symbol in a constant expression with another
+; const expression.
+(: subst-const-expr (-> Const-Expr Symbol Const-Expr Const-Expr))
+(define (subst-const-expr e var sub-e)
+  (normal-form (cast (substitute e var sub-e) Const-Expr)))
+
+;(algebraic-expand '(* (+ x 1) (- x 1)))
+;(algebraic-expand '(= (+ 1 x) (* (+ x 1) (- x 1))))
+;(automatic-simplify '(* (+ x 1) (- x 1)))
+;(algebraic-expand (substitute '(* (+ x 1) (- x 1)) 'x 3))
 
 ;(define-type Prim-Type (U PNat PVec PVar Integer PBytes PTagged))
 (define-type Prim-Type (U PNat PVec PVar Const-Expr PBytes PTagged))

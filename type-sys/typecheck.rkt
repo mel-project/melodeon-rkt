@@ -2,6 +2,7 @@
 (require "../asts/raw-ast.rkt"
          "../asts/ast-utils.rkt"
          "types.rkt"
+         "type-bag.rkt"
          "../asts/typed-ast.rkt"
          "../asts/topo-sort.rkt"
          "typecheck-helpers.rkt"
@@ -46,22 +47,91 @@
     (emit def))
   (reverse result))
 
+; Given a type with a constant expression of
+; a single variable (i.e. 'N), substitute with
+; the constant expression of another type.
+(: subst-const-expr-type (-> Type Type Type))
+(define (subst-const-expr-type t sub)
+  ; check that e is a single variable
+  (define assert-var-expr (λ(e)
+    (unless (symbol? e)
+      (context-error "only single variables are supported in
+                     constant generic parameters, ~a was provided"
+                     e))))
+
+  (match (cons t sub)
+     ; TODO not checking whether types match it
+    [(cons (TVectorof it e) (TVector types))
+     (define len (length types))
+     (assert-var-expr e)
+     (TVectorof it (subst-const-expr e e len))]
+    [(cons (TVectorof it e) (TVectorof _ sub-e))
+     (assert-var-expr e)
+     (TVectorof it (subst-const-expr e e sub-e))]
+    [(cons (TBytes e) (TBytes sub-e))
+     (assert-var-expr e)
+     (TBytes (subst-const-expr e e sub-e))]
+    [_ t]))
+
+; Solves for a list of variables by setting
+; the two lists of const exprs equal to eachother.
+; The expressions may correspond to parameters and
+; arguments of a function.
+(: solve-const-exprs
+   (-> (Listof Const-Expr)
+       (Listof Symbol)
+       (Listof Const-Expr)
+       (HashTable Symbol Const-Expr)))
+(define (solve-const-exprs lhs vars rhs)
+  ; TODO
+  ; mangle rhs variables to avoid conflict with lhs
+  ;(define mangled-rhs (map (λ(e) (format rhs))
+
+  ; TODO check that all vars are assigned an expr in the result map
+
+  ; Accumulate a mapping of vars to their expression
+  (foldl
+    (λ(expr-pair var-map)
+      ; TODO
+      ; get all variables in the left expr,
+      ; there should only be one
+      ;(letrec ([vars (const-expr-vars l)]
+               ;[var (car vars)])
+        ; Eventually we solve for the var
+        ; But for now expect the left expr to just be a var
+      (match-define (cons l r) expr-pair)
+      (unless (symbol? l)
+        (context-error "Only single-variable constant expressions are
+                       supported in parameter types right now. ~a was
+                       provided" (const-expr->string l)))
+
+      ; If var is already in the map, check that its the same
+      (let ([l-val (hash-ref var-map l #f)])
+        (if l-val
+          (if (not (equal? l-val r))
+            (context-error "Conflicting constant expressions. ~a is expected
+                           to be both ~a and ~a" l l-val r)
+            var-map)
+          ; otherwise put it in
+          (hash-set var-map l r))))
+    (ann (hash) (HashTable Symbol Const-Expr))
+    (zip lhs rhs)))
+
 ;; Entry point: transforms a whole program
 (: @-transform (-> @-Ast $program))
 (define (@-transform ast)
   (match (dectx ast)
     [`(@program ,initial-defs
                 ,body)
-     ;(define type-scope (definitions->scope definitions))
      ; Generate accessor fns for all struct types defined
      (define accessor-fn-defs
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
-     #;(printf "******* ~a\n\n"
-             accessor-fn-defs)
+     ;(printf "******* ~a\n\n"
+     ;        accessor-fn-defs)
      (define definitions (definitions-sort
                            (append initial-defs accessor-fn-defs)))
-     (pretty-print definitions)
+     ;(pretty-print definitions)
      (define type-scope (definitions->scope definitions))
 
      ; Stupid, mutation-based approach
@@ -120,11 +190,11 @@
 (define (generate-accessors def)
   (match def
     [`(@def-struct ,struct-name ,binds)
-     (map (λ ((tuple : (List Integer (List Symbol Type-Expr))))
-            (match-define (cons i (cons field texpr)) tuple)
+     (map (λ ((tuple : (List Integer Symbol Type-Expr)))
+            (match-define (list i field texpr) tuple)
             `(@def-fun
               ; TODO mangle
-              ,(accessor-name struct-name (car field))
+              ,(accessor-name struct-name field)
               ;,(string->symbol (format "~a-~a" struct-name (car field)))
               ((@x (@type-struct ,struct-name ,binds)))
               #f
@@ -132,17 +202,6 @@
               (@index (@var @x) (@lit-num ,(cast (+ i 1) Nonnegative-Integer)))))
           (enumerate binds))]
     [_ '()]))
-
-; Assign a number to each element of a list
-(: enumerate (All (T) (-> (Listof T) (Listof (List Integer T)))))
-(define (enumerate l)
-  (foldl (λ ((x : T) (acc : (Listof (List Integer T))))
-           (cons
-            (list (+ 1 (caar acc))
-                  x)
-            acc))
-         (list (list 0 (car l)))
-         (cdr l)))
 
 ; Convert a string to the sum of its ascii
 ; character encodings
@@ -604,27 +663,89 @@
                         ,return-type
                         ,body)
      (define tf-with-params (snippet))
-     ;; do unification here
-     (bind-fun accum
-               name
-               (lambda ((callsite-arg-types : (Listof Type)))
-                        ;(callsite-consts : (Listof Const-Expr)))
-                 (match tf-with-params
-                   [(TFunction arg-types result-type)
-                    (define unification-table
-                      (for/fold ([accum : (Immutable-HashTable TVar Type) (hash)])
-                                ([arg-type arg-types]
-                                 [callsite-arg-type callsite-arg-types])
-                        (hash-union accum
-                                    (type-unify arg-type callsite-arg-type))))
-                    (TFunction (map (λ((x : Type))
-                                      (type-template-fill x unification-table))
-                                    arg-types)
-                               (type-template-fill result-type unification-table))
-                                      ])))]
-     
+     #|
+     (if (empty? generic-params)
+       (bind-fun accum
+                 name
+                 (λ _ tf-with-params))
+       |#
+       ;; do unification here
+       (bind-fun accum
+                 name
+                 (lambda ((callsite-arg-types : (Listof Type)))
+                          ;(callsite-consts : (Listof Const-Expr)))
+                   (match tf-with-params
+                     [(TFunction param-types res-type)
+                      (letrec ([param-exprs
+                              ; this map is a typecheck hack
+                              (map (λ(x) (cast x (Pairof Integer Const-Expr)))
+                                   (filter (λ(pair) (match-define (cons i e) pair)
+                                                    ((compose not false?) e))
+                                           (enumerate (map get-const-expr
+                                                           param-types))))]
+                              [arg-exprs
+                              ; this map is a typecheck hack
+                              (map (λ(x) (cast x (Pairof Integer Const-Expr)))
+                                   (filter (λ(pair) (match-define (cons i e) pair)
+                                                    ((compose not false?) e))
+                                           (enumerate (map get-const-expr
+                                                           callsite-arg-types))))]
+                              [const-var-map
+                              ; get a mapping of const vars to their inferred
+                              ; const-exprs based on the callsite args
+                              (solve-const-exprs (map cdr param-exprs)
+                                                 const-params
+                                                 (map cdr arg-exprs))]
+                              [substd-param-exprs
+                              ; for each param, subst each const var mapping
+                              (map (λ(e) (foldl (λ(pair acc)
+                                                  (match-define (cons var var-expr) pair)
+                                                  (subst-const-expr acc var var-expr))
+                                                e
+                                                (hash->list const-var-map)))
+                                   (map cdr param-exprs))]
+                              [arg-types
+                              ; Splice the substituted const exprs back into the
+                              ; original param-types
+                              (let ([arg-types param-types])
+                                (foldl
+                                  (λ(pair types)
+                                    (match-define (cons expr-idx (cons param-idx-uncasted _)) pair)
+                                    (define param-idx (cast param-idx-uncasted Integer))
+                                    (list-set types
+                                              param-idx
+                                              (repl-const-expr (list-ref types param-idx)
+                                                               (list-ref
+                                                                 substd-param-exprs
+                                                                 expr-idx))))
+                                  param-types
+                                  (enumerate param-exprs)))]
+                              ; Replace the const expr in the result type if it exists
+                              [result-type
+                              (let ([res-expr (get-const-expr res-type)])
+                                (if res-expr
+                                  (repl-const-expr
+                                    res-type
+                                    (foldl (λ(pair acc)
+                                             (match-define (cons var var-expr) pair)
+                                             (subst-const-expr acc var var-expr))
+                                           res-expr
+                                           (hash->list const-var-map)))
+                                  res-type))])
+                      ;(printf "PARAM TYPES\n~a\n\n" (map type->string arg-types))
+                      ;(printf "RESULT TYPE\n~a\n\n" (type->string result-type))
+                      (define unification-table
+                        (for/fold ([accum : (Immutable-HashTable TVar Type) (hash)])
+                                  ([arg-type arg-types]
+                                   [callsite-arg-type callsite-arg-types])
+                          (hash-union accum
+                                      (type-unify arg-type callsite-arg-type))))
+                      (TFunction (map (λ((x : Type))
+                                        (type-template-fill x unification-table))
+                                      arg-types)
+                                 (type-template-fill result-type unification-table))
+                                        )])))]
     [_ accum]))
-     
 
 (: add-var-def (-> Definition Type-Scope Type-Scope))
 (define (add-var-def def accum)

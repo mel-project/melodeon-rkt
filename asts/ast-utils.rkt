@@ -11,6 +11,7 @@
          ast->list*
          ast-fold
          ast-fold-def
+         zip
          ;def->ast
          ast-map
          @ast-parents
@@ -20,6 +21,12 @@
 
 ; An environment for type variable mappings to types
 (define-type Type-Map (Immutable-HashTable Symbol Type))
+
+; Zip two lists
+(: zip (All (a b) (-> (Listof a) (Listof b) (Listof (Pairof a b)))))
+(define (zip l r)
+  (for/list ([x l] [y r])
+    (cons x y)))
 
 ; flatten 1 level, preserves type info
 (: flatten1 (All (T) (-> (Listof (Listof T)) (Listof T))))

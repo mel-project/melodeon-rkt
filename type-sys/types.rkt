@@ -78,6 +78,14 @@
 
 (define Type? (make-predicate Type))
 
+(: const-expr->string (-> Const-Expr String))
+(define (const-expr->string e)
+  (match e
+    [`(,op ,e1 ,e2)
+      (format "~a ~a ~a" e1 op e2)]
+    [(? symbol? s) (symbol->string s)]
+    [(var x) (format "~a" x)]))
+
 ;; Get the string representation of a type
 (: type->string (-> Type String))
 (define (type->string type)
@@ -100,8 +108,7 @@
     [(TVectorof t e) (string-append "["
                                     (type->string t)
                                     " * "
-                                    (symbol->string 'e)
-                                    ;(number->string n)
+                                    (const-expr->string e)
                                     "]")]
     [(TDynVectorof t) (format "[~a *]" (type->string t))]
     [(TUnion l r) (format "(~a | ~a)"

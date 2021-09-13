@@ -23,6 +23,34 @@
          (car v)
          (cdr v)))
 
+; Assign a number to each element of a list
+(: enumerate (All (T) (-> (Listof T) (Listof (Pairof Integer T)))))
+(define (enumerate l)
+  (foldl (λ ((x : T) (acc : (Listof (Pairof Integer T))))
+           (cons
+            (cons (+ 1 (caar acc))
+                  x)
+            acc))
+         (list (cons 0 (car l)))
+         (cdr l)))
+
+; Extract a constant expression from a type if it exists
+(: get-const-expr (-> Type (Option Const-Expr)))
+(define (get-const-expr t)
+  (match t
+    [(TVectorof _ e) e]
+    [(TVector l) (length l)]
+    [(TBytes e) e]
+    [_ #f]))
+
+; Replace a constant expression in a type with another
+(: repl-const-expr (-> Type Const-Expr Type))
+(define (repl-const-expr t new-e)
+  (match t
+    [(TVectorof it e) (TVectorof it new-e)]
+    [(TBytes e) (TBytes new-e)]
+    [_ t]))
+
 ;; A function
 (struct TFunction ((arg-types : (Listof Type))
                    (result-type : Type)))

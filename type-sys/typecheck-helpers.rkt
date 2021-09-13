@@ -5,8 +5,8 @@
          "../asts/raw-ast.rkt"
          "type-bag.rkt"
          racket/hash)
-(provide (all-defined-out))
 
+(provide (all-defined-out))
 
 ; Produce the name of a product type's
 ; accessor function for a given field
@@ -41,6 +41,8 @@
     [(TVectorof _ e) e]
     [(TVector l) (length l)]
     [(TBytes e) e]
+    ;[(TVar s) s]
+    [(TConst n) n]
     [_ #f]))
 
 ; Replace a constant expression in a type with another
@@ -49,6 +51,7 @@
   (match t
     [(TVectorof it e) (TVectorof it new-e)]
     [(TBytes e) (TBytes new-e)]
+    [(TConst e) (TConst new-e)]
     [_ t]))
 
 ;; A function

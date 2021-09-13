@@ -139,43 +139,24 @@
      (define $definitions '())
      (: $vardefs (Listof $vardef))
      (define $vardefs '())
-     (define-macro (snippet)
-       '(let ()
-          (define inner-type-scope
-            (foldl (λ((x : (List Symbol Type-Expr))
-                      (ts : Type-Scope))
-                     (bind-var ts (first x) (resolve-type (second x) type-scope)))
-                   type-scope
-                   args-with-types))
-          (match-define (cons $body _) (@->$ body inner-type-scope))
-          (define ret-type (if return-type (resolve-type return-type type-scope) 
-                               ($-Ast-type $body)))
-          (unless (subtype-of? ($-Ast-type $body) ret-type)
-            (context-error "function ~a annotated with return type ~a but actually returns ~a"
-                           (type->string ret-type)
-                           (type->string ($-Ast-type $body))))
-          (set! $definitions (cons ($fndef name
-                                           (map (λ((x : (List Symbol Type-Expr)))
-                                                  (list (first x)
-                                                        (resolve-type (second x)
-                                                                      type-scope)))
-                                                args-with-types)
-                                           $body)
-                                   $definitions))))
      (for ([definition definitions])
        (match definition
          [`(@def-fun ,name
-                     ,args-with-types
+                     ,binds
                      ,return-type
                      ,body)
-          (snippet)]
+          (make-fn-type type-scope binds name return-type body)]
          [`(@def-generic-fun ,name
                              ,_
-                             ,_
-                             ,args-with-types
+                             ,const-params
+                             ,binds
                              ,return-type
                              ,body)
-          (snippet)]
+           (define ts
+             (foldl (λ(var ts) (bind-type-var ts var (TConst var)))
+                    type-scope
+                    const-params))
+           (make-fn-type ts binds name return-type body)]
          [`(@def-var ,name ,body)
           (match-define (cons $body _) (@->$ body type-scope))
           (set! $vardefs (cons ($vardef name $body) $vardefs))]
@@ -336,7 +317,6 @@
                                      (cdr body)))]
       [`(@fold ,expr ,var ,acc-var ,ini-val ,l)
         (letrec
-          ;([$expr (car (@->$ expr type-scope))]
           ([$ini-val (car (@->$ ini-val type-scope))]
            [$l (car (@->$ l type-scope))]
            [l-type ($-Ast-type $l)]
@@ -422,6 +402,8 @@
          ;(define generate-list (λ (l n)
 
          ; vector multiply syntax
+         (printf "X TYPE ~a\n\n" x-type)
+         (printf "Y TYPE ~a\n\n" y-type)
          (cons (match (cons $x $y)
                  [(cons ($-Ast (TVector inner-types) ($lit-vec l)) ($-Ast _ ($lit-num n)))
                   (if (eq? 1 (length l))
@@ -617,59 +599,77 @@
       (resolve-type whatever env))]
     [_ env]))
 
+; Generate a TFunction type from
+; elements of a deconstructed @def-fun
+(: make-fn-type (-> Type-Scope
+                    (Listof (List Symbol Type-Expr))
+                    Symbol
+                    (U False Type-Expr)
+                    @-Ast
+                    TFunction))
+(define (make-fn-type ts params-with-types name return-type body)
+  (define inner-type-scope
+    (foldl (λ((x : (List Symbol Type-Expr))
+              (ts : Type-Scope))
+             (bind-var ts (first x)
+                       (resolve-type (second x) ts)))
+           ts
+           params-with-types))
+  (match-define (cons $body _) (@->$ body inner-type-scope))
+  (define ret-type (if return-type
+                       (resolve-type return-type ts)
+                       ($-Ast-type $body)))
+  (unless (subtype-of? ($-Ast-type $body) ret-type)
+    (context-error "function ~a annotated with return type ~a but actually returns ~a"
+                   name
+                   (type->string ret-type)
+                   (type->string ($-Ast-type $body))))
+  (TFunction
+   (map (λ((x : Type-Expr))
+          (resolve-type x ts))
+        (map (λ((x : (List Symbol Type-Expr)))
+               (second x)) params-with-types))
+   ($-Ast-type $body)))
+
 ; takes a Type-Scope rather than just one map because
 ; types may need to be resolved and the function-scope
 ; should also be added to.
 (: add-fun-def (-> Definition Type-Scope Type-Scope))
 (define (add-fun-def def accum)
-  ;; stupid hack
-  (define-macro (snippet)
-    '(parameterize ([current-context (context-of body)])
-       (define inner-type-scope
-         (foldl (λ((x : (List Symbol Type-Expr))
-                   (ts : Type-Scope))
-                  (bind-var ts (first x)
-                            (resolve-type (second x) accum)))
-                accum
-                args-with-types))
-       (match-define (cons $body _) (@->$ body inner-type-scope))
-       (define ret-type (if return-type
-                            (resolve-type return-type accum)
-                            ($-Ast-type $body)))
-       (unless (subtype-of? ($-Ast-type $body) ret-type)
-         (context-error "function ~a annotated with return type ~a but actually returns ~a"
-                        name
-                        (type->string ret-type)
-                        (type->string ($-Ast-type $body))))
-       (TFunction
-        (map (λ((x : Type-Expr))
-               (resolve-type x accum))
-             (map (λ((x : (List Symbol Type-Expr)))
-                    (second x)) args-with-types))
-        ($-Ast-type $body))))
   (match def
     [`(@def-fun ,name
-                ,args-with-types
+                ,binds
                 ,return-type
                 ,body)
      ;; A "noop" generic type
      (bind-fun accum
                name
-               (λ _ (snippet)))]
+               (λ _ (make-fn-type accum binds name return-type body)))]
     [`(@def-generic-fun ,name
                         ,generic-params
                         ,const-params
-                        ,args-with-types
+                        ,binds
                         ,return-type
                         ,body)
-     (define tf-with-params (snippet))
-     #|
-     (if (empty? generic-params)
-       (bind-fun accum
-                 name
-                 (λ _ tf-with-params))
-       |#
-       ;; do unification here
+     ; First bind any constant vars to the type scope
+     (define ts
+       #|
+       (foldl (λ(bind ts)
+                (match-define (cons var te) bind)
+                (match te
+                  [`(@type-var ,s)
+                   (if (member s const-params)
+                     (bind-type-var ts s (TConst s)))]
+                  [_ ts]))
+              accum
+              binds)
+              |#
+       (foldl (λ(var ts) (bind-type-var ts var (TConst var)))
+              accum
+              const-params))
+     (define tf-with-params (make-fn-type ts binds name return-type body))
+     (printf "FN TYPE\n\n~a\n" tf-with-params)
+       ;; resolve const expressions and do unification
        (bind-fun accum
                  name
                  (lambda ((callsite-arg-types : (Listof Type)))

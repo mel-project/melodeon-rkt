@@ -39,7 +39,8 @@
 
 (struct $init-vec
   ([val : $-Ast]
-   [size : Nonnegative-Integer])
+   ;[size : Nonnegative-Integer])
+   [size : Const-Expr])
   #:transparent)
 
 ; Literal number

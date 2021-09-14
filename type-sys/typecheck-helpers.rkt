@@ -3,6 +3,7 @@
          "../asts/ast-utils.rkt"
          "typecheck-unify.rkt"
          "../asts/raw-ast.rkt"
+         "../asts/typed-ast.rkt"
          "type-bag.rkt"
          racket/hash)
 
@@ -41,7 +42,6 @@
     [(TVectorof _ e) e]
     [(TVector l) (length l)]
     [(TBytes e) e]
-    ;[(TVar s) s]
     [(TConst n) n]
     [_ #f]))
 
@@ -56,10 +56,11 @@
 
 ;; A function
 (struct TFunction ((arg-types : (Listof Type))
-                   (result-type : Type)))
+                   (result-type : Type)) #:transparent)
 
 ;; a generic function is a function that returns a function type
-(define-type TGenFunction (-> (Listof Type) TFunction))
+;(define-type TGenFunction (-> (Listof Type) TFunction))
+(define-type TGenFunction (-> (Listof Type) (Listof $-Ast-variant) TFunction))
 
 
 ;; A type scope

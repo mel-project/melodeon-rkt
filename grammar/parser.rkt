@@ -127,6 +127,7 @@
       ; Vector comprehension
       (<vector-compreh> ((OPEN-BRACKET <expr> FOR VAR IN <expr> CLOSE-BRACKET)
                          (pos-lift 1 3 `(@for ,$2 ,$4 ,$6))))
+      ; to..from
       (<range-expr> ((NUM RANGE NUM) (pos-lift 1 3 `(@range ,$1 ,$3))))
       ; fold syntax
       (<fold-expr> ((FOLD <expr> FOR VAR VAR FROM <expr> IN <expr>)

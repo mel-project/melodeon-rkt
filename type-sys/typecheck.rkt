@@ -510,15 +510,8 @@
                            idx)
                ($index $val ($-Ast (TNat) ($lit-num idx))))
         tf-empty)]
-      [`(@range ,from-expr ,to-expr)
-       (define to-idx (λ ((expr : @-Ast))
-                        (match (dectx expr)
-                          [`(@lit-num ,x) x]
-                          [other (context-error "non-literal index ~a not yet supported"
-                                                other)])))
-       (define to (to-idx to-expr))
-       (define from (to-idx from-expr))
-       (define len (- from to))
+      [`(@range ,from ,to)
+       (define len (- to from))
        (cons
         ($-Ast (TVectorof (TNat) len)
                ($range ($-Ast (TNat) ($lit-num from))

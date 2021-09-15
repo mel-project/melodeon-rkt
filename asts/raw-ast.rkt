@@ -92,7 +92,7 @@
      (List '@accessor @-Ast Symbol)
      (List '@block (Listof @-Ast))
      (List '@index @-Ast @-Ast)
-     (List '@range @-Ast @-Ast)
+     (List '@range Nonnegative-Integer Nonnegative-Integer)
      (List '@slice @-Ast @-Ast @-Ast)
      (List '@update @-Ast @-Ast @-Ast)
      (List '@unsafe-cast @-Ast Type-Expr)

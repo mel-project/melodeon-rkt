@@ -226,6 +226,7 @@
     [`(@lit-bytes ,_) (fun ast (%) 0)]
     [`(@var ,_) (fun ast (%) 0)]
     [`(@extern ,_) (fun ast (%) 0)]
+    [`(@range ,_ ,_) (fun ast (%) 0)]
     ;[`(@empty) (fun ast (%) 0)]
     ; others
     [`(@let (,var ,val) ,expr) (fun ast (% val expr) 2)]
@@ -238,7 +239,6 @@
     [`(@ann ,e ,_) (fun ast (% e) 1)]
     [`(@is ,e ,_) (fun ast (% e) 1)]
     [`(@loop ,_ ,e) (fun ast (% e) 1)]
-    [`(@range ,a ,b) (fun ast (% a b) 2)]
     [`(@slice ,a ,b ,c) (fun ast (% a b c) 3)]
     [`(@update ,a ,b ,c) (fun ast (% a b c) 3)]
     [`(@if ,a ,b ,c) (fun ast (% a b c) 3)]

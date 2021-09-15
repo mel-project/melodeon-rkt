@@ -15,6 +15,10 @@
   '(@program () (@lit-num 0)))
 
 (parse-eq?
+  "0..10"
+  '(@program () (@range 0 10)))
+
+(parse-eq?
   "
   def foo(x: Nat) = x*2
   ---

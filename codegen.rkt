@@ -67,7 +67,7 @@
      (match-define ($-Ast _ ($lit-num from)) $from)
      (match-define ($-Ast _ ($lit-num to)) $to)
      `(let (v (v-nil) i 0)
-        (loop ,(- from to)
+        (loop ,(- to from)
           (set! (v-push v i))
           (set! i (+ i 1)))
         v)]

@@ -45,7 +45,7 @@
         ($-Ast (TNat) ($lit-num 4)))))
      ($-Ast
       (TNat)
-      ($range
+      ($slice
        ($-Ast (TVector (list (TNat) (TNat) (TNat) (TNat))) ($var 'v))
        ($-Ast (TNat) ($lit-num 0))
        ($-Ast (TNat) ($lit-num 2))))))))

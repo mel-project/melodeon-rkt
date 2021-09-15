@@ -54,7 +54,7 @@
                            [(TVector _) 'v-get]
                            [(TBytes _) 'b-get]) ,(generate-mil-expr vec)
                                                 ,(generate-mil-expr idx))]
-    [($range vec from to) `(,(match ($-Ast-type vec)
+    [($slice vec from to) `(,(match ($-Ast-type vec)
                                [(TTagged _ _) 'v-slice]
                                [(TVectorof _ _) 'v-slice]
                                [(TVector _) 'v-slice]
@@ -62,6 +62,15 @@
                             ,(generate-mil-expr vec)
                             ,(generate-mil-expr from)
                             ,(generate-mil-expr to))]
+    ; Generate a vector of numbers from..to
+    [($range $from $to)
+     (match-define ($-Ast _ ($lit-num from)) $from)
+     (match-define ($-Ast _ ($lit-num to)) $to)
+     `(let (v (v-nil) i 0)
+        (loop ,(- from to)
+          (set! (v-push v i))
+          (set! i (+ i 1)))
+        v)]
     [($init-vec expr size)
      `(let (x ,(generate-mil-expr expr)
               v (v-nil))

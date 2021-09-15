@@ -94,9 +94,14 @@
    [ref : $-Ast])
   #:transparent)
 
-(struct $range
+(struct $slice
   ([data : $-Ast]
    [from : $-Ast]
+   [to : $-Ast])
+  #:transparent)
+
+(struct $range
+  ([from : $-Ast]
    [to : $-Ast])
   #:transparent)
 
@@ -170,4 +175,5 @@
      $extern-call
      $index
      $range
+     $slice
      $if))

@@ -107,6 +107,7 @@
       (<expr> ((<shl-expr>) $1)
               ((<let-expr>) $1)
               ((<fold-expr>) $1)
+              ((<range-expr>) $1)
               ((<vector-compreh>) $1)
               ((<where-expr>) $1)
               ((<block-expr>) $1)
@@ -126,6 +127,7 @@
       ; Vector comprehension
       (<vector-compreh> ((OPEN-BRACKET <expr> FOR VAR IN <expr> CLOSE-BRACKET)
                          (pos-lift 1 3 `(@for ,$2 ,$4 ,$6))))
+      (<range-expr> ((NUM RANGE NUM) (pos-lift 1 3 `(@range ,$1 ,$3))))
       ; fold syntax
       (<fold-expr> ((FOLD <expr> FOR VAR VAR FROM <expr> IN <expr>)
                    (pos-lift 1 8 `(@fold ,$2 ,$4 ,$5 ,$7 ,$9))))
@@ -181,7 +183,7 @@
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> CLOSE-BRACKET) (pos-lift 1 4 `(@index ,$1 ,$3)))
                     ;; vector slice
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> RANGE <terminal-expr> CLOSE-BRACKET)
-                     (pos-lift 1 4 `(@range ,$1 ,$3 ,$5)))
+                     (pos-lift 1 4 `(@slice ,$1 ,$3 ,$5)))
                     ;; vector update
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> FAT-ARROW <terminal-expr> CLOSE-BRACKET)
                      (pos-lift 1 6 `(@update ,$1 ,$3 ,$5)))

@@ -42,7 +42,7 @@
     [(TVectorof _ e) e]
     [(TVector l) (length l)]
     [(TBytes e) e]
-    [(TConst n) n]
+    ;[(TConst n) n]
     [_ #f]))
 
 ; Replace a constant expression in a type with another
@@ -51,7 +51,7 @@
   (match t
     [(TVectorof it e) (TVectorof it new-e)]
     [(TBytes e) (TBytes new-e)]
-    [(TConst e) (TConst new-e)]
+    ;[(TConst e) (TConst new-e)]
     [_ t]))
 
 ;; A function
@@ -59,8 +59,8 @@
                    (result-type : Type)) #:transparent)
 
 ;; a generic function is a function that returns a function type
-;(define-type TGenFunction (-> (Listof Type) TFunction))
-(define-type TGenFunction (-> (Listof Type) (Listof $-Ast-variant) TFunction))
+(define-type TGenFunction (-> (Listof Type) TFunction))
+;(define-type TGenFunction (-> (Listof Type) (Listof $-Ast-variant) TFunction))
 
 
 ;; A type scope

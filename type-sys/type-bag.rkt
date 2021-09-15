@@ -149,7 +149,7 @@
     [(TAny) (Type-Bag (set (ann (hash) Bag-Case)))]
     [(TNat) (Type-Bag (set (hash idx (PNat))))]
     [(TVar a) (Type-Bag (set (hash idx (PVar a))))]
-    [(TConst e) (Type-Bag (set (hash idx e)))]
+    ;[(TConst e) (Type-Bag (set (hash idx e)))]
     ; vectors: pairwise
     [(TBytes n) (Type-Bag (set (cast
                                 (hash idx (PBytes)

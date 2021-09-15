@@ -152,11 +152,7 @@
                              ,binds
                              ,return-type
                              ,body)
-           (define ts
-             (foldl (λ(var ts) (bind-type-var ts var (TConst var)))
-                    type-scope
-                    const-params))
-           (make-fn-type ts binds name return-type body)]
+           (make-fn-type type-scope binds name return-type body)]
          [`(@def-var ,name ,body)
           (match-define (cons $body _) (@->$ body type-scope))
           (set! $vardefs (cons ($vardef name $body) $vardefs))]
@@ -401,27 +397,8 @@
          (define y-type ($type $y))
          ;(define generate-list (λ (l n)
 
-         (printf "x type ~a\n" $x)
-         (printf "y type ~a\n" $y)
          ; vector multiply syntax
          (cons (match (cons $x $y)
-                 ; constant exprs
-                 [(cons ($-Ast (TVector inner-types) ($lit-vec l))
-                        ($-Ast (TConst cvar) ($var n)))
-                  (if (eq? 1 (length l))
-                      ($-Ast (TVectorof (car inner-types) cvar)
-                             ($init-vec (car l) cvar))
-                      ($-Ast (TVectorof (TVector inner-types) cvar)
-                             ($init-vec ($-Ast (TVector inner-types) ($lit-vec l))
-                                        cvar)))]
-                 [(cons ($-Ast (TConst cvar) ($var n))
-                        ($-Ast (TVector inner-types) ($lit-vec l)))
-                  (if (eq? 1 (length l))
-                      ($-Ast (TVectorof (car inner-types) cvar)
-                             ($init-vec (car l) cvar))
-                      ($-Ast (TVectorof (TVector inner-types) cvar)
-                             ($init-vec ($-Ast (TVector inner-types) ($lit-vec l))
-                                        cvar)))]
                  ; literal numbers
                  [(cons ($-Ast (TVector inner-types) ($lit-vec l)) ($-Ast _ ($lit-num n)))
                   (if (eq? 1 (length l))
@@ -435,7 +412,6 @@
                              ($lit-vec (make-list n (car l))))
                       ($-Ast (TVectorof (TVector inner-types) n)
                              ($lit-vec (cast (make-list n l) (Listof $-Ast)))))]
-                 #|
                  [_
                   (assert-type x ($type $x) (TNat))
                   (assert-type y ($type $y) (TNat))
@@ -452,7 +428,6 @@
                                  ['@/ '/])
                                $x
                                $y))])
-               |#)
                tf-empty))]
       [`(@and ,x ,y)
        ; trivial desugaring
@@ -555,8 +530,7 @@
        (define $args
          (map (λ((a : @-Ast)) (car (@->$ a type-scope))) args))
        (define my-arg-types (map $type $args))
-       (printf "~a ARG TYPES: ~a\n\n" fun my-arg-types)
-       (match ((lookup-fun type-scope fun) my-arg-types (map $-Ast-node $args))
+       (match ((lookup-fun type-scope fun) my-arg-types)
          [(TFunction arg-types result)
           (unless (equal? (length arg-types) (length args))
             (error '@-ast->type "[~a] calling function ~a with ~a arguments instead of the expected ~a"
@@ -673,28 +647,12 @@
                         ,return-type
                         ,body)
      ; First bind any constant vars to the type scope
-     (define ts
-       #|
-       (foldl (λ(bind ts)
-                (match-define (cons var te) bind)
-                (match te
-                  [`(@type-var ,s)
-                   (if (member s const-params)
-                     (bind-type-var ts s (TConst s)))]
-                  [_ ts]))
-              accum
-              binds)
-              |#
-       (foldl (λ(var ts) (bind-type-var ts var (TConst var)))
-              accum
-              const-params))
-     (define tf-with-params (make-fn-type ts binds name return-type body))
-     (printf "FN TYPE\n~v\n\n" tf-with-params)
+     (define tf-with-params (make-fn-type accum binds name return-type body))
        ;; resolve const expressions and do unification
        (bind-fun accum
                  name
-                 (lambda ((callsite-arg-types : (Listof Type))
-                          (callsite-vals : (Listof $-Ast-variant)))
+                 (lambda ((callsite-arg-types : (Listof Type)))
+                          ;(callsite-vals : (Listof $-Ast-variant)))
                    (match tf-with-params
                      [(TFunction param-types res-type)
                       (letrec ([param-exprs
@@ -710,14 +668,7 @@
                                    (filter (λ(pair) (match-define (cons i e) pair)
                                                     ((compose not false?) e))
                                            (enumerate (map get-const-expr
-                                             (map (λ(pair)
-                                               (match-define (cons i t) pair)
-                                               (if (equal? (TNat) t)
-                                                 (TConst (cast (list-ref
-                                                                 callsite-vals
-                                                                 i) Integer))
-                                                 t))
-                                               (enumerate callsite-arg-types))))))]
+                                                           callsite-arg-types))))]
                               [const-var-map
                               ; get a mapping of const vars to their inferred
                               ; const-exprs based on the callsite args
@@ -760,12 +711,6 @@
                                            res-expr
                                            (hash->list const-var-map)))
                                   res-type))])
-                      (printf "param exprs: ~a\n" param-exprs)
-                      (printf "arg exprs: ~a\n" arg-exprs)
-                      (printf "const var map: ~a\n" const-var-map)
-                      (printf "PARAM TYPES\n~a\n\n" (map type->string arg-types))
-                      (printf "ARG TYPES\n~a\n\n" (map type->string callsite-arg-types))
-                      (printf "RESULT TYPE\n~a\n\n" (type->string result-type))
                       (define unification-table
                         (for/fold ([accum : (Immutable-HashTable TVar Type) (hash)])
                                   ([arg-type arg-types]

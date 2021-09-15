@@ -5,9 +5,6 @@
 (struct TNat () #:transparent)
 (struct TAny () #:transparent)
 
-;; Constant expression represents a number
-(struct TConst ((e : Const-Expr)) #:transparent)
-
 ;; Constant expressions on generics
 (define-type Op (U '+ '- '* '/ '^))
 (define-type Const-Expr
@@ -67,7 +64,6 @@
 ;; Type
 (define-type Type (U TNat
                      TAny
-                     TConst
                      TTagged
                      TDynVectorof
                      TDynBytes
@@ -96,7 +92,6 @@
     [(TNone) "None"]
     [(TNat) "Nat"]
     [(TAny) "Any"]
-    [(TConst e) (format "Const[~a]" (const-expr->string e))]
     [(TVar s) (format "'~a" s)]
     [(TFail s) (format "Fail[~a]" s)]
     [(TTagged tag types) (define type-strs (map type->string types))

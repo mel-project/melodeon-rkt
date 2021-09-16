@@ -5,6 +5,13 @@ raco make -v type-sys/*-test.rkt
 raco make -v grammar/*-test.rkt
 for f in *-test.rkt type-sys/*-test.rkt grammar/*-test.rkt
 do
-racket $f
+
+if [[ $(racket $f 2>&1) ]]; then
+  echo "Encountered an error"
+  exit 1
+else
+  echo "No error"
+fi
+
 done
 echo "Done testing"

@@ -51,5 +51,5 @@ jobs:
       - name: Install Typed-map
         run: raco pkg install --auto --skip-installed typed-map
 
-      - name: Run unit tests
-        run: ./run-tests.sh
+#      - name: Run unit tests
+#        run: ./run-tests.sh

@@ -21,6 +21,7 @@ jobs:
         with:
           path: |
             ~/.racket
+            ~/.local/share/racket
           key: ${{ runner.os }}-primes
 
       - name: Update Apt

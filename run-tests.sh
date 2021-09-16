@@ -3,10 +3,10 @@ set -e
 raco make -v *-test.rkt
 raco make -v type-sys/*-test.rkt
 raco make -v grammar/*-test.rkt
-for f in *-test.rkt type-sys/*-test.rkt grammar/*-test.rkt
+for file in *-test.rkt type-sys/*-test.rkt grammar/*-test.rkt
 do
 
-if [[ $(racket $f 2>&1) ]]; then
+if [ "$(racket "$file" 2>&1)" ]; then
   echo "Encountered an error"
   exit 1
 else

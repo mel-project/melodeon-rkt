@@ -16,6 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Cache Racket
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.racket
+          key: ${{ runner.os }}-primes
+
       - name: Update Apt
         run: sudo apt update
 
@@ -32,16 +39,16 @@ jobs:
         run: sudo apt install -y racket
 
       - name: Install Memo
-        run: raco pkg install --auto memo
+        run: raco pkg install --auto --skip-installed memo
 
       - name: Install Rascas
-        run: raco pkg install --auto rascas
+        run: raco pkg install --auto --skip-installed rascas
 
       - name: Install Csp
-        run: raco pkg install --auto csp
+        run: raco pkg install --auto --skip-installed csp
 
       - name: Install Typed-map
-        run: raco pkg install --auto typed-map
+        run: raco pkg install --auto --skip-installed typed-map
 
       - name: Run unit tests
         run: ./run-tests.sh

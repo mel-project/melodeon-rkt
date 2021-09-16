@@ -44,4 +44,4 @@ jobs:
         run: raco pkg install --auto typed-map
 
       - name: Run unit tests
-        run: sh run-tests.sh
+        run: ./run-tests.sh

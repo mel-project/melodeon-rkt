@@ -54,10 +54,10 @@
 (define (subst-const-expr-type t sub)
   ; check that e is a single variable
   (define assert-var-expr (λ(e)
-    (unless (symbol? e)
-      (context-error "only single variables are supported in
+                            (unless (symbol? e)
+                              (context-error "only single variables are supported in
                      constant generic parameters, ~a was provided"
-                     e))))
+                                             e))))
 
   (match (cons t sub)
      ; TODO not checking whether types match it
@@ -750,11 +750,8 @@
       (time
        (@-transform
         (melo-parse-port (open-input-string "
-def f(x: Nat) = x * x
 def roundtrip<T>(x: T) = getfirst(dup(x))
-def labooyah() = 2
 def dup<T>(x: T) = [x, x]
 def getfirst<T>(x : [T, T]) = x[0]
-- - - 
-roundtrip([1, 2, 3])[0] + roundtrip(5) + 6
+
 "))))))

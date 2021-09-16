@@ -43,11 +43,5 @@ jobs:
       - name: Install Typed-map
         run: raco pkg install --auto typed-map
 
-      - name: Compile
-        run: raco make -v meloc.rkt
-
-      - name: Run top-level unit tests
-        run: racket *-test.rkt
-
-      - name: Run type system unit tests
-        run: racket type-sys/*-test.rkt
+      - name: Run unit tests
+        run: sh run-tests.sh

@@ -74,7 +74,7 @@
        ($-Ast (TNat) ($lit-num 4))))
      ($-Ast (TNat) ($lit-num 5))))))
 
-(prgrm-eq?
+#;(prgrm-eq?
   "
   struct Y { x : Nat }
   ---
@@ -113,3 +113,12 @@
   let y = Y { 3 } in y.x)][0] - 1
   "
   (TNat))
+
+(prgrm-type-eq?
+ "def roundtrip<T>(x: T) = getfirst(dup(x))
+def dup<T>(x: T) = [x, x]
+def getfirst<T>(x : [T, T]) = x[0]
+---
+roundtrip(1)
+" (TNat))
+ 

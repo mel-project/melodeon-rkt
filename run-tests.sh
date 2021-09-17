@@ -1,7 +1,17 @@
+#!/bin/sh
+set -e
 raco make -v *-test.rkt
 raco make -v type-sys/*-test.rkt
 raco make -v grammar/*-test.rkt
-racket *-test.rkt
-racket type-sys/*-test.rkt
-racket grammar/*-test.rkt
+for file in *-test.rkt type-sys/*-test.rkt grammar/*-test.rkt
+do
+
+if [ "$(racket "$file" 2>&1)" ]; then
+  echo "Encountered an error"
+  exit 1
+else
+  echo "No error"
+fi
+
+done
 echo "Done testing"

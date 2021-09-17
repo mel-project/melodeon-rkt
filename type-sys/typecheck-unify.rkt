@@ -6,6 +6,7 @@
          type-append
          type-unify
          type-template-fill
+         vec-index-type
          subtype-of?)
 
 ; Check if t2 is a subtype of t1
@@ -13,6 +14,18 @@
 (define (subtype-of? t1 t2)
   (bag-subtype-of? (type->bag t1)
                    (type->bag t2)))
+
+; Return the index type of a vector
+; useful for variable indexing where the exact location is unknown
+(: vec-index-type (-> Type Type))
+(define (vec-index-type t)
+  (match t
+    [(TVectorof inner-type _) inner-type]
+    [(TDynVectorof inner-type) inner-type]
+    [(TVector ts)
+     (bag->type (foldl bag-union
+                       empty-bag
+                       (map type->bag ts)))]))
 
 (: type-index (-> Type Integer Type))
 (define (type-index type idx)

@@ -115,7 +115,27 @@
           ; otherwise put it in
           (hash-set var-map l r))))
     (ann (hash) (HashTable Symbol Const-Expr))
-    (zip lhs rhs)))
+    ; If left hand side is already an integer, ignore it
+    (filter (λ (pair)
+               (match-define (cons l r) pair)
+               (not (integer? l)))
+            (zip lhs rhs))))
+
+; Determine the return type of a fold given the inner expression,
+; accumulator variable name, and number of steps.
+#|
+(: derive-fold-type (-> Type-Scope @-Ast Symbol Integer Type))
+(define (derive-fold-type ts e acc n)
+  (let ([t ($-Ast-type (car (@->$ e ts)))])
+    (if (> n 0)
+      (derive-fold-type (bind-var ts acc t) e acc (- n 1))
+      t)))
+
+(derive-fold-type (bind-var ts-empty 'acc (TVector (list (TNat))));#hash(( 'acc . (TVector ((TNat)))))
+                  `(@var acc)
+                  'acc
+                  2)
+|#
 
 ;; Entry point: transforms a whole program
 (: @-transform (-> @-Ast $program))
@@ -219,9 +239,10 @@
     (parameterize ([current-context (context-of @-ast)])
       (unless (subtype-of? real-type type)
         (context-error
-         "expected type ~a, got type ~a"
+         "expected type ~a, got type ~a in expression ~a"
          (type->string type)
-         (type->string real-type)))))
+         (type->string real-type)
+         (dectx @-ast)))))
   
   ;; shorthand
   (define $type $-Ast-type)
@@ -322,10 +343,15 @@
            [(TVectorof inner-type count)
             (letrec
                 ([inner-ts (bind-var ts var inner-type)]
+                 ; if expr is a vector/bytes, fold result type will be TFold _
+                 ; (which is (-> Const-Expr TVectorof))
+                 ; otherwise fold result is same as expr type
                  [$expr    (car (@->$ expr inner-ts))])
               ; Return an $-Ast
               (cons ($-Ast
-                     (TVectorof ($-Ast-type $expr) count)
+                     ;(TVectorof ($-Ast-type $expr) count)
+                     ;(derive-fold-type inner-ts expr acc-var count)
+                     (TAny)
                      ($fold $expr var acc-var $ini-val $l))
                     tf-empty))]
            [(? TVector? tvec)
@@ -499,17 +525,31 @@
 
       ;; index and apply
       [`(@index ,val ,idx-expr)
+       (match-define (cons $val _) (@->$ val type-scope))
+       #|
        (: idx Nonnegative-Integer)
        (define idx
          (match (dectx idx-expr)
            [`(@lit-num ,x) x]
            [other (context-error "non-literal index ~a not yet supported" other)]))
-       (match-define (cons $val _) (@->$ val type-scope))
+       |#
        (cons
-        ($-Ast (type-index ($type $val)
-                           idx)
+         (match (dectx idx-expr)
+           [`(@lit-num ,idx)
+             ($-Ast (type-index ($type $val) idx)
+                    ($index $val ($-Ast (TNat) ($lit-num idx))))]
+           ; Doesn't check if index is out of bounds
+           [`(@var ,name)
+             ($-Ast (vec-index-type ($type $val))
+                    ($index $val ($-Ast (TNat) ($var name))))]
+           [other (context-error "non-literal index ~a not yet supported" other)])
+         tf-empty)]
+       #|
+       (cons
+        ($-Ast (type-index ($type $val) idx)
                ($index $val ($-Ast (TNat) ($lit-num idx))))
         tf-empty)]
+      |#
       [`(@range ,from ,to)
        (define len (- to from))
        (cons

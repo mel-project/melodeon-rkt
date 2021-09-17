@@ -11,12 +11,12 @@
                [algebraic-expand (-> Sexpr Sexpr)])
 
 (provide type->bag
-         ;type->bag/raw
-         ;PVec
          (struct-out Type-Bag)
+         empty-bag
          bag-subtract
          bag-project
          bag-product
+         bag-union
          bag-case->type
          Prim-Index
          PVar
@@ -48,7 +48,6 @@
 ;(automatic-simplify '(* (+ x 1) (- x 1)))
 ;(algebraic-expand (substitute '(* (+ x 1) (- x 1)) 'x 3))
 
-;(define-type Prim-Type (U PNat PVec PVar Integer PBytes PTagged))
 (define-type Prim-Type (U PNat PVec PVar Const-Expr PBytes PTagged))
 
 (define-type Prim-Index (U 'root
@@ -61,6 +60,9 @@
 
 (struct Type-Bag ((inner : (Setof Bag-Case)))
   #:transparent)
+
+(: empty-bag Type-Bag)
+(define empty-bag (Type-Bag (set)))
 
 (: bag-project (-> Type-Bag Prim-Index Type-Bag))
 (define (bag-project bag pidx)

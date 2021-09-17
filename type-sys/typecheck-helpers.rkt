@@ -27,13 +27,15 @@
 ; Assign a number to each element of a list
 (: enumerate (All (T) (-> (Listof T) (Listof (Pairof Integer T)))))
 (define (enumerate l)
-  (foldl (λ ((x : T) (acc : (Listof (Pairof Integer T))))
-           (cons
-            (cons (+ 1 (caar acc))
-                  x)
-            acc))
-         (list (cons 0 (car l)))
-         (cdr l)))
+  (if (empty? l)
+    '()
+    (foldl (λ ((x : T) (acc : (Listof (Pairof Integer T))))
+             (cons
+              (cons (+ 1 (caar acc))
+                    x)
+              acc))
+           (list (cons 0 (car l)))
+           (cdr l))))
 
 ; Extract a constant expression from a type if it exists
 (: get-const-expr (-> Type (Option Const-Expr)))

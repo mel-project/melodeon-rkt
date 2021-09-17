@@ -469,6 +469,15 @@
                          (@var @x)
                          ,y))
              type-scope)]
+      [`(@push ,x ,y)
+       ; no type facts can possibly propagate out of an @append
+       (match-let ([(cons $x _) (@->$ x type-scope)]
+                   [(cons $y _) (@->$ y type-scope)])
+         (printf "res push type: ~a\n\n" (type-cons ($type $x) ($type $y)))
+         (cons
+          ($-Ast (type-cons ($type $x) ($type $y))
+                 ($push $x $y))
+          tf-empty))]
       [`(@append ,x ,y)
        ; no type facts can possibly propagate out of an @append
        (match-let ([(cons $x _) (@->$ x type-scope)]

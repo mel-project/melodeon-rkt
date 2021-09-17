@@ -4,6 +4,7 @@
          "../asts/raw-ast.rkt")
 (provide type-index
          type-append
+         type-cons
          type-unify
          type-template-fill
          vec-index-type
@@ -43,6 +44,33 @@
   ;; then we find the possible types
   (define projected (bag-project bagged `(ref root ,idx)))
   (bag->type (bag-project bagged `(ref root ,idx))))
+
+(: type-cons (-> Type Type Type))
+(define (type-cons t u)
+  ;; convert to bags
+  (define t-bag (type->bag t))
+  (define u-bag (type->bag u))
+  ;; cartesian-product the two bags
+  (for*/fold ([accum : Type (TNone)])
+             ([t-case (Type-Bag-inner t-bag)]
+              [u-case (Type-Bag-inner u-bag)]) : Type
+    (TUnion accum
+            (match (cons (bag-case->type t-case)
+                         (bag-case->type u-case))
+              [(cons t (TVectorof inner-u const-expr-u))
+               (if (equal? inner-u t)
+                 (TVectorof t (normal-form `(+ 1 ,const-expr-u)))
+                 (context-error "Cannot append type ~a to a vector of ~a"
+                                (type->string t)
+                                (type->string inner-u)))]
+              [(cons t (TVector u-list))
+               (TVector (cons t u-list))]
+              ; TODO I don't think we have a byte type?
+              ;[(cons (TBytes n)
+              ;       (TBytes m)) (TBytes (normal-form `(+ ,n ,m)))]
+              [_ (context-error "cannot push type ~a to a ~a"
+                                (type->string t)
+                                (type->string u))]))))
 
 (: type-append (-> Type Type Type))
 (define (type-append t u)

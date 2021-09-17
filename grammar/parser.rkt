@@ -166,6 +166,7 @@
       ;; low-associativity (add-like) operators
       (<add-expr> ((<add-expr> + <mult-expr>) (pos-lift 1 3 `(@+ ,$1 ,$3)))
                   ((<add-expr> - <mult-expr>) (pos-lift 1 3 `(@- ,$1 ,$3)))
+                  ((<add-expr> COLON <mult-expr>) (pos-lift 1 3 `(@push ,$1 ,$3)))
                   ((<add-expr> ++ <mult-expr>) (pos-lift 1 3 `(@append ,$1 ,$3)))
                   ((<mult-expr>) $1))
       ;; high-associativity (mult-like) binary operators

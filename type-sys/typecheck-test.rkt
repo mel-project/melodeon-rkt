@@ -122,3 +122,11 @@ def getfirst<T>(x : [T, T]) = x[0]
 roundtrip(1)
 " (TNat))
  
+
+(prgrm-type-eq?
+  "def dup<const N, A>(x: [Nat * N]): [Nat * N+N] = x ++ x
+   def foo<const N, A>(x: [Nat * N]): [Nat * N+N] = dup(x)
+   ---
+   foo([1,2])"
+  (TUnion (TNone) (TVectorof (TNat) '(* 2 N))))
+

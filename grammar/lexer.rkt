@@ -9,13 +9,15 @@
          value-tokens
          syntax-tokens)
 
-(define-tokens value-tokens (NUM VAR FUN TYPE BYTES))
+(define-tokens value-tokens (NUM VAR FUN TYPE BYTES CONSTEXPR))
 (define-empty-tokens syntax-tokens (OPEN-PAREN CLOSE-PAREN OPEN-BRACKET
                                     CLOSE-BRACKET LESS-THAN GREATER-THAN
                                     OPEN-BRACE CLOSE-BRACE COMMA EOF NEG
                                     = == ++ + - * / OR XOR AND ETC RANGE
                                     SHL SHR BAND BOR
+                                    TWOSTARS
                                     ---
+                                    CONST
                                     TAND
                                     TNEG
                                     TOR
@@ -34,8 +36,11 @@
                                     DOT
                                     IS
                                     EXTERN
+                                    CALL
                                     DONE
                                     FOR
+                                    FOLD
+                                    FROM
                                     DEF
                                     STRUCT
                                     LOOP
@@ -50,6 +55,7 @@
   (lower-letter (:/ "a" "z"))
   (upper-letter (:/ #\A #\Z))
   (digit (:/ "0" "9"))
+  (char (:or (:/ "A" "Z") (:/ "a" "z")))
   (hex-digit (:or (:/ "0" "9")
                   (:/ "a" "f"))))
 
@@ -64,6 +70,7 @@
    ["in" 'IN]
    ["def" 'DEF]
    ["struct" 'STRUCT]
+   ["call" 'CALL]
    [":" 'COLON]
    ["=>" 'FAT-ARROW]
    ["where" 'WHERE]
@@ -88,9 +95,13 @@
    ["do" 'DO]
    ["done" 'DONE]
    ["for" 'FOR]
+   ["fold" 'FOLD]
+   ["from" 'FROM]
    ["set!" 'SET!]
    ["extern" 'EXTERN]
    ["is" 'IS]
+   ["const" 'CONST]
+   ["..." 'ETC]
    ;; punctuation
    ["," 'COMMA]
    ["..." 'ETC]
@@ -101,9 +112,10 @@
    ["#" 'HASH]
    ["%" 'PERCENT]
    [";" 'SEMICOLON]
-   ["|" 'TOR]
-   ["&" 'TAND]
-   ["~" 'TNEG]
+   ;["|" 'TOR]
+   ;["&" 'TAND]
+   ;["~" 'TNEG]
+   ["**" 'TWOSTARS]
    [(:: "-" (:* #\space) "-" (:* #\space) "-") '---]
    ;; skip comments
    [(:: "#" (:* (:~ #\newline))) (return-without-pos (melo-lex-once input-port))]
@@ -125,6 +137,17 @@
         (:* (:or lower-letter upper-letter "_" digit))) (token-VAR (string->symbol lexeme))]
    [(:+ digit) (token-NUM (string->number lexeme))]
    ;[(:: (:+ digit) #\. (:* digit)) (token-NUM (string->number lexeme))]
+   #|
+   [(:or (::
+          (:? "-")
+          (:or (:* digit) (:* char))
+          (:or "+" "-" "*" "/")
+          (:? "-")
+          (:or (:* digit) (:* char)))
+        ; or just a digit/var by itself
+        (:or (:* digit) (:* char)))
+        (token-CONSTEXPR (string->symbol lexeme))]
+   |#
    [(:: "x"
         "\""
         (:* (:: hex-digit

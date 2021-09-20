@@ -1,9 +1,11 @@
 #lang typed/racket
-(require "common.rkt")
+(require "../asts/raw-ast.rkt"
+         "../type-sys/typecheck-helpers.rkt")
 ;; untyped internal impl
 (module untyped racket
   (require "lexer.rkt")
-  (require (prefix-in T "common.rkt"))
+  (require (prefix-in T "../asts/raw-ast.rkt"))
+  (require "../type-sys/type-bag.rkt")
   (require parser-tools/lex)
   (require parser-tools/cfg-parser)
   (require parser-tools/yacc)
@@ -19,13 +21,14 @@
   
   ;; melo-parse: (-> position-token) -> @-Ast
   (define melo-parse
-    (parser
+    (cfg-parser ; distinguishing type-expr from expr takes unlimited lookahead due to the shared | and & operators,m
+                ; so we use cfg-parser rather than parser (which complains of shift/reduce conflicts)
      (start <program>)
      (end EOF)
      (tokens value-tokens syntax-tokens)
      
      (src-pos)
-     ;(debug "/tmp/out.txt")
+     ; (debug "/tmp/out.txt")
      ;(yacc-output "/tmp/debug.y")
      (error (lambda (tok-ok? tok-name tok-value start-pos end-pos)
               (raise-syntax-error
@@ -56,10 +59,10 @@
                      `(@def-fun ,$2 ,$4 #f ,$7))
                     ((DEF VAR OPEN-PAREN <fun-args> CLOSE-PAREN COLON <type-expr> = <expr>)
                      `(@def-fun ,$2 ,$4 ,$7 ,$9))
-                    ((DEF VAR LESS-THAN TYPE GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN = <expr>)
-                     `(@def-generic-fun ,$2 ,$4 ,$7 #f ,$10))
-                    ((DEF VAR LESS-THAN TYPE GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN COLON <type-expr> = <expr>)
-                     `(@def-generic-fun ,$2 ,$4 ,$7 ,$10 ,$12))
+                    ((DEF VAR LESS-THAN <const-params> <type-params> GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN = <expr>)
+                     `(@def-generic-fun ,$2 ,$5 ,$4 ,$8 #f ,$11))
+                    ((DEF VAR LESS-THAN <const-params> <type-params> GREATER-THAN OPEN-PAREN <fun-args> CLOSE-PAREN COLON <type-expr> = <expr>)
+                     `(@def-generic-fun ,$2 ,$5 ,$4 ,$8 ,$11 ,$13))
                     ((REQUIRE BYTES) `(@require ,(bytes->string/utf-8 $2)))
                     ((PROVIDE VAR) `(@provide ,$2))
                     ((PROVIDE TYPE) `(@provide ,$2))
@@ -68,26 +71,44 @@
                     ((ALIAS TYPE = <type-expr>)
                      `(@def-alias ,$2 ,$4))
                     )
+      (<const-params> (() empty)
+                      ((CONST TYPE) (list $2))
+                      ((CONST TYPE COMMA <const-params>) (cons $2 $4)))
+      (<type-params> (() empty)
+                     ((TYPE) (list $1))
+                     ((TYPE COMMA <type-params>) (cons $1 $3)))
       (<fun-args> ((<type-dec>) (list $1))
                   ((<type-dec> COMMA <fun-args>) (cons $1 $3))
                   (() empty))
+      (<const-expr> ((<const-expr> * <const-expr>) `(* ,$1 ,$3))
+                    ((<const-expr> + <const-expr>) `(+ ,$1 ,$3))
+                    ((<const-expr> - <const-expr>) `(- ,$1 ,$3))
+                    ((NUM) $1)
+                    ((TYPE) $1))
       (<type-dec> ((VAR COLON <type-expr>) (list $1 $3)))
-      (<type-expr> ((<type-expr> TOR <type-expr-2>) `(@type-union ,$1 ,$3))
+      (<type-expr> ((<type-expr> BOR <type-expr-2>) `(@type-union ,$1 ,$3))
                    ((<type-expr-2>) $1))
-      (<type-expr-2> ((<type-expr-3> TAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
+      (<type-expr-2> ((<type-expr-3> BAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
                      ((<type-expr-3>) $1))
       (<type-expr-3> ((TYPE) `(@type-var ,$1))
                      ((OPEN-BRACKET <type-expr> * CLOSE-BRACKET) `(@type-dynvecof ,$2))
-                     ((PERCENT OPEN-BRACKET NUM CLOSE-BRACKET) `(@type-bytes ,$3))
+                     ;((PERCENT OPEN-BRACKET NUM CLOSE-BRACKET) `(@type-bytes ,$3))
+                     ((PERCENT OPEN-BRACKET <const-expr> CLOSE-BRACKET)
+                      `(@type-bytes ,(normal-form $3)))
                      ((PERCENT OPEN-BRACKET CLOSE-BRACKET) `(@type-dynbytes))
                      ((OPEN-BRACKET <type-exprs> CLOSE-BRACKET) `(@type-vec ,$2))
-                     ((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
+                     ;((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
+                     ((OPEN-BRACKET <type-expr> * <const-expr> CLOSE-BRACKET)
+                      `(@type-vecof ,$2 ,(normal-form $4)))
                      ((OPEN-PAREN <type-expr> CLOSE-PAREN) `$2))
       (<type-exprs> ((<type-expr>) (list $1))
                     ((<type-expr> COMMA <type-exprs>) (cons $1 $3)))
       ;; different kinds of exprs
       (<expr> ((<shl-expr>) $1)
               ((<let-expr>) $1)
+              ((<fold-expr>) $1)
+              ((<range-expr>) $1)
+              ((<vector-compreh>) $1)
               ((<where-expr>) $1)
               ((<block-expr>) $1)
               ((<set!-expr>) $1)
@@ -106,6 +127,11 @@
       ; Vector comprehension
       (<vector-compreh> ((OPEN-BRACKET <expr> FOR VAR IN <expr> CLOSE-BRACKET)
                          (pos-lift 1 3 `(@for ,$2 ,$4 ,$6))))
+      ; to..from
+      (<range-expr> ((NUM RANGE NUM) (pos-lift 1 3 `(@range ,$1 ,$3))))
+      ; fold syntax
+      (<fold-expr> ((FOLD <expr> FOR VAR VAR FROM <expr> IN <expr>)
+                   (pos-lift 1 8 `(@fold ,$2 ,$4 ,$5 ,$7 ,$9))))
       ;; let x = y in expr
       (<let-expr> ((LET VAR = <expr> IN <expr>) (pos-lift 1 6
                                                           `(@let (,$2 ,$4) ,$6)))
@@ -140,6 +166,7 @@
       ;; low-associativity (add-like) operators
       (<add-expr> ((<add-expr> + <mult-expr>) (pos-lift 1 3 `(@+ ,$1 ,$3)))
                   ((<add-expr> - <mult-expr>) (pos-lift 1 3 `(@- ,$1 ,$3)))
+                  ((<add-expr> COLON <mult-expr>) (pos-lift 1 3 `(@cons ,$1 ,$3)))
                   ((<add-expr> ++ <mult-expr>) (pos-lift 1 3 `(@append ,$1 ,$3)))
                   ((<mult-expr>) $1))
       ;; high-associativity (mult-like) binary operators
@@ -148,13 +175,17 @@
                    ((<apply-expr>) $1))
       ;; higher-associativity (apply-like) operators
       (<apply-expr> ((VAR OPEN-PAREN <multi-exprs> CLOSE-PAREN) (pos-lift 1 4 `(@apply ,$1 ,$3)))
+                    ;; unsafe extern call "f" (args...)
+                    ((UNSAFE EXTERN CALL BYTES OPEN-PAREN <multi-exprs> CLOSE-PAREN)
+                     (pos-lift 1 7 `(@extern-call ,(bytes->string/utf-8 $4)
+                                                  ,$6)))
                     ;; data field accessors
-                    ((VAR DOT VAR) (pos-lift 1 3 `(@accessor (@var ,$1) ,$3)))
+                    ((<apply-expr> DOT VAR) (pos-lift 1 3 `(@accessor ,$1 ,$3)))
                     ;; vector indexing
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> CLOSE-BRACKET) (pos-lift 1 4 `(@index ,$1 ,$3)))
                     ;; vector slice
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> RANGE <terminal-expr> CLOSE-BRACKET)
-                     (pos-lift 1 4 `(@range ,$1 ,$3 ,$5)))
+                     (pos-lift 1 4 `(@slice ,$1 ,$3 ,$5)))
                     ;; vector update
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> FAT-ARROW <terminal-expr> CLOSE-BRACKET)
                      (pos-lift 1 6 `(@update ,$1 ,$3 ,$5)))
@@ -170,7 +201,6 @@
                        ((VAR) (pos-lift 1 1 `(@var ,$1)))
                        ((OPEN-PAREN <expr> CLOSE-PAREN) (pos-lift 1 3 $2))
                        ((<vector-expr>) $1)
-                       ((<vector-compreh>) $1)
                        ((UNSAFE CAST <expr> COLON <type-expr>) (pos-lift 1 5
                                                                          `(@unsafe-cast ,$3 ,$5)))
                        ((ANN <expr> COLON <type-expr>) (pos-lift 1 4
@@ -205,23 +235,12 @@
 (module+ test
   (dectx*
    (melo-parse-port (open-input-string #<<EOF
-
-require "helloworld.melo"
-
-def f(x: [Nat ...]) = x
-
-- - -
-
-(loop 123 in
-do
-  1;
-  2;
-  3+x
-    (5, 6, 7)
-    [(1 + 2)];
-  set! x = [1, 2, 3, 4, 5];
-  set! x = x[1 => 2]
-done) + 123 == 456 && 4 + 5 == 9
-
+# We have no way of doing this cast safely right now
+def self_propagate() = 
+	let outputs = env_spender_tx().outputs in
+	vlen(outputs) == 1 &&
+		(let first_output = ann (unsafe cast env_spender_tx().outputs : [RawCoinData * 1])[0] : RawCoinData in
+		first_output[0] == env_self_hash())
+		
 EOF
                                        ))))

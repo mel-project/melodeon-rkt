@@ -1,22 +1,45 @@
-#lang racket/base
+#lang racket
 
 (require rackunit
-         "../parser.rkt"
-         "../typed-ast.rkt"
+         "../grammar/parser.rkt"
+         "../asts/typed-ast.rkt"
          "types.rkt"
-         "typecheck.rkt")
+         "typecheck.rkt"
+         compatibility/defmacro)
 
-(define (prgrm-eq? str $prgm)
-  (check-equal?
-    (let ([@program (melo-parse-port (open-input-string str))])
+;; TODO: these tests are incredibly fragile to changes in the typechecker/transformer of trivial consequence. Should we just test only the type then? 
+
+;; Macros, so that the failing tests have the right line numbers instead of all failing in prgrm-eq?
+(define-macro (prgrm-eq? str $prgm)
+  `(check-equal?
+    (let ([@program (melo-parse-port (open-input-string ,str))])
       (@-transform @program))
-     $prgm))
-    ;  (format "~a" (@-transform @program)))
-    ;(format "~a" $prgm)))
+    ,$prgm))
+
+(define-macro (prgrm-type-eq? str type)
+  `(check-equal?
+    ($-Ast-type ($program-expr (let ([@program (melo-parse-port (open-input-string ,str))])
+                                 (@-transform @program))))
+    ,type))
 
 (prgrm-eq?
-  "0"
+ "0"
   ($program '() '() ($-Ast (TNat) ($lit-num 0))))
+
+(prgrm-eq?
+ "3 : [1,2]"
+   ($program
+   '()
+   '()
+   ($-Ast
+    (TUnion (TNone) (TVector (list (TNat) (TNat) (TNat))))
+    ($cons
+     ($-Ast (TNat) ($lit-num 3))
+     ($-Ast
+      (TVector (list (TNat) (TNat)))
+      ($lit-vec
+       (list ($-Ast (TNat) ($lit-num 1)) ($-Ast (TNat) ($lit-num 2)))))))))
+
 
 (prgrm-eq?
   "let v = [1,2,3,4] in v[0..2]"
@@ -37,7 +60,7 @@
         ($-Ast (TNat) ($lit-num 4)))))
      ($-Ast
       (TNat)
-      ($range
+      ($slice
        ($-Ast (TVector (list (TNat) (TNat) (TNat) (TNat))) ($var 'v))
        ($-Ast (TNat) ($lit-num 0))
        ($-Ast (TNat) ($lit-num 2))))))))
@@ -66,7 +89,7 @@
        ($-Ast (TNat) ($lit-num 4))))
      ($-Ast (TNat) ($lit-num 5))))))
 
-(prgrm-eq?
+#;(prgrm-eq?
   "
   struct Y { x : Nat }
   ---
@@ -94,52 +117,31 @@
       (TNat)
       ($apply 'Y-x (list ($-Ast (TTagged 'Y (list (TNat))) ($var 'y)))))))))
 
-(prgrm-eq?
+(prgrm-type-eq?
   "
   def foo(x: Nat) = x
   struct X { x : Nat }
   struct Y { x : Nat }
   ---
+[3 * (
   let x = X { 2 } in
-  let y = Y { 3 } in y.x
+  let y = Y { 3 } in y.x)][0] - 1
   "
-  ($program
-   (list
-    ($fndef
-     'X-x
-     (list (list '@x (TTagged 'X (list (TNat)))))
-     ($-Ast
-      (TNat)
-      ($index
-       ($-Ast (TTagged 'X (list (TNat))) ($var '@x))
-       ($-Ast (TNat) ($lit-num 1)))))
-    ($fndef
-     'Y-x
-     (list (list '@x (TTagged 'Y (list (TNat)))))
-     ($-Ast
-      (TNat)
-      ($index
-       ($-Ast (TTagged 'Y (list (TNat))) ($var '@x))
-       ($-Ast (TNat) ($lit-num 1)))))
-    ($fndef 'foo (list (list 'x (TNat))) ($-Ast (TNat) ($var 'x))))
-   '()
-   ($-Ast
-    (TNat)
-    ($let
-     'x
-     ($-Ast
-      (TTagged 'X (list (TNat)))
-      ($lit-vec (list ($-Ast (TNat) ($lit-num 88)) ($-Ast (TNat) ($lit-num 2)))))
-     ($-Ast
-      (TNat)
-      ($let
-       'y
-       ($-Ast
-        (TTagged 'Y (list (TNat)))
-        ($lit-vec
-         (list ($-Ast (TNat) ($lit-num 89)) ($-Ast (TNat) ($lit-num 3)))))
-       ($-Ast
-        (TNat)
-        ($apply 'Y-x (list ($-Ast (TTagged 'Y (list (TNat))) ($var
-                                                               'y)))))))))))
+  (TNat))
+
+(prgrm-type-eq?
+ "def roundtrip<T>(x: T) = getfirst(dup(x))
+def dup<T>(x: T) = [x, x]
+def getfirst<T>(x : [T, T]) = x[0]
+---
+roundtrip(1)
+" (TNat))
+ 
+
+(prgrm-type-eq?
+  "def dup<const N, A>(x: [Nat * N]): [Nat * N+N] = x ++ x
+   def foo<const N, A>(x: [Nat * N]): [Nat * N+N] = dup(x)
+   ---
+   foo([1,2])"
+  (TUnion (TNone) (TVectorof (TNat) '(* 2 N))))
 

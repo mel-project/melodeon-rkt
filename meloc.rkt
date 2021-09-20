@@ -1,10 +1,9 @@
 #lang typed/racket
-(require "parser.rkt"
+(require "grammar/parser.rkt"
          "type-sys/typecheck.rkt"
          "type-sys/types.rkt"
-         "common.rkt"
-         "monomorphize.rkt"
-         "typed-ast.rkt"
+         "asts/raw-ast.rkt"
+         "asts/typed-ast.rkt"
          "codegen.rkt"
          "modules.rkt"
          racket/runtime-path)
@@ -44,7 +43,7 @@
   (define ast (demodularize partial-ast
                             (input-file)
                             filename->ast))
-  (pretty-write (dectx* ast))
+  ;(pretty-write (dectx* ast))
   (eprintf "generating $-Ast...\n")
   (define res (@-transform ast))
   ;(pretty-write res)

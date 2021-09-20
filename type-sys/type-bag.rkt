@@ -1,16 +1,29 @@
 #lang typed/racket
 (require "types.rkt"
-         "../common.rkt"
+         "../asts/raw-ast.rkt"
          racket/hash)
+
+; For constant expressions
+(define-type Sexpr (U (Listof Any) Any))
+(require/typed rascas
+               [substitute (-> Sexpr Sexpr Sexpr Sexpr)]
+               [automatic-simplify (-> Sexpr Sexpr)]
+               [algebraic-expand (-> Sexpr Sexpr)])
+
 (provide type->bag
          (struct-out Type-Bag)
+         empty-bag
          bag-subtract
          bag-project
+         bag-product
+         bag-union
          bag-case->type
          Prim-Index
          PVar
          bag->type
          bag-subtype-of?
+         normal-form
+         subst-const-expr
          )
 
 
@@ -19,11 +32,27 @@
 (struct PTagged ((tag : Symbol)) #:transparent)
 (struct PVar ((sym : Symbol)) #:transparent)
 (struct PBytes () #:transparent)
-(define-type Prim-Type (U PNat PVec PVar Integer PBytes PTagged))
+
+(: normal-form (-> Const-Expr Const-Expr))
+(define (normal-form e)
+  (cast (algebraic-expand e) Const-Expr))
+
+; Substitute a symbol in a constant expression with another
+; const expression.
+(: subst-const-expr (-> Const-Expr Symbol Const-Expr Const-Expr))
+(define (subst-const-expr e var sub-e)
+  (normal-form (cast (substitute e var sub-e) Const-Expr)))
+
+;(algebraic-expand '(* (+ x 1) (- x 1)))
+;(algebraic-expand '(= (+ 1 x) (* (+ x 1) (- x 1))))
+;(automatic-simplify '(* (+ x 1) (- x 1)))
+;(algebraic-expand (substitute '(* (+ x 1) (- x 1)) 'x 3))
+
+(define-type Prim-Type (U PNat PVec PVar Const-Expr PBytes PTagged))
 
 (define-type Prim-Index (U 'root
                            (List 'len Prim-Index)
-                           (List 'ref Prim-Index Integer)
+                           (List 'ref Prim-Index Const-Expr)
                            (List 'all-ref Prim-Index)))
 
 
@@ -31,6 +60,9 @@
 
 (struct Type-Bag ((inner : (Setof Bag-Case)))
   #:transparent)
+
+(: empty-bag Type-Bag)
+(define empty-bag (Type-Bag (set)))
 
 (: bag-project (-> Type-Bag Prim-Index Type-Bag))
 (define (bag-project bag pidx)
@@ -59,6 +91,8 @@
              #:when elem) : (Setof Bag-Case)
      elem)))
 
+; Get the prim-type associated with a prim-index from a
+; Bag-Case if it exists
 (: case-ref (-> Bag-Case Prim-Index (Option Prim-Type)))
 (define (case-ref case key)
   (cond
@@ -74,6 +108,9 @@
                (if (= 1 (length types)) (car types) #f))]
             [_ #f])]))
 
+; Add the prim-index/prim-type key/value pair to a bag-case
+; if it does not exist. If it already exists and they're equal
+; return the bag-case as-is. If they aren't equal, fail.
 (: case-set (-> Bag-Case Prim-Index Prim-Type Bag-Case)) 
 (define (case-set case key value)
   (cond
@@ -94,9 +131,13 @@
   (cond
     [(equal? pidx new-root) 'root]
     [else (match pidx
+            [`(all-ref ,inner) (match new-root
+                                 [`(ref root ,_) inner]
+                                 [_ `(all-ref ,(pidx-project inner new-root))])]
             [`(ref ,inner ,len) `(ref ,(pidx-project inner new-root) ,len)]
             [`(len ,inner) `(len ,(pidx-project inner new-root))]
             [_ (error "cannot project")])]))
+
 ;; Converts a type belonging to the given index to a type-bag
 (: type->bag (-> Type Type-Bag))
 (define (type->bag type)
@@ -110,10 +151,12 @@
     [(TAny) (Type-Bag (set (ann (hash) Bag-Case)))]
     [(TNat) (Type-Bag (set (hash idx (PNat))))]
     [(TVar a) (Type-Bag (set (hash idx (PVar a))))]
+    ;[(TConst e) (Type-Bag (set (hash idx e)))]
     ; vectors: pairwise
     [(TBytes n) (Type-Bag (set (cast
                                 (hash idx (PBytes)
-                                      `(len ,idx) (ann n : Integer))
+                                      `(len ,idx) n
+                                      `(all-ref ,idx) (PNat))
                                 Bag-Case)))]
     ; structs
     [(TTagged tag types)
@@ -126,9 +169,9 @@
                        (Type-Bag (set (hash idx (PVec))))
                        (type->bag/raw t `(all-ref ,idx)))]
     [(TDynBytes) (Type-Bag (set (hash idx (PBytes))))]
-    [(TVectorof t n) (bag-product
+    [(TVectorof t e) (bag-product
                       (Type-Bag (set (hash idx (PVec)
-                                           `(len ,idx) n)))
+                                           `(len ,idx) e)))
                       (type->bag/raw t `(all-ref ,idx)))]
     [(TVector types)
      (for/fold ([accum (Type-Bag (set (hash idx (PVec)
@@ -219,18 +262,36 @@
 (define (bag-case->type/inner case pidx)
   (match (hash-ref case pidx #f)
     [#f (TAny)]
-
+    [(PVar t) (TVar t)]
     [(PNat) (TNat)]
-    [(PVec) (or (with-handlers ([exn:fail? (λ _ #f)])
-                  (define length (cast (hash-ref case `(len ,pidx)) Integer))
-                  (TVector (for/list ([i length]) : (Listof Type)
-                             (bag-case->type/inner case `(ref ,pidx ,i)))))
-                (with-handlers ([exn:fail? (λ _ (TAny))])
-                  (define inner-type (bag-case->type/inner (hash 'root
-                                                                 (hash-ref case `(all-ref ,pidx)))'root))
-                  (TDynVectorof inner-type)))]
+    [(PVec)
+     (or
+      ; if len is an int, make a TVector
+      (with-handlers ([exn:fail? (λ _ #f)])
+        (define length (cast (hash-ref case `(len ,pidx)) Integer))
+        (TVector (for/list ([i length]) : (Listof Type)
+                   (bag-case->type/inner case `(ref ,pidx ,i)))))
+
+      ; otherwise, if len is a const-expr, try to make a TVectorof
+      (let ([inner-type (with-handlers ([exn:fail? (λ _ (TAny))])
+                          (bag-case->type/inner
+                            (hash 'root (hash-ref case `(all-ref ,pidx)))'root))])
+        (define len
+          (with-handlers ([exn:fail? (λ _ #f)])
+                         (hash-ref case `(len ,pidx))))
+
+        (if (const-expr? len)
+          (TVectorof inner-type len)
+          ; if no len found, make it dynamic
+          (TDynVectorof inner-type))))]
+
     [(PBytes) (or (with-handlers ([exn:fail? (λ _ #f)])
                     (define length (cast (hash-ref case `(len ,pidx)) Nonnegative-Integer))
                     (TBytes length))
                   (with-handlers ([exn:fail? (λ _ (TAny))])
                     (TDynBytes)))]))
+
+(define T (TVectorof (TVector (list (TBytes 32)
+                                    (TNat)
+                                    (TNat)
+                                    (TAny))) 1))

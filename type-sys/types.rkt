@@ -5,14 +5,26 @@
 (struct TNat () #:transparent)
 (struct TAny () #:transparent)
 
+;; Constant expressions on generics
+(define-type Op (U '+ '- '* '/ '^))
+(define-type Const-Expr
+  ;(U (List Op (Listof Const-Expr))
+  (U (List Op Const-Expr Const-Expr)
+     Symbol
+     Integer))
+
+(define const-expr? (make-predicate Const-Expr))
+;(const-expr? '(+ n 2))
+;(const-expr? '(* (+ x 1) (- x 1)))
+
 ;; Composite types
 (struct TVector ((lst : (Listof Type))) #:transparent)
 (struct TVectorof ((inner : Type)
-                   (count : Nonnegative-Integer)
+                   (count : Const-Expr)
                    ) #:transparent)
 ;; A vector where the length is unknown, but all values of are the given type
 (struct TDynVectorof ((inner : Type)) #:transparent)
-(struct TBytes ((count : Nonnegative-Integer)
+(struct TBytes ((count : Const-Expr)
                 ) #:transparent)
 ;; A byte string of unknown length
 (struct TDynBytes () #:transparent)
@@ -65,6 +77,14 @@
 
 (define Type? (make-predicate Type))
 
+(: const-expr->string (-> Const-Expr String))
+(define (const-expr->string e)
+  (match e
+    [`(,op ,e1 ,e2)
+      (format "~a ~a ~a" e1 op e2)]
+    [(? symbol? s) (symbol->string s)]
+    [(var x) (format "~a" x)]))
+
 ;; Get the string representation of a type
 (: type->string (-> Type String))
 (define (type->string type)
@@ -84,17 +104,18 @@
                    (string-append "["
                                   (string-join inner-names ", ")
                                   "]")]
-    [(TVectorof t n) (string-append "["
+    [(TVectorof t e) (string-append "["
                                     (type->string t)
                                     " * "
-                                    (number->string n)
+                                    (const-expr->string e)
                                     "]")]
-    [(TDynVectorof t) (format "[~a...]" (type->string t))]
+    [(TDynVectorof t) (format "[~a *]" (type->string t))]
     [(TUnion l r) (format "(~a | ~a)"
                           (type->string l)
                           (type->string r))]
     [(TIntersect l r) (format "(~a & ~a)"
                               (type->string l)
                               (type->string r))]
-    [(TBytes n) (format "Bytes[~a]" n)]))
+    [(TBytes n) (format "%[~a]" n)]
+    [(TDynBytes) "%[]"]))
 

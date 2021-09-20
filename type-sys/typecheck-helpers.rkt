@@ -1,12 +1,13 @@
 #lang typed/racket
 (require "types.rkt"
-         "../ast-utils.rkt"
+         "../asts/ast-utils.rkt"
          "typecheck-unify.rkt"
-         "../common.rkt"
+         "../asts/raw-ast.rkt"
+         "../asts/typed-ast.rkt"
          "type-bag.rkt"
          racket/hash)
-(provide (all-defined-out))
 
+(provide (all-defined-out))
 
 ; Produce the name of a product type's
 ; accessor function for a given field
@@ -23,16 +24,43 @@
          (car v)
          (cdr v)))
 
+; Assign a number to each element of a list
+(: enumerate (All (T) (-> (Listof T) (Listof (Pairof Integer T)))))
+(define (enumerate l)
+  (for/list ([x l]
+             [y (in-naturals)])
+    (cons y x)))
+
+; Extract a constant expression from a type if it exists
+(: get-const-expr (-> Type (Option Const-Expr)))
+(define (get-const-expr t)
+  (match t
+    [(TVectorof _ e) e]
+    [(TVector l) (length l)]
+    [(TBytes e) e]
+    [_ #f]))
+
+; Replace a constant expression in a type with another
+(: repl-const-expr (-> Type Const-Expr Type))
+(define (repl-const-expr t new-e)
+  (match t
+    [(TVectorof it e) (TVectorof it new-e)]
+    [(TBytes e) (TBytes new-e)]
+    [_ t]))
+
 ;; A function
 (struct TFunction ((arg-types : (Listof Type))
-                   (result-type : Type)))
+                   (result-type : Type)) #:transparent)
+
+;; a generic function is a function that returns a function type
+(define-type TGenFunction (-> (Listof Type) TFunction))
+
 
 ;; A type scope
 (struct Type-Scope ((vars : Type-Map)
                     (type-vars : Type-Map)
                     (bound-facts : (Immutable-HashTable Symbol Type-Facts))
-                    (funs : (Immutable-HashTable Symbol TFunction))) #:prefab)
-
+                    (funs : (Immutable-HashTable Symbol TGenFunction))) #:transparent)
 (: ts-empty Type-Scope)
 (define ts-empty (Type-Scope (hash) (hash) (hash) (hash)))
 
@@ -114,11 +142,11 @@
     [(Type-Scope vars type-vars type-facts funs)
      (Type-Scope (hash-set vars var-name var-type) type-vars type-facts funs)]))
 
-(: bind-fun (-> Type-Scope Symbol TFunction Type-Scope))
+(: bind-fun (-> Type-Scope Symbol TGenFunction Type-Scope))
 (define (bind-fun ts fun-name fun-type)
   (match ts
     [(Type-Scope vars type-vars type-facts funs)
-     (Type-Scope vars type-vars type-facts (hash-set funs fun-name  fun-type))]))
+     (Type-Scope vars type-vars type-facts (hash-set funs fun-name fun-type))]))
 
 (: bind-type-var (-> Type-Scope Symbol Type Type-Scope))
 (define (bind-type-var ts var-name var-type)
@@ -138,7 +166,7 @@
       (context-error "undefined type ~v"
                      (symbol->string var-name))))
 
-(: lookup-fun (-> Type-Scope Symbol TFunction))
+(: lookup-fun (-> Type-Scope Symbol TGenFunction))
 (define (lookup-fun ts var-name)
   (or (hash-ref (Type-Scope-funs ts) var-name #f)
       (context-error "undefined function ~v"
@@ -150,7 +178,7 @@
   (match texpr
     [`(@type-var Any) (TAny)]
     [`(@type-var Nat) (TNat)]
-    [`(@type-var ,var) (lookup-type-var env var)]
+    [`(@type-var ,var) (with-handlers ([exn:fail? (λ _ (TVar var))]) (lookup-type-var env var))]
     ;[`(@type-var ,var) (context-error "cannot resolve type names yet")]
     ;[`(@type-vec ,vec) (TVector (map (lambda (x) (resolve-type x env)) vec))]
     [`(@type-vec ,vec) (TVector (map (λ((x : Type-Expr)) (resolve-type x env)) vec))]
@@ -162,11 +190,11 @@
      (TUnion (resolve-type x env)
              (resolve-type y env))]
     [`(@type-struct ,name ,fields)
-      (TTagged
-        name
-        (map (lambda ([x : (List Symbol Type-Expr)])
-               (resolve-type (cadr x) env))
-             fields))]
+     (TTagged
+      name
+      (map (lambda ([x : (List Symbol Type-Expr)])
+             (resolve-type (cadr x) env))
+           fields))]
     [_ (error "wtf man" texpr)]
     ))
 
@@ -177,3 +205,23 @@
     [(subtype-of? t1 t2) t2]
     [(subtype-of? t2 t1) t1]
     [else (TUnion t1 t2)]))
+
+; Extract the name of a definition
+(define (def->name def)
+  (match def
+    [`(@def-struct ,n ,_) n]
+    [`(@def-alias ,n ,_) n]
+    [`(@def-fun ,n ,_ ,_ ,_) n]
+    [`(@def-generic-fun ,n ,_ ,_ ,_ ,_ ,_) n]
+    [`(@provide ,n) n]
+    [`(@require ,s) (string->symbol (cast s String))]
+    [`(@def-var ,n) n]
+    [_ #f]))
+
+; Find a definition by its name in a list
+(: find-def-by-name (-> Symbol (Listof Definition) (Option Definition)))
+(define (find-def-by-name name defs)
+  (with-handlers ([exn:fail? (λ _ #f)])
+    (car (filter (λ (def)
+                   (equal? (def->name def) name))
+                 defs))))

@@ -1,11 +1,11 @@
 #lang typed/racket
-(require "parser.rkt"
+(require "grammar/parser.rkt"
          "type-sys/typecheck-unify.rkt"
          "type-sys/typecheck.rkt"
          "type-sys/type-bag.rkt"
          "type-sys/types.rkt"
-         "typed-ast.rkt"
-         "common.rkt")
+         "asts/typed-ast.rkt"
+         "asts/raw-ast.rkt")
 (require/typed file/sha1
                (bytes->hex-string (-> Bytes String)))
 (provide generate-mil)
@@ -21,8 +21,8 @@
 (define (generate-mil prgrm)
   ;; TODO generate fns
   (append
-    (map generate-mil-def ($program-fun-defs prgrm))
-    (list (generate-mil-expr ($program-expr prgrm)))))
+   (map generate-mil-def ($program-fun-defs prgrm))
+   (list (generate-mil-expr ($program-expr prgrm)))))
 
 ;; turns a Melodeon $-ast to mil
 (: generate-mil-expr (-> $-Ast Any))
@@ -42,29 +42,72 @@
 
     ;; other stuff
     [($apply fun args) `(,(mangle-sym fun) . ,(map generate-mil-expr args))]
+    [($push v x) `(,(match (bag->type (type->bag ($-Ast-type v)))
+                        [(TVectorof _ _) 'v-push]
+                        [(TVector _) 'v-push]
+                        [(TBytes _) 'b-push])
+                     ,(generate-mil-expr x)
+                     ,(generate-mil-expr v))]
+    [($cons x v) `(,(match (bag->type (type->bag ($-Ast-type v)))
+                        [(TVectorof _ _) 'v-cons]
+                        [(TVector _) 'v-cons]
+                        [(TBytes _) 'b-cons])
+                     ,(generate-mil-expr x)
+                     ,(generate-mil-expr v))]
     [($append x y) `(,(match (bag->type (type->bag ($-Ast-type x)))
                         [(TVectorof _ _) 'v-concat]
                         [(TVector _) 'v-concat]
                         [(TBytes _) 'b-concat])
-                        ,(generate-mil-expr x)
-                        ,(generate-mil-expr y))]
+                     ,(generate-mil-expr x)
+                     ,(generate-mil-expr y))]
     [($index vec idx) `(,(match ($-Ast-type vec)
                            [(TTagged _ _) 'v-get]
                            [(TVectorof _ _) 'v-get]
                            [(TVector _) 'v-get]
                            [(TBytes _) 'b-get]) ,(generate-mil-expr vec)
                                                 ,(generate-mil-expr idx))]
-    [($range vec from to) `(,(match ($-Ast-type vec)
+    [($slice vec from to) `(,(match ($-Ast-type vec)
                                [(TTagged _ _) 'v-slice]
                                [(TVectorof _ _) 'v-slice]
                                [(TVector _) 'v-slice]
                                [(TBytes _) 'b-slice])
-                             ,(generate-mil-expr vec)
-                             ,(generate-mil-expr from)
-                             ,(generate-mil-expr to))]
+                            ,(generate-mil-expr vec)
+                            ,(generate-mil-expr from)
+                            ,(generate-mil-expr to))]
+    ; Generate a vector of numbers from..to
+    [($range $from $to)
+     (match-define ($-Ast _ ($lit-num from)) $from)
+     (match-define ($-Ast _ ($lit-num to)) $to)
+     `(let (v (v-nil) i 0)
+        (loop ,(- to from)
+          (set! (v-push v i))
+          (set! i (+ i 1)))
+        v)]
+    [($init-vec expr size)
+     `(let (x ,(generate-mil-expr expr)
+              v (v-nil))
+        (loop ,size
+              (set! v (v-push v x)))
+        v)]
     [($if x y z) `(if ,(generate-mil-expr x)
                       ,(generate-mil-expr y)
                       ,(generate-mil-expr z))]
+    [($fold expr var acc-var ini-val vec)
+     (let ([count (match ($-Ast-type vec)
+                    [(TVectorof _ count) count]
+                    [(TVector v) (length v)]
+                    [(TBytes b) b])])
+       `(let (v ,(generate-mil-expr vec)
+              acc ,(generate-mil-expr ini-val)
+              i 0)
+          (loop ,count
+            (set-let ()
+              (set! acc
+                (let (,var (v-get v i)
+                      ,acc-var acc)
+                  ,(generate-mil-expr expr)))
+              (set! i (+ i 1))))
+          acc))]
     [($for expr var-name vec-val)
      (let ([count (match ($-Ast-type vec-val)
                     [(TVectorof _ count) count]
@@ -85,10 +128,12 @@
      `(let (,tmpsym ,(generate-mil-expr expr))
         ,(generate-is type tmpsym))]
     [($lit-bytes bts) (string->symbol
-                        (string-append "0x"
-                                       (bytes->hex-string bts)))]
+                       (string-append "0x"
+                                      (bytes->hex-string bts)))]
     [($block inner) `(let () . ,(map generate-mil-expr inner))]
     [($loop n body) `(loop ,n ,(generate-mil-expr body))]
+    [($extern s) (string->symbol s)]
+    [($extern-call f body) `(,(string->symbol f) . ,(map generate-mil-expr body))]
     [other (error "invalid $-ast" other)]))
 
 (: generate-mil-def (-> $fndef Any))
@@ -98,9 +143,9 @@
      `(fn ,(mangle-sym name)
           ,(map mangle-sym (map (inst car Symbol Any) binds))
           ,(generate-mil-expr body))]))
-    ; TODO mil does not have globals
-    ;[($vardef var expr)
-    ; `(gl ,(mangle-sym var) ,(generate-mil expr))]
+; TODO mil does not have globals
+;[($vardef var expr)
+; `(gl ,(mangle-sym var) ,(generate-mil expr))]
 
 ;; generates code for equality
 (: generate-eq-mil (-> $-Ast $-Ast Any))
@@ -116,7 +161,7 @@
                    (type->string y-type))]))
   (define x-sym (gensym 'eqx))
   (define y-sym (gensym 'eqy))
-  `(let (,x-sym ,(generate-mil x) ,y-sym ,(generate-mil y))
+  `(let (,x-sym ,(generate-mil-expr x) ,y-sym ,(generate-mil-expr y))
      ,(generate-eq-mil-code
        bigger-type
        x-sym
@@ -136,15 +181,25 @@
               `(and ,a ,b))
             1
             pairwise-eqq)]
-    [(TVectorof t n)
+    [(TVectorof t e)
+     (define n (int-or-err e))
      (TVector (make-list n t))]
-    [(TBytes n)
+    [(TBytes e)
+     (define n (int-or-err e))
      (unless (= n 32)
        (error "cannot compare bytestrings of length other than 32"))
      `(= (bytes->u256 ,x-sym)
          (bytes->u256 ,y-sym))]
     [(? Type? t) (error "cannot compare values of non-concrete type"
                         (type->string t))]))
+
+(: int-or-err (-> Const-Expr Integer))
+(define (int-or-err e)
+   (define n (normal-form e))
+   (if (integer? n)
+     n
+     (error (format "Constant expression did not resolve to a concrete form:
+                    ~a" e))))
 
 (: generate-is (-> Type Any Any)) 
 (define (generate-is type sym)
@@ -153,7 +208,8 @@
     [(TBytes n) `(if (= (typeof ,sym) 1)
                      (= (blength ,sym) ,n)
                      0)]
-    [(TVectorof t n)
+    [(TVectorof t e)
+     (define n (int-or-err e))
      (generate-is (TVector (make-list n t)) sym)]
     [(TVector types)
      (define pairwise-is
@@ -172,12 +228,12 @@
 (module+ main
   (define ast (parameterize ([FILENAME "whatever.melo"])
                 (melo-parse-port (open-input-string #<<EOF
-
-let x = ann 0 : Nat in
-if x is Nat then
-  x + 10
-else
-  x * 10
+def labooyah() = 2
+def dup<T>(x: T) = [x, x]
+def getfirst<T>(x : [T, T]) = x[0]
+def roundtrip<T>(x: T) = getfirst(dup(x))
+- - - 
+roundtrip([1, 2, 3])[0] + roundtrip(5) + 6 + labooyah()
 EOF
                                                     ))))
   (displayln "@-Ast:")

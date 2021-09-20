@@ -1,15 +1,33 @@
 #lang typed/racket
 (require "type-bag.rkt"
          "types.rkt"
-         "../common.rkt")
+         "../asts/raw-ast.rkt")
 (provide type-index
          type-append
+         type-cons
+         type-push
+         type-unify
+         type-template-fill
+         vec-index-type
          subtype-of?)
 
+; Check if t2 is a subtype of t1
 (: subtype-of? (-> Type Type Boolean))
 (define (subtype-of? t1 t2)
   (bag-subtype-of? (type->bag t1)
                    (type->bag t2)))
+
+; Return the index type of a vector
+; useful for variable indexing where the exact location is unknown
+(: vec-index-type (-> Type Type))
+(define (vec-index-type t)
+  (match t
+    [(TVectorof inner-type _) inner-type]
+    [(TDynVectorof inner-type) inner-type]
+    [(TVector ts)
+     (bag->type (foldl bag-union
+                       empty-bag
+                       (map type->bag ts)))]))
 
 (: type-index (-> Type Integer Type))
 (define (type-index type idx)
@@ -25,7 +43,63 @@
                      idx
                      length)))
   ;; then we find the possible types
+  (define projected (bag-project bagged `(ref root ,idx)))
   (bag->type (bag-project bagged `(ref root ,idx))))
+
+; Take a vector/bytes type and
+; push a type to it
+(: type-push (-> Type Type Type))
+(define (type-push t u)
+  ;; convert to bags
+  (define t-bag (type->bag t))
+  (define u-bag (type->bag u))
+  ;; cartesian-product the two bags
+  (for*/fold ([accum : Type (TNone)])
+             ([t-case (Type-Bag-inner t-bag)]
+              [u-case (Type-Bag-inner u-bag)]) : Type
+    (TUnion accum
+            (match (cons (bag-case->type t-case)
+                         (bag-case->type u-case))
+              [(cons (TVectorof inner-u const-expr-u) t)
+               (if (equal? inner-u t)
+                 (TVectorof t (normal-form `(+ 1 ,const-expr-u)))
+                 (context-error "Cannot append type ~a to a vector of ~a"
+                                (type->string t)
+                                (type->string inner-u)))]
+              [(cons (TVector u-list) t)
+               (TVector (append u-list (list t)))]
+              [_ (context-error "cannot cons type ~a to a ~a"
+                                (type->string t)
+                                (type->string u))]))))
+
+; Take a type and a vector/bytes type
+; and cons the type to it
+(: type-cons (-> Type Type Type))
+(define (type-cons t u)
+  ;; convert to bags
+  (define t-bag (type->bag t))
+  (define u-bag (type->bag u))
+  ;; cartesian-product the two bags
+  (for*/fold ([accum : Type (TNone)])
+             ([t-case (Type-Bag-inner t-bag)]
+              [u-case (Type-Bag-inner u-bag)]) : Type
+    (TUnion accum
+            (match (cons (bag-case->type t-case)
+                         (bag-case->type u-case))
+              [(cons t (TVectorof inner-u const-expr-u))
+               (if (equal? inner-u t)
+                 (TVectorof t (normal-form `(+ 1 ,const-expr-u)))
+                 (context-error "Cannot append type ~a to a vector of ~a"
+                                (type->string t)
+                                (type->string inner-u)))]
+              [(cons t (TVector u-list))
+               (TVector (cons t u-list))]
+              ; TODO I don't think we have a byte type?
+              ;[(cons (TBytes n)
+              ;       (TBytes m)) (TBytes (normal-form `(+ ,n ,m)))]
+              [_ (context-error "cannot cons type ~a to a ~a"
+                                (type->string t)
+                                (type->string u))]))))
 
 (: type-append (-> Type Type Type))
 (define (type-append t u)
@@ -40,10 +114,19 @@
     (TUnion accum
             (match (cons (bag-case->type t-case)
                          (bag-case->type u-case))
+              [(cons (TVectorof inner-t const-expr-t)
+                     (TVectorof inner-u const-expr-u))
+               (if (equal? inner-u inner-t)
+                 (TVectorof inner-t
+                            (normal-form `(+ ,const-expr-t ,const-expr-u)))
+                 (context-error "Inner types of vectors must match in append,
+                                ~a and ~a"
+                                (type->string inner-t)
+                                (type->string inner-u)))]
               [(cons (TVector t-list)
                      (TVector u-list)) (TVector (append t-list u-list))]
               [(cons (TBytes n)
-                     (TBytes m)) (TBytes (+ n m))]
+                     (TBytes m)) (TBytes (normal-form `(+ ,n ,m)))]
               [_ (context-error "cannot append types ~a and ~a"
                                 (type->string t)
                                 (type->string u))]))))
@@ -109,5 +192,5 @@
                                   (recurse y))]
     [x x]))
 
-#;(type-unify (TUnion (TVar 'a) (TNat))
-            (TUnion (TNat) (TBytes 5)))
+;#(type-unify (TUnion (TVar 'a) (TNat))
+;            (TUnion (TNat) (TBytes 5)))

@@ -1,4 +1,5 @@
 #lang typed/racket
+(require typed-map)
 (require "./common.rkt")
 (require "./type-sys/typecheck.rkt")
 
@@ -11,11 +12,39 @@
 (define (get-generic-fns defs)
   (filter (lambda ([def : Definition]) (eq? (car def) '@def-generic-fun)) defs))
 
+(: const-generic? (-> Definition Boolean))
+(define (const-generic? def)
+  (match def
+    [`(@def-generic-fun ,_ ,_ ,const-vars ,_ ,_ ,_)
+      (> 0 (length const-vars))]
+    [_ #f]))
+
+; Get all @apply's in an @-Ast node which fully specify
+; constant generic parameters with integer values.
+(: get-full-const-apps (-> @-Ast (Listof @-Ast)))
+;(define (get-full-const-apps ast)
+
+; Returns true if the constant expressions are all integers
+; and match the number of const vars to the given @apply node.
+(: is-full-const-app (-> (Listof Const-Exprs) @-Ast Boolean))
+(define (is-full-const-app args app)
+  (match (dectx app)
+    [`(@apply ,_ ,args)
+      (map (λ(arg) (@->$ arg ts) args)
+
+; Get all function definitions which have constant generic parameters
+(: get-const-generic-fns (-> (Listof Definition) (Listof Definition)))
+(define (get-const-generic-fns defs)
+  (filter const-generic? defs))
+
+#|
 (: sym->type-var (-> Symbol Type-Expr))
 (define (sym->type-var s) `(@type-var ,s))
+|#
 
 ; Check if a type contains another type
 ; TODO right now we don't have alias/structs so type-var simply checks equality
+#|
 (: type-contains (-> Type-Expr Type-Expr Boolean))
 (define (type-contains typ inner-typ)
   (match typ
@@ -31,6 +60,7 @@
       (or (type-contains x inner-typ)
           (type-contains y inner-typ))]
     [`(@type-bytes _) #f]))
+|#
 
 ; Takes a @def-generic-fun definition and an @application ast node
 ; and returns a @def-fun definition where the generic types are replaced

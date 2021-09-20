@@ -1,3 +1,11 @@
+# We have no way of doing this cast safely right now
+def self_propagate() = 
+	let outputs = env_spender_tx().outputs in
+	vlen(outputs) == 1 &&
+		(let first_output = ann (unsafe cast env_spender_tx().outputs : [RawCoinData * 1])[0] : RawCoinData in
+		first_output[0] == env_self_hash())
+		
+- - -
 
-
-1+2
+self_propagate() &&
+(unsafe cast env_spender_tx().data : %[1])[0] == (unsafe cast env_parent_data() : %[1])[0]

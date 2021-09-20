@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require rackunit
-         "common.rkt"
+         "../asts/raw-ast.rkt"
          "parser.rkt")
 
 (define (parse-eq? str prgm)
@@ -13,6 +13,10 @@
 (parse-eq?
   "0"
   '(@program () (@lit-num 0)))
+
+(parse-eq?
+  "0..10"
+  '(@program () (@range 0 10)))
 
 (parse-eq?
   "

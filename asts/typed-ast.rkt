@@ -1,7 +1,5 @@
 #lang typed/racket
-(require "common.rkt")
-(require "type-sys/types.rkt")
-;(require "type-sys/typecheck.rkt")
+(require "../type-sys/types.rkt")
 
 (provide (all-defined-out))
 
@@ -29,6 +27,20 @@
   ([expr : $-Ast]
    [var : Symbol]
    [vec-expr : $-Ast])
+  #:transparent)
+
+(struct $fold
+  ([expr : $-Ast]
+   [var : Symbol]
+   [acc-var : Symbol]
+   [ini-val : $-Ast]
+   [l : $-Ast])
+  #:transparent)
+
+(struct $init-vec
+  ([val : $-Ast]
+   ;[size : Nonnegative-Integer])
+   [size : Const-Expr])
   #:transparent)
 
 ; Literal number
@@ -67,6 +79,11 @@
    [body : $-Ast])
   #:transparent)
 
+(struct $extern-call
+  ([name : String]
+   [args : (Listof $-Ast)])
+  #:transparent)
+
 (struct $apply
   ([name : Symbol]
    [args : (Listof $-Ast)])
@@ -77,9 +94,14 @@
    [ref : $-Ast])
   #:transparent)
 
-(struct $range
+(struct $slice
   ([data : $-Ast]
    [from : $-Ast]
+   [to : $-Ast])
+  #:transparent)
+
+(struct $range
+  ([from : $-Ast]
    [to : $-Ast])
   #:transparent)
 
@@ -122,6 +144,16 @@
    [r : $-Ast])
   #:transparent)
 
+(struct $cons
+  ([x : $-Ast]
+   [v : $-Ast])
+
+  #:transparent)
+(struct $push
+  ([v : $-Ast]
+   [x : $-Ast])
+  #:transparent)
+
 (struct $append
   ([l : $-Ast]
    [r : $-Ast])
@@ -134,10 +166,12 @@
 
 (define-type $-Ast-variant
   (U $let
-     ;(List $-Binop $-Ast $-Ast)
      $bin
      $eq
      $append
+     $cons
+     $push
+     $init-vec
      $lit-num
      $lit-vec
      $lit-string
@@ -147,8 +181,11 @@
      $apply
      $is
      $loop
+     $fold
      $for
      $block
+     $extern-call
      $index
      $range
+     $slice
      $if))

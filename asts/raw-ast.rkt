@@ -1,5 +1,6 @@
 #lang typed/racket
 (provide (all-defined-out))
+(require "../type-sys/types.rkt")
 (require/typed parser-tools/lex
                [#:struct position ([offset : Integer] [line : Integer] [col : Integer ])])
 ;(provide position)
@@ -82,6 +83,7 @@
      (List @-Binop @-Ast @-Ast)
      (List '@lit-num Nonnegative-Integer)
      (List '@lit-vec (Listof @-Ast))
+     (List '@init-vec @-Ast Nonnegative-Integer)
      (List '@instantiate Symbol (Listof @-Ast))
      (List '@var Symbol)
      (List '@program (Listof Definition) @-Ast)
@@ -90,18 +92,22 @@
      (List '@accessor @-Ast Symbol)
      (List '@block (Listof @-Ast))
      (List '@index @-Ast @-Ast)
-     (List '@range @-Ast @-Ast @-Ast)
+     (List '@range Nonnegative-Integer Nonnegative-Integer)
+     (List '@slice @-Ast @-Ast @-Ast)
      (List '@update @-Ast @-Ast @-Ast)
      (List '@unsafe-cast @-Ast Type-Expr)
      (List '@ann @-Ast Type-Expr)
      (List '@if @-Ast @-Ast @-Ast)
      (List '@for @-Ast Symbol @-Ast)
+     (List '@fold @-Ast Symbol Symbol @-Ast @-Ast)
      (List '@lit-bytes Bytes)
      (List '@set! Symbol @-Ast)
      (List '@set! Symbol @-Ast)
      (List '@loop Nonnegative-Integer @-Ast)
      (List '@extern String)
+     (List '@extern-call String (Listof @-Ast))
      (List '@is @-Ast Type-Expr)
+     (List '@empty)
      (with-context @-Ast)))
 
 (define @-Ast? (make-predicate @-Ast))
@@ -109,7 +115,8 @@
 (define-type Definition
   (U (List '@def-var Symbol @-Ast)
      (List '@def-generic-fun Symbol
-           (Listof Symbol)
+           (Listof Symbol) ; Generic type vars
+           (Listof Symbol) ; Constant generic vars
            (Listof (List Symbol Type-Expr))
            (Option Type-Expr)
            @-Ast)
@@ -132,13 +139,15 @@
      ;(List '@type-alias Symbol (Listof (List Symbol Type-Expr)))
      (List '@type-struct Symbol (Listof (List Symbol Type-Expr)))
      (List '@type-vec (Listof Type-Expr))
-     (List '@type-vecof Type-Expr Nonnegative-Integer)
+     ;(List '@type-vecof Type-Expr Nonnegative-Integer)
+     (List '@type-vecof Type-Expr Const-Expr)
      (List '@type-dynvecof Type-Expr)
      (List '@type-union Type-Expr Type-Expr)
      (List '@type-intersect Type-Expr Type-Expr)
      (List '@type-dynbytes)
-     (List '@type-bytes Nonnegative-Integer)))
+     ;(List '@type-bytes Nonnegative-Integer)))
+     (List '@type-bytes Const-Expr)))
 
-(define-type @-Binop (U '@+ '@- '@* '@/ '@append '@xor '@bor '@band
+(define-type @-Binop (U '@+ '@- '@* '@/ '@append '@cons '@xor '@bor '@band
                         '@shl '@shr '@or '@and '@eq))
 (define @-Binop? (make-predicate @-Binop))

@@ -42,10 +42,16 @@
 
     ;; other stuff
     [($apply fun args) `(,(mangle-sym fun) . ,(map generate-mil-expr args))]
-    [($push x v) `(,(match (bag->type (type->bag ($-Ast-type v)))
+    [($push v x) `(,(match (bag->type (type->bag ($-Ast-type v)))
                         [(TVectorof _ _) 'v-push]
                         [(TVector _) 'v-push]
                         [(TBytes _) 'b-push])
+                     ,(generate-mil-expr x)
+                     ,(generate-mil-expr v))]
+    [($cons x v) `(,(match (bag->type (type->bag ($-Ast-type v)))
+                        [(TVectorof _ _) 'v-cons]
+                        [(TVector _) 'v-cons]
+                        [(TBytes _) 'b-cons])
                      ,(generate-mil-expr x)
                      ,(generate-mil-expr v))]
     [($append x y) `(,(match (bag->type (type->bag ($-Ast-type x)))

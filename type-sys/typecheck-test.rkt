@@ -28,15 +28,18 @@
 
 (prgrm-eq?
  "3 : [1,2]"
-   ($program '() '()
+   ($program
+   '()
+   '()
    ($-Ast
     (TUnion (TNone) (TVector (list (TNat) (TNat) (TNat))))
-    ($push
+    ($cons
      ($-Ast (TNat) ($lit-num 3))
      ($-Ast
       (TVector (list (TNat) (TNat)))
       ($lit-vec
        (list ($-Ast (TNat) ($lit-num 1)) ($-Ast (TNat) ($lit-num 2)))))))))
+
 
 (prgrm-eq?
   "let v = [1,2,3,4] in v[0..2]"

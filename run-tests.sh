@@ -7,8 +7,8 @@ for file in *-test.rkt type-sys/*-test.rkt grammar/*-test.rkt
 do
 
 if [ "$(racket "$file" >&1)" ]; then
-  echo "Encountered an error"
-  exit 1
+  echo "Encountered an error in $file"
+  #exit 1
 else
   echo "No error"
 fi

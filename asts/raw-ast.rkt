@@ -148,6 +148,6 @@
      ;(List '@type-bytes Nonnegative-Integer)))
      (List '@type-bytes Const-Expr)))
 
-(define-type @-Binop (U '@+ '@- '@* '@/ '@append '@push '@xor '@bor '@band
+(define-type @-Binop (U '@+ '@- '@* '@/ '@append '@cons '@xor '@bor '@band
                         '@shl '@shr '@or '@and '@eq))
 (define @-Binop? (make-predicate @-Binop))

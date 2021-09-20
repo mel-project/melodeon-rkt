@@ -469,13 +469,23 @@
                          (@var @x)
                          ,y))
              type-scope)]
+      [`(@cons ,x ,y)
+       ; no type facts can possibly propagate out of an @append
+       (match-let ([(cons $x _) (@->$ x type-scope)]
+                   [(cons $y _) (@->$ y type-scope)])
+         (cons
+          ($-Ast (type-cons ($type $x) ($type $y))
+                 ($cons $x $y))
+          tf-empty))]
+      ; TODO currently not used since a specific "push" syntax is not
+      ; conventional. Would be useful to use this as an optimization,
+      ; for instance, v ++ [1] becomes a push
       [`(@push ,x ,y)
        ; no type facts can possibly propagate out of an @append
        (match-let ([(cons $x _) (@->$ x type-scope)]
                    [(cons $y _) (@->$ y type-scope)])
-         (printf "res push type: ~a\n\n" (type-cons ($type $x) ($type $y)))
          (cons
-          ($-Ast (type-cons ($type $x) ($type $y))
+          ($-Ast (type-push ($type $x) ($type $y))
                  ($push $x $y))
           tf-empty))]
       [`(@append ,x ,y)

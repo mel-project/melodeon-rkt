@@ -5,6 +5,7 @@
 (provide type-index
          type-append
          type-cons
+         type-push
          type-unify
          type-template-fill
          vec-index-type
@@ -45,6 +46,34 @@
   (define projected (bag-project bagged `(ref root ,idx)))
   (bag->type (bag-project bagged `(ref root ,idx))))
 
+; Take a vector/bytes type and
+; push a type to it
+(: type-push (-> Type Type Type))
+(define (type-push t u)
+  ;; convert to bags
+  (define t-bag (type->bag t))
+  (define u-bag (type->bag u))
+  ;; cartesian-product the two bags
+  (for*/fold ([accum : Type (TNone)])
+             ([t-case (Type-Bag-inner t-bag)]
+              [u-case (Type-Bag-inner u-bag)]) : Type
+    (TUnion accum
+            (match (cons (bag-case->type t-case)
+                         (bag-case->type u-case))
+              [(cons (TVectorof inner-u const-expr-u) t)
+               (if (equal? inner-u t)
+                 (TVectorof t (normal-form `(+ 1 ,const-expr-u)))
+                 (context-error "Cannot append type ~a to a vector of ~a"
+                                (type->string t)
+                                (type->string inner-u)))]
+              [(cons (TVector u-list) t)
+               (TVector (append u-list (list t)))]
+              [_ (context-error "cannot cons type ~a to a ~a"
+                                (type->string t)
+                                (type->string u))]))))
+
+; Take a type and a vector/bytes type
+; and cons the type to it
 (: type-cons (-> Type Type Type))
 (define (type-cons t u)
   ;; convert to bags
@@ -68,7 +97,7 @@
               ; TODO I don't think we have a byte type?
               ;[(cons (TBytes n)
               ;       (TBytes m)) (TBytes (normal-form `(+ ,n ,m)))]
-              [_ (context-error "cannot push type ~a to a ~a"
+              [_ (context-error "cannot cons type ~a to a ~a"
                                 (type->string t)
                                 (type->string u))]))))
 

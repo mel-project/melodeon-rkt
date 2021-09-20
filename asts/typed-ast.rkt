@@ -144,9 +144,14 @@
    [r : $-Ast])
   #:transparent)
 
-(struct $push
+(struct $cons
   ([x : $-Ast]
    [v : $-Ast])
+
+  #:transparent)
+(struct $push
+  ([v : $-Ast]
+   [x : $-Ast])
   #:transparent)
 
 (struct $append
@@ -164,6 +169,7 @@
      $bin
      $eq
      $append
+     $cons
      $push
      $init-vec
      $lit-num

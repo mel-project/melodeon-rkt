@@ -17,6 +17,15 @@
   (bag-subtype-of? (type->bag t1)
                    (type->bag t2)))
 
+; The inner type is just the union of all
+; types in the type vector
+(: tvector-inner-type (-> (Listof Type) Type))
+(define (tvector-inner-type v)
+  ;(define v (TVector-lst tvec))
+  (foldl (λ((t : Type) (acc : Type)) (TUnion t acc))
+         (car v)
+         (cdr v)))
+
 ; Return the index type of a vector
 ; useful for variable indexing where the exact location is unknown
 (: vec-index-type (-> Type Type))
@@ -63,14 +72,16 @@
               [(cons (TVectorof inner-u const-expr-u) t)
                (if (equal? inner-u t)
                  (TVectorof t (normal-form `(+ 1 ,const-expr-u)))
-                 (context-error "Cannot append type ~a to a vector of ~a"
+                 (context-error "Cannot push type ~a to a vector of ~a"
                                 (type->string t)
                                 (type->string inner-u)))]
               [(cons (TVector u-list) t)
                (TVector (append u-list (list t)))]
-              [_ (context-error "cannot cons type ~a to a ~a"
-                                (type->string t)
-                                (type->string u))]))))
+              [(cons t (TVector u-list))
+               (TVector (append (list t) u-list))]
+              [(cons rt ru) (context-error "cannot push type ~a to a ~a"
+                              (type->string rt)
+                              (type->string ru))]))))
 
 ; Take a type and a vector/bytes type
 ; and cons the type to it
@@ -89,7 +100,7 @@
               [(cons t (TVectorof inner-u const-expr-u))
                (if (equal? inner-u t)
                  (TVectorof t (normal-form `(+ 1 ,const-expr-u)))
-                 (context-error "Cannot append type ~a to a vector of ~a"
+                 (context-error "Cannot cons type ~a to a vector of ~a"
                                 (type->string t)
                                 (type->string inner-u)))]
               [(cons t (TVector u-list))
@@ -111,9 +122,12 @@
              ([t-case (Type-Bag-inner t-bag)]
               [u-case (Type-Bag-inner u-bag)]) : Type
     ;; This *should* work.
+    ;(let ([tc (bag-case->type t-case)]
+          ;[uc (bag-case->type u-case)])
     (TUnion accum
             (match (cons (bag-case->type t-case)
                          (bag-case->type u-case))
+            ;(match (cons tc uc)
               [(cons (TVectorof inner-t const-expr-t)
                      (TVectorof inner-u const-expr-u))
                (if (equal? inner-u inner-t)
@@ -123,6 +137,20 @@
                                 ~a and ~a"
                                 (type->string inner-t)
                                 (type->string inner-u)))]
+              [(cons (TVectorof inner-t const-expr-t) (TVector u-list))
+                 (if (subtype-of? (tvector-inner-type u-list) inner-t)
+                   (TVectorof inner-t
+                              (normal-form `(+ ,const-expr-t ,(length u-list))))
+                   (context-error "cannot append a vector with differing types ~a to a ~a"
+                                  (type->string t)
+                                  (type->string u)))]
+              [(cons (TVector u-list) (TVectorof inner-t const-expr-t))
+                 (if (subtype-of? (tvector-inner-type u-list) inner-t)
+                   (TVectorof inner-t
+                              (normal-form `(+ ,const-expr-t ,(length u-list))))
+                   (context-error "cannot append a vector with differing types ~a to a ~a"
+                                  (type->string t)
+                                  (type->string u)))]
               [(cons (TVector t-list)
                      (TVector u-list)) (TVector (append t-list u-list))]
               [(cons (TBytes n)

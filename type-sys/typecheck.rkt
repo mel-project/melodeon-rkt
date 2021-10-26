@@ -355,7 +355,22 @@
            [ts (bind-var type-scope acc-var acc-type)])
          (match l-type
            ; If mapping on a Vectorof, return an $-Ast
-           ;[(TVectorof inner-type count)
+           [(TVectorof inner-type count)
+            (letrec
+                ([inner-ts (bind-var ts var inner-type)]
+                 [$expr-incomplete (car (@->$ expr inner-ts))]
+                 [final-type (match ($-Ast-type $expr-incomplete)
+                               [(TUnion TNone (TVectorof t step-size))
+                                (TVectorof t (derive-recur-eq step-size count))]
+                               [x x])]
+                 ; redefine $expr to have final-type
+                 [$expr ($-Ast final-type ($-Ast-node $expr-incomplete))])
+              ; TODO check that initial and final types match if primitive or
+              ; are both vectors/bytes
+              ; Return an $-Ast
+              (cons ($-Ast final-type
+                           ($fold $expr var acc-var $ini-val $l))
+                    tf-empty))]
            [(TVector il)
             (letrec
                 ([count (length il)]
@@ -378,20 +393,6 @@
               (cons ($-Ast final-type
                            ($fold $expr var acc-var $ini-val $l))
                     tf-empty))]
-           #|
-           [(? TVector? tvec)
-            (letrec
-                ([inner-type (tvector-inner-type tvec)]
-                 [inner-ts (bind-var ts var inner-type)]
-                 [$expr    (car (@->$ expr inner-ts))])
-                ; TODO: require that all inner-types are equal
-                ; (it's basically a TVectorof) for now.
-              (cons ($-Ast
-                     (TVectorof ($-Ast-type $expr)
-                                (length (TVector-lst tvec)))
-                     ($fold $expr var acc-var $ini-val $l))
-                    tf-empty))]
-           |#
            ; Otherwise error
            [(var t) (context-error "fold needs to iterate over a
                                     vector, but a ~a was provided"

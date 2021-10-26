@@ -141,48 +141,11 @@
   (match (dectx ast)
     [`(@program ,initial-defs
                 ,body)
-      #|
-     ; Generate accessor fns for all struct types defined
-     (define accessor-fn-defs
-       (flatten1 (map generate-accessors
-                      (filter struct-def? initial-defs))))
-     ;(printf "******* ~a\n\n"
-     ;        accessor-fn-defs)
-     (define definitions (definitions-sort
-                           (append initial-defs accessor-fn-defs)))
-     ;(pretty-print definitions)
-     (define type-scope (definitions->scope definitions))
-
-     ; Stupid, mutation-based approach
-     (: $definitions (Listof $fndef))
-     (define $definitions '())
-     (: $vardefs (Listof $vardef))
-     (define $vardefs '())
-     (for ([definition definitions])
-       (match definition
-         [`(@def-fun ,name
-                     ,binds
-                     ,return-type
-                     ,body)
-          (make-fn-type type-scope binds name return-type body)]
-         [`(@def-generic-fun ,name
-                             ,_
-                             ,const-params
-                             ,binds
-                             ,return-type
-                             ,body)
-           (make-fn-type type-scope binds name return-type body)]
-         [`(@def-var ,name ,body)
-          (match-define (cons $body _) (@->$ body type-scope))
-          (set! $vardefs (cons ($vardef name $body) $vardefs))]
-         [_ (void)]))
-     |#
      ; Generate accessor fns for all struct types defined
      (define accessor-fn-defs
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
 
-     (pretty-print initial-defs)
      (define definitions (definitions-sort
                            (append initial-defs accessor-fn-defs)))
      (define type-scope (definitions->scope definitions))
@@ -192,40 +155,43 @@
      (define $definitions '())
      (: $vardefs (Listof $vardef))
      (define $vardefs '())
+     (define-macro (snippet)
+       '(let ()
+          (define inner-type-scope
+            (foldl (λ((x : (List Symbol Type-Expr))
+                      (ts : Type-Scope))
+                     (bind-var ts (first x) (resolve-type (second x) type-scope)))
+                   type-scope
+                   args-with-types))
+          (match-define (cons $body _) (@->$ body inner-type-scope))
+          (define ret-type (if return-type (resolve-type return-type type-scope) 
+                               ($-Ast-type $body)))
+          (unless (subtype-of? ($-Ast-type $body) ret-type)
+            (context-error "function ~a annotated with return type ~a but actually returns ~a"
+                           (type->string ret-type)
+                           (type->string ($-Ast-type $body))))
+          (set! $definitions (cons ($fndef name
+                                           (map (λ((x : (List Symbol Type-Expr)))
+                                                  (list (first x)
+                                                        (resolve-type (second x)
+                                                                      type-scope)))
+                                                args-with-types)
+                                           $body)
+                                   $definitions))))
      (for ([definition definitions])
      (match definition
        [`(@def-fun ,name
                    ,args-with-types
                    ,return-type
                    ,body)
-        (define inner-type-scope
-          (foldl (λ((x : (List Symbol Type-Expr))
-                    (ts : Type-Scope))
-                   (bind-var ts (first x) (resolve-type (second x) type-scope)))
-                 type-scope
-                 args-with-types))
-        (match-define (cons $body _) (@->$ body inner-type-scope))
-        (define ret-type (if return-type (resolve-type return-type type-scope) 
-                             ($-Ast-type $body)))
-        (unless (subtype-of? ($-Ast-type $body) ret-type)
-          (context-error "function ~a annotated with return type ~a but actually returns ~a"
-                         (type->string ret-type)
-                         (type->string ($-Ast-type $body))))
-        (set! $definitions (cons ($fndef name
-                                         (map (λ((x : (List Symbol Type-Expr)))
-                                                (list (first x)
-                                                      (resolve-type (second x)
-                                                                    type-scope)))
-                                              args-with-types)
-                                         $body)
-                                 $definitions))]
+         (snippet)]
        [`(@def-generic-fun ,name
                            ,_
                            ,const-params
-                           ,binds
+                           ,args-with-types
                            ,return-type
                            ,body)
-         (make-fn-type type-scope binds name return-type body)]
+         (snippet)]
        [`(@def-var ,name ,body)
         (match-define (cons $body _) (@->$ body type-scope))
         (set! $vardefs (cons ($vardef name $body) $vardefs))]

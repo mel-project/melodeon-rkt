@@ -135,22 +135,6 @@
     [`(+ ,k ,n) (normal-form `(* ,k ,m))]
     [_ (context-error "Only addition supported in recurrence relations right now")]))
 
-; Determine the return type of a fold given the inner expression,
-; accumulator variable name, and number of steps.
-#|
-(: derive-fold-type (-> Type-Scope @-Ast Symbol Integer Type))
-(define (derive-fold-type ts e acc n)
-  (let ([t ($-Ast-type (car (@->$ e ts)))])
-    (if (> n 0)
-      (derive-fold-type (bind-var ts acc t) e acc (- n 1))
-      t)))
-
-(derive-fold-type (bind-var ts-empty 'acc (TVector (list (TNat))));#hash(( 'acc . (TVector ((TNat)))))
-                  `(@var acc)
-                  'acc
-                  2)
-|#
-
 ;; Entry point: transforms a whole program
 (: @-transform (-> @-Ast $program))
 (define (@-transform ast)

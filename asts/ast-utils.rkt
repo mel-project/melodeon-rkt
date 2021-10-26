@@ -243,8 +243,8 @@
     [`(@update ,a ,b ,c) (fun ast (% a b c) 3)]
     [`(@if ,a ,b ,c) (fun ast (% a b c) 3)]
     [`(@for ,a ,_ ,b) (fun ast (% a b) 2)]
-    [`(@fold ,expr ,_ ,_ ,_ ,l)
-      (fun ast (% expr l) 2)]
+    [`(@fold ,expr ,_ ,_ ,_ ,i ,l)
+      (fun ast (% expr i l) 3)]
     [`(@block ,v)
       (fun ast (%-vec v) (length v))]
     [`(@lit-vec ,v)

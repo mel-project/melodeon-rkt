@@ -100,7 +100,6 @@
      (List '@if @-Ast @-Ast @-Ast)
      (List '@for @-Ast Symbol @-Ast)
      (List '@fold @-Ast Symbol Symbol Type-Expr @-Ast @-Ast)
-     ;(List '@fold @-Ast Symbol Symbol @-Ast @-Ast)
      (List '@lit-bytes Bytes)
      (List '@set! Symbol @-Ast)
      (List '@set! Symbol @-Ast)

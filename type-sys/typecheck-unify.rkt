@@ -121,13 +121,9 @@
   (for*/fold ([accum : Type (TNone)])
              ([t-case (Type-Bag-inner t-bag)]
               [u-case (Type-Bag-inner u-bag)]) : Type
-    ;; This *should* work.
-    ;(let ([tc (bag-case->type t-case)]
-          ;[uc (bag-case->type u-case)])
     (TUnion accum
             (match (cons (bag-case->type t-case)
                          (bag-case->type u-case))
-            ;(match (cons tc uc)
               [(cons (TVectorof inner-t const-expr-t)
                      (TVectorof inner-u const-expr-u))
                (if (equal? inner-u inner-t)

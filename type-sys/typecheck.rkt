@@ -121,6 +121,20 @@
                (not (integer? l)))
             (zip lhs rhs))))
 
+; Transform a recurrence relation applied m times into
+; an equation. For its single use in fold right now,
+; we assume a formula will only be an addition of a
+; variable and constant number.
+(: derive-recur-eq (-> Const-Expr Const-Expr Const-Expr))
+(define (derive-recur-eq rec m)
+  (define recf : Const-Expr (normal-form rec))
+  ; Because constants come first in canonical form,
+  ; we know the constant is the first element in an add
+  ;(printf "m is ~s" m)
+  (match recf
+    [`(+ ,k ,n) (normal-form `(* ,k ,m))]
+    [_ (context-error "Only addition supported in recurrence relations right now")]))
+
 ; Determine the return type of a fold given the inner expression,
 ; accumulator variable name, and number of steps.
 #|
@@ -332,38 +346,52 @@
                                (cons ($-Ast ($type (car body))
                                             ($loop count (car body)))
                                      (cdr body)))]
-      [`(@fold ,expr ,var ,acc-var ,ini-val ,l)
+      [`(@fold ,expr ,var ,acc-var ,acc-type-expr ,ini-val ,l)
         (letrec
           ([$ini-val (car (@->$ ini-val type-scope))]
            [$l (car (@->$ l type-scope))]
            [l-type ($-Ast-type $l)]
-           [ts (bind-var type-scope acc-var ($-Ast-type $ini-val))])
+           [acc-type (resolve-type acc-type-expr type-scope)]
+           [ts (bind-var type-scope acc-var acc-type)])
          (match l-type
            ; If mapping on a Vectorof, return an $-Ast
-           [(TVectorof inner-type count)
+           ;[(TVectorof inner-type count)
+           [(TVector il)
             (letrec
-                ([inner-ts (bind-var ts var inner-type)]
-                 ; if expr is a vector/bytes, fold result type will be TFold _
-                 ; (which is (-> Const-Expr TVectorof))
-                 ; otherwise fold result is same as expr type
-                 [$expr    (car (@->$ expr inner-ts))])
+                ([count (length il)]
+                 [inner-type (tvector-inner-type l-type)]
+                 [inner-ts (bind-var ts var inner-type)]
+                 [$expr-incomplete (car (@->$ expr inner-ts))]
+                 [final-type (match ($-Ast-type $expr-incomplete)
+                               [(TUnion TNone (TVectorof t step-size))
+                                (TVectorof t (derive-recur-eq step-size count))]
+                               [x x])]
+                 ; redefine $expr to have final-type
+                 [$expr ($-Ast final-type ($-Ast-node $expr-incomplete))])
+              ; TODO check that initial and final types match if primitive or
+              ; are both vectors/bytes
+              ;(match (cons ($-Ast-type $ini-val) final-type)
+              ;(match ($-Ast-type $ini-val)
+                ;[(TVector 
+                ;[(? or TNat TBool (if 
               ; Return an $-Ast
-              (cons ($-Ast
-                     ;(TVectorof ($-Ast-type $expr) count)
-                     ;(derive-fold-type inner-ts expr acc-var count)
-                     (TAny)
-                     ($fold $expr var acc-var $ini-val $l))
+              (cons ($-Ast final-type
+                           ($fold $expr var acc-var $ini-val $l))
                     tf-empty))]
+           #|
            [(? TVector? tvec)
             (letrec
                 ([inner-type (tvector-inner-type tvec)]
                  [inner-ts (bind-var ts var inner-type)]
                  [$expr    (car (@->$ expr inner-ts))])
+                ; TODO: require that all inner-types are equal
+                ; (it's basically a TVectorof) for now.
               (cons ($-Ast
                      (TVectorof ($-Ast-type $expr)
                                 (length (TVector-lst tvec)))
                      ($fold $expr var acc-var $ini-val $l))
                     tf-empty))]
+           |#
            ; Otherwise error
            [(var t) (context-error "fold needs to iterate over a
                                     vector, but a ~a was provided"

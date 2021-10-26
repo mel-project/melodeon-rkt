@@ -43,7 +43,8 @@
 (define (subst-const-expr e var sub-e)
   (normal-form (cast (substitute e var sub-e) Const-Expr)))
 
-;(algebraic-expand '(* (+ x 1) (- x 1)))
+(algebraic-expand '(* (+ x 1) (- x 1)))
+(algebraic-expand '(+ N 1))
 ;(algebraic-expand '(= (+ 1 x) (* (+ x 1) (- x 1))))
 ;(automatic-simplify '(* (+ x 1) (- x 1)))
 ;(algebraic-expand (substitute '(* (+ x 1) (- x 1)) 'x 3))

@@ -130,8 +130,8 @@
       ; to..from
       (<range-expr> ((NUM RANGE NUM) (pos-lift 1 3 `(@range ,$1 ,$3))))
       ; fold syntax
-      (<fold-expr> ((FOLD <expr> FOR VAR VAR FROM <expr> IN <expr>)
-                   (pos-lift 1 8 `(@fold ,$2 ,$4 ,$5 ,$7 ,$9))))
+      (<fold-expr> ((FOLD <expr> FOR VAR VAR COLON <type-expr> FROM <expr> IN <expr>)
+                   (pos-lift 1 8 `(@fold ,$2 ,$4 ,$5 ,$7 ,$9 ,$11))))
       ;; let x = y in expr
       (<let-expr> ((LET VAR = <expr> IN <expr>) (pos-lift 1 6
                                                           `(@let (,$2 ,$4) ,$6)))

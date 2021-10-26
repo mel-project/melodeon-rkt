@@ -19,7 +19,6 @@
 ; generates a top-level program into mil code
 (: generate-mil (-> $program Any))
 (define (generate-mil prgrm)
-  ;; TODO generate fns
   (append
    (map generate-mil-def ($program-fun-defs prgrm))
    (list (generate-mil-expr ($program-expr prgrm)))))

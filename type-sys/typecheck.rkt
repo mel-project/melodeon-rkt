@@ -364,10 +364,22 @@
             (letrec
                 ([inner-ts (bind-var ts var inner-type)]
                  [$expr-incomplete (car (@->$ expr inner-ts))]
-                 [final-type (match ($-Ast-type $expr-incomplete)
-                               [(TUnion TNone (TVectorof t step-size))
-                                (TVectorof t (derive-recur-eq step-size count))]
-                               [x x])]
+                 [$expr-type ($-Ast-type $expr-incomplete)]
+                 [final-type (cond
+                               [(subtype-of? (TDynVectorof (TAny)) $expr-type)
+                                ; check that initial value is also a vector
+                                (let ([ini-len (match ($-Ast-type $ini-val)
+                                                 [(TVectorof it l) l]
+                                                 [(TVector l) (length l)])])
+                                ; add initial length to final
+                                (match $expr-type
+                                  [(TVectorof t step-size)
+                                   (TVectorof
+                                     t
+                                     (derive-recur-eq
+                                       step-size
+                                       (normal-form `(+ ,count ,ini-len))))]))]
+                                [else $expr-type])]
                  ; redefine $expr to have final-type
                  [$expr ($-Ast final-type ($-Ast-node $expr-incomplete))])
               ; TODO check that initial and final types match if primitive or

@@ -112,14 +112,14 @@
                     [(TVectorof _ count) count]
                     [(TVector v) (length v)]
                     [(TBytes b) b])]
-           [counter (gensym 'i)]
-           [tempvec (gensym 'v)])
+           [counter 'i]
+           [tempvec 'v])
        `(let (,counter 0 ,tempvec ,(generate-mil-expr vec-val))
           (loop ,count (set-let ()
-                                (set! ,tempvec (v-from ,tempvec ,counter
-                                                       (let (,var-name (v-get ,tempvec iter))
-                                                         ,(generate-mil-expr expr))))
-                                (set! ,counter (+ ,counter 1))))
+            (set! ,tempvec (v-from ,tempvec ,counter
+              (let (,var-name (v-get ,tempvec ,counter))
+                ,(generate-mil-expr expr))))
+              (set! ,counter (+ ,counter 1))))
           ,tempvec)
        )]
     [($is expr type)

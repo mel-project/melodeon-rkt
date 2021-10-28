@@ -651,7 +651,7 @@
          ; TODO restrict type to just the slice, not the union of the whole
          ; vector
          (cons
-          ($-Ast (type-slice ($type $val)
+          ($-Ast ($type $val)
                  ($slice $val from to))
           tf-empty))]
       [`(@apply ,fun ,args)

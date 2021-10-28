@@ -624,20 +624,36 @@
         tf-empty)]
       [`(@slice ,val ,from-expr ,to-expr)
        ;(: idx Nonnegative-Integer)
+       #|
        (define to-idx (λ ((expr : @-Ast))
                         (match (dectx expr)
+                          [`(@var ,name)
+                            ($-Ast (vec-index-type ($type $val))
+                                   ($index $val ($-Ast (TNat) ($var name))))]
                           [`(@lit-num ,x) x]
                           [other (context-error "non-literal index ~a not yet supported"
                                                 other)])))
        (define to (to-idx to-expr))
        (define from (to-idx from-expr))
+       |#
        (match-define (cons $val _) (@->$ val type-scope))
-       (cons
-        ($-Ast (type-index ($type $val) to)
-               ($slice $val
-                       ($-Ast (TNat) ($lit-num from))
-                       ($-Ast (TNat) ($lit-num to))))
-        tf-empty)]
+       (let ([to (match (dectx to-expr)
+                   [`(@var ,name) ($-Ast (TNat) ($var name))]
+                   [`(@lit-num ,x) ($-Ast (TNat) ($lit-num x))]
+                   [other (context-error "slice index must be a literal or
+                                          variable, got an ~a"
+                                         other)])]
+             [from (match (dectx from-expr)
+                     [`(@var ,name) ($-Ast (TNat) ($var name))]
+                     [`(@lit-num ,x) ($-Ast (TNat) ($lit-num x))]
+                     [other (context-error "slice index must be a literal or
+                                            variable, got an ~a" other)])])
+         ; TODO restrict type to just the slice, not the union of the whole
+         ; vector
+         (cons
+          ($-Ast (type-slice ($type $val)
+                 ($slice $val from to))
+          tf-empty))]
       [`(@apply ,fun ,args)
        (define $args
          (map (λ((a : @-Ast)) (car (@->$ a type-scope))) args))

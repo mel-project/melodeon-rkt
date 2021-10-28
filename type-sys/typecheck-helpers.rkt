@@ -24,6 +24,23 @@
          (car v)
          (cdr v)))
 
+
+; Slice a TVector/of melodeon type
+(: type-slice (-> Type Integer Integer Type))
+(define (type-slice type from to)
+  (match type
+    [(TVector l) (TVector (slice l from to))]
+    [(TVectorof it n) (TVectorof it (- to from))]))
+
+; Slice a list
+(: slice (All (T) (-> (Listof T) Integer Integer (Listof T))))
+(define (slice arr from to)
+  (map (λ((pair : (Pairof Integer T))) (cdr pair))
+  (filter (λ((pair : (Pairof Integer T)))
+            (match-define (cons i _) pair)
+            (and (>= i from) (< i to)))
+          (enumerate arr))))
+
 ; Assign a number to each element of a list
 (: enumerate (All (T) (-> (Listof T) (Listof (Pairof Integer T)))))
 (define (enumerate l)

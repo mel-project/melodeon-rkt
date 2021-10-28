@@ -43,8 +43,8 @@
 (define (subst-const-expr e var sub-e)
   (normal-form (cast (substitute e var sub-e) Const-Expr)))
 
-(algebraic-expand '(* (+ x 1) (- x 1)))
-(algebraic-expand '(+ N 1))
+;(algebraic-expand '(* (+ x 1) (- x 1)))
+;(algebraic-expand '(+ N 1))
 ;(algebraic-expand '(= (+ 1 x) (* (+ x 1) (- x 1))))
 ;(automatic-simplify '(* (+ x 1) (- x 1)))
 ;(algebraic-expand (substitute '(* (+ x 1) (- x 1)) 'x 3))
@@ -204,6 +204,19 @@
   (for/fold ([accum (ann (set) (Setof a))])
             ([one-set sets]) : (Setof a)
     (set-union accum one-set)))
+
+#|
+(: bag-slice (-> Type-Bag Integer Integer Type-Bag))
+(define (bag-slice bag from to)
+  (Type-Bag (list->set (map
+    (λ((bag-case : Bag-Case)) : (Listof Bag-Case)
+      (filter (λ(pidx) (match pidx
+                         [`(ref ,_ ,expr) #t]
+                         [_ #f]))
+              (hash->list bag-case)))
+    (set->list (Type-Bag-inner bag))))))
+|#
+
 
 ;; Subtracts two bags. Removes all cases from b1 that are subsets of all cases of b2.
 (: bag-subtract (-> Type-Bag Type-Bag Type-Bag))

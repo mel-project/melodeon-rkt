@@ -270,8 +270,7 @@
   (parameterize ([current-context (context-of @-ast)])
     (match (dectx @-ast)
       ;; literals
-      [`(@lit-num ,num) (cons ($-Ast (if (or (= num 0)
-                                             (= num 1)) (TNat) (TNat))
+      [`(@lit-num ,num) (cons ($-Ast (TNatRange num (add1 num))
                                      ($lit-num num))
                               tf-empty)]
       [`(@lit-vec ,vars) (define $vars (map (λ((a : @-Ast)) (car (@->$ a type-scope))) vars))
@@ -866,13 +865,13 @@
     (add-fun-def def (add-var-def def (add-struct-def def (add-alias-def def accum))))))
 
 (module+ test
-    (require "../grammar/parser.rkt")
-    (parameterize ([FILENAME "test.melo"])
-      (time
+  (require "../grammar/parser.rkt")
+  (parameterize ([FILENAME "test.melo"])
+    (time
+     ($-Ast-type
+      ($program-expr
        (@-transform
-        (melo-parse-port (open-input-string "
-def roundtrip<T>(x: T) = getfirst(dup(x))
-def dup<T>(x: T) = [x, x]
-def getfirst<T>(x : [T, T]) = x[0]
-
-"))))))
+        (time
+         (melo-parse-port (open-input-string "
+ann 1 : <0..2> + ann 2 : <0..3>
+")))))))))

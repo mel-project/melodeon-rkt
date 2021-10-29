@@ -195,6 +195,7 @@
   (match texpr
     [`(@type-var Any) (TAny)]
     [`(@type-var Nat) (TNat)]
+    [`(@type-natrange ,a ,b) (TNatRange a b)]
     [`(@type-var ,var) (with-handlers ([exn:fail? (λ _ (TVar var))]) (lookup-type-var env var))]
     ;[`(@type-var ,var) (context-error "cannot resolve type names yet")]
     ;[`(@type-vec ,vec) (TVector (map (lambda (x) (resolve-type x env)) vec))]

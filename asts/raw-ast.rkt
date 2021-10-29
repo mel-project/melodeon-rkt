@@ -145,6 +145,7 @@
      (List '@type-union Type-Expr Type-Expr)
      (List '@type-intersect Type-Expr Type-Expr)
      (List '@type-dynbytes)
+     (List '@type-natrange Const-Expr Const-Expr)
      ;(List '@type-bytes Nonnegative-Integer)))
      (List '@type-bytes Const-Expr)))
 

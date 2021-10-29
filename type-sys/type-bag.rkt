@@ -15,12 +15,12 @@
          empty-bag
          bag-subtract
          bag-project
-         bag-product
+         bag-product 
          bag-union
          bag-case->type
          Prim-Index
          PVar
-         bag->type
+         bag->type 
          bag-subtype-of?
          normal-form
          subst-const-expr
@@ -28,6 +28,9 @@
 
 
 (struct PNat () #:transparent)
+(struct PNatRange ((start : (Option Const-Expr))
+                   (end : (Option Const-Expr)))
+  #:transparent)
 (struct PVec () #:transparent)
 (struct PTagged ((tag : Symbol)) #:transparent)
 (struct PVar ((sym : Symbol)) #:transparent)
@@ -49,7 +52,7 @@
 ;(automatic-simplify '(* (+ x 1) (- x 1)))
 ;(algebraic-expand (substitute '(* (+ x 1) (- x 1)) 'x 3))
 
-(define-type Prim-Type (U PNat PVec PVar Const-Expr PBytes PTagged))
+(define-type Prim-Type (U PNat PNatRange PVec PVar Const-Expr PBytes PTagged PNatRange))
 
 (define-type Prim-Index (U 'root
                            (List 'len Prim-Index)
@@ -151,6 +154,7 @@
     [(TNone) (Type-Bag (set))]
     [(TAny) (Type-Bag (set (ann (hash) Bag-Case)))]
     [(TNat) (Type-Bag (set (hash idx (PNat))))]
+    [(TNatRange a b) (Type-Bag (set (hash idx (PNatRange a b))))]
     [(TVar a) (Type-Bag (set (hash idx (PVar a))))]
     ;[(TConst e) (Type-Bag (set (hash idx e)))]
     ; vectors: pairwise
@@ -196,8 +200,39 @@
   (for/and ([t-case (Type-Bag-inner t)]) : Boolean
     (for/or ([u-case (Type-Bag-inner u)]) : Boolean
       (for/and ([(t-key t-val) t-case]) : Boolean
-        (and (case-ref u-case t-key)
-             (equal? t-val (case-ref u-case t-key)))))))
+        (let ([inner (case-ref u-case t-key)])
+          (and inner
+               (prim-subtype-of? inner t-val)))))))
+
+;; Most primitive subtyping relation
+(: prim-subtype-of? (-> Prim-Type Prim-Type Boolean))
+(define (prim-subtype-of? u t)
+  (printf "subtyping ~v to ~v\n" u t)
+  (match (cons u t)
+    [(cons (PNatRange #f #f) _) (prim-subtype-of? (PNat) t)]
+    [(cons _ (PNatRange #f #f)) (prim-subtype-of? u (PNat))]
+    [(cons (PNatRange _ _) (PNat)) #t]
+    [(cons (PNatRange my-start my-end)
+           (PNatRange their-start their-end))
+     (and (re<= their-start my-start)
+          (re<= my-end their-end))]
+    [_ 
+     (equal? u t)]))
+
+;; Compares to cexprs
+(: re<= (-> (Option Const-Expr)
+            (Option Const-Expr)
+            Boolean))
+(define (re<= a b)
+  (printf "comparing ~v to ~v\n" a b)
+  (cond
+    [(not b) #t]
+    [(not a) (not b)]
+    [(and (integer? a)
+          (integer? b))
+     (<= a b)]
+    ;; conservatively fail. maybe one day we'll do some cool arithmetic to prove ordering on two cexprs, but not this day.
+    [else #f]))
 
 (: set-union* (All (a) (-> (Setof (Setof a)) (Setof a))))
 (define (set-union* sets)

@@ -28,7 +28,7 @@
      (tokens value-tokens syntax-tokens)
      
      (src-pos)
-     ; (debug "/tmp/out.txt")
+     ;(debug "/tmp/out.txt")
      ;(yacc-output "/tmp/debug.y")
      (error (lambda (tok-ok? tok-name tok-value start-pos end-pos)
               (raise-syntax-error
@@ -80,32 +80,34 @@
       (<fun-args> ((<type-dec>) (list $1))
                   ((<type-dec> COMMA <fun-args>) (cons $1 $3))
                   (() empty))
-      (<const-expr> ((<const-expr> * <const-expr>) `(* ,$1 ,$3))
-                    ((<const-expr> + <const-expr>) `(+ ,$1 ,$3))
-                    ((<const-expr> - <const-expr>) `(- ,$1 ,$3))
+      (<const-expr> ;((<const-expr> * <const-expr>) `(* ,$1 ,$3))
+                    ((<const-expr> + <const-expr-2>) `(+ ,$1 ,$3))
+                    ((<const-expr-2>) $1))
+      (<const-expr-2>
                     ((NUM) $1)
                     ((TYPE) $1))
       (<type-dec> ((VAR COLON <type-expr>) (list $1 $3)))
-      (<type-expr> ((<type-expr> BOR <type-expr-2>) `(@type-union ,$1 ,$3))
+      (<type-expr> ;((<type-expr> BOR <type-expr-2>) `(@type-union ,$1 ,$3))
                    ((<type-expr-2>) $1))
-      (<type-expr-2> ((<type-expr-3> BAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
+      (<type-expr-2> ;((<type-expr-3> BAND <type-expr-2>) `(@type-intersect ,$1 ,$3))
                      ((<type-expr-3>) $1))
       (<type-expr-3> ((TYPE) `(@type-var ,$1))
-                     ((OPEN-BRACKET <type-expr> * CLOSE-BRACKET) `(@type-dynvecof ,$2))
+                     ((OPEN-BRACKET <type-expr> SEMICOLON CLOSE-BRACKET) `(@type-dynvecof ,$2))
                      ;((PERCENT OPEN-BRACKET NUM CLOSE-BRACKET) `(@type-bytes ,$3))
                      ((PERCENT OPEN-BRACKET <const-expr> CLOSE-BRACKET)
                       `(@type-bytes ,(normal-form $3)))
                      ((PERCENT OPEN-BRACKET CLOSE-BRACKET) `(@type-dynbytes))
                      ((OPEN-BRACKET <type-exprs> CLOSE-BRACKET) `(@type-vec ,$2))
-                     ;((OPEN-BRACKET <type-expr> * NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
-                     ((OPEN-BRACKET <type-expr> * <const-expr> CLOSE-BRACKET)
+                     ;((OPEN-BRACKET <type-expr> SEMI NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
+                     ((OPEN-BRACKET <type-expr> SEMICOLON <const-expr> CLOSE-BRACKET)
                       `(@type-vecof ,$2 ,(normal-form $4)))
+                     ((LESS-THAN <const-expr> RANGE <const-expr> GREATER-THAN)
+                      `(@type-natrange ,$2 ,$4))
                      ((OPEN-PAREN <type-expr> CLOSE-PAREN) `$2))
       (<type-exprs> ((<type-expr>) (list $1))
                     ((<type-expr> COMMA <type-exprs>) (cons $1 $3)))
       ;; different kinds of exprs
-      (<expr> ((<shl-expr>) $1)
-              ((<let-expr>) $1)
+      (<expr> ((<let-expr>) $1)
               ((<fold-expr>) $1)
               ((<range-expr>) $1)
               ((<vector-compreh>) $1)
@@ -140,10 +142,9 @@
                   ((IF <expr> THEN <expr> ELSE <expr>) (pos-lift 1 6
                                                                  `(@if ,$2 ,$4 ,$6))))
       ;; expr where x = y
-      (<where-expr> ((<add-expr> WHERE VAR = <add-expr>) (pos-lift 1 5
-                                                                   `(@let (,$3 ,$5) ,$1)))
-                    ((<where-expr> WHERE VAR = <add-expr>) (pos-lift 1 5
-                                                                     `(@let (,$3 ,$5) ,$1))))
+      (<where-expr> ((<where-expr> WHERE VAR = <shl-expr>) (pos-lift 1 5
+                                                                     `(@let (,$3 ,$5) ,$1)))
+                    ((<shl-expr>) $1))
       
       ;; bitwise operators
       (<shl-expr> ((<shl-expr> SHL <shr-expr>) (pos-lift 1 3 `(@shl ,$1 ,$3)))
@@ -204,7 +205,7 @@
                        ((UNSAFE CAST <expr> COLON <type-expr>) (pos-lift 1 5
                                                                          `(@unsafe-cast ,$3 ,$5)))
                        ((ANN <expr> COLON <type-expr>) (pos-lift 1 4
-                                                                 `(@ann ,$2 ,$4)))
+                                                             `(@ann ,$2 ,$4)))
                        ((EXTERN BYTES) (pos-lift 1 2
                                                  `(@extern ,(bytes->string/utf-8 $2))))
                        )
@@ -235,12 +236,6 @@
 (module+ test
   (dectx*
    (melo-parse-port (open-input-string #<<EOF
-# We have no way of doing this cast safely right now
-def self_propagate() = 
-	let outputs = env_spender_tx().outputs in
-	vlen(outputs) == 1 &&
-		(let first_output = ann (unsafe cast env_spender_tx().outputs : [RawCoinData * 1])[0] : RawCoinData in
-		first_output[0] == env_self_hash())
-		
+unsafe cast env_spender_tx().outputs : <1..2>
 EOF
                                        ))))

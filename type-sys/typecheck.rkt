@@ -757,6 +757,34 @@
                (second x)) params-with-types))
    ($-Ast-type $body)))
 
+; Create a concrete definition from all @apply's found
+; in an @-Ast if possible. Note that to fully monomorphize,
+; this will need to be run on each new definition
+; produced as well.
+(: monomorphize-const-gen-fns
+   (-> (Listof Definition) @-Ast Type-Scope (Setof Definition)))
+(define (monomorphize-const-gen-fns defs ast ts)
+  ((inst @ast-recurse (Setof Definition))
+    (λ(ast $ N)
+      (match ast
+        [`(@apply ,name ,args)
+          (let ([def (find-def-by-name name defs)])
+            (if def
+              (let ([concrete-def (const-generic->concrete def ast ts)]
+                   [args-set
+                    (for/fold ([accum : (Setof Definition) (set)])
+                              ([counter (length (ann args (Listof @-Ast)))])
+                      (set-union accum ($ counter)))])
+                (if concrete-def
+                  (set-union (set concrete-def) args-set)
+                  args-set))
+              (context-error "Missing a function definition for ~a during
+                             monomorphization" name)))]
+           [_ (for/fold ([accum : (Setof Definition) (set)])
+                        ([counter N])
+                (set-union accum ($ counter)))]))
+    ast))
+
 ; Takes a @def-generic-fun definition and an @apply ast node
 ; and returns a @def-fun definition where the const-generic types are
 ; replaced with types inferred by the application; or nothing if inference

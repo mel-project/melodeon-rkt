@@ -12,8 +12,8 @@
          ast-fold
          ast-fold-def
          zip
-         ;def->ast
          ast-map
+         @ast-recurse
          @ast-parents
          @def-parents
          (struct-out return))

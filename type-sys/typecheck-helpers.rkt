@@ -48,6 +48,18 @@
              [y (in-naturals)])
     (cons y x)))
 
+(: const-generic? (-> Definition Boolean))
+(define (const-generic? def)
+  (match def
+    [`(@def-generic-fun ,_ ,_ ,const-vars ,_ ,_ ,_)
+      (> 0 (length const-vars))]
+    [_ #f]))
+
+; Get all function definitions which have constant generic parameters
+(: get-const-generic-fns (-> (Listof Definition) (Listof Definition)))
+(define (get-const-generic-fns defs)
+  (filter const-generic? defs))
+
 ; Extract a constant expression from a type if it exists
 (: get-const-expr (-> Type (Option Const-Expr)))
 (define (get-const-expr t)
@@ -56,6 +68,12 @@
     [(TVector l) (length l)]
     [(TBytes e) e]
     [_ #f]))
+
+(: has-const-expr (-> Type Boolean))
+(define (has-const-expr t)
+  (match (get-const-expr t)
+    [#f #f]
+    [_ #t]))
 
 ; Replace a constant expression in a type with another
 (: repl-const-expr (-> Type Const-Expr Type))

@@ -150,6 +150,8 @@
                            (append initial-defs accessor-fn-defs)))
      (define type-scope (definitions->scope definitions))
 
+     ; Monomorphize const-generic function definitions
+
      ; Stupid, mutation-based approach
      (: $definitions (Listof $fndef))
      (define $definitions '())
@@ -365,21 +367,22 @@
                 ([inner-ts (bind-var ts var inner-type)]
                  [$expr-incomplete (car (@->$ expr inner-ts))]
                  [$expr-type ($-Ast-type $expr-incomplete)]
-                 [final-type (cond
-                               [(subtype-of? (TDynVectorof (TAny)) $expr-type)
-                                ; check that initial value is also a vector
-                                (let ([ini-len (match ($-Ast-type $ini-val)
-                                                 [(TVectorof it l) l]
-                                                 [(TVector l) (length l)])])
-                                ; add initial length to final
-                                (match $expr-type
-                                  [(TVectorof t step-size)
-                                   (TVectorof
-                                     t
-                                     (derive-recur-eq
-                                       step-size
-                                       (normal-form `(+ ,count ,ini-len))))]))]
-                                [else $expr-type])]
+                 [final-type
+                  (cond
+                   [(subtype-of? (TDynVectorof (TAny)) $expr-type)
+                    ; check that initial value is also a vector
+                    (let ([ini-len (match ($-Ast-type $ini-val)
+                                     [(TVectorof it l) l]
+                                     [(TVector l) (length l)])])
+                      ; add initial length to final
+                      (match $expr-type
+                        [(TVectorof t step-size)
+                         (TVectorof
+                           t
+                           (derive-recur-eq
+                             step-size
+                             (normal-form `(+ ,count ,ini-len))))]))]
+                    [else $expr-type])]
                  ; redefine $expr to have final-type
                  [$expr ($-Ast final-type ($-Ast-node $expr-incomplete))])
               ; TODO check that initial and final types match if primitive or
@@ -754,6 +757,104 @@
                (second x)) params-with-types))
    ($-Ast-type $body)))
 
+; Takes a @def-generic-fun definition and an @apply ast node
+; and returns a @def-fun definition where the const-generic types are
+; replaced with types inferred by the application; or nothing if inference
+; is not possible.
+(: const-generic->concrete (-> Definition @-Ast Type-Scope (Option Definition)))
+(define (const-generic->concrete gen-def app ts)
+  ; TODO check that definition and ast fns match
+  (match gen-def
+    [`(@def-generic-fun ,gen-vars ,_ ,args ,ret-type ,body)
+      (match app
+        [`(@apply ,name ,args)
+          (letrec ([unified ((hash-ref (Type-Scope-funs ts) name) args)]
+                   [is-concrete (foldl (λ(t acc) (and (has-const-expr t) acc))
+                                       #f
+                                       (append (TFunction-arg-types unified)
+                                               (TFunction-result-type unified)))])
+            (if is-concrete
+              ; Produce a new definition from the unified type sig
+              `(@def-generic-fun
+                 ,gen-vars
+                 ,(list)
+                 ,(TFunction-arg-types unified)
+                 ,(TFunction-result-type unified)
+                 ,body)
+              #f))])]))
+
+
+
+#|
+(: def-unify-const-expr (-> Definition @-Ast Type-Scope Definition))
+(define (def-unify-const-expr def app ts)
+   ; First bind any constant vars to the type scope
+   (define tf-with-params (make-fn-type accum binds name return-type body))
+   ;; resolve const expressions and do unification
+   (bind-fun accum
+             name
+             (lambda ((callsite-arg-types : (Listof Type)))
+                      ;(callsite-vals : (Listof $-Ast-variant)))
+               (match tf-with-params
+                 [(TFunction param-types res-type)
+                  (letrec ([param-exprs
+                          ; this map is a typecheck hack
+                          (map (λ(x) (cast x (Pairof Integer Const-Expr)))
+                               (filter (λ(pair) (match-define (cons i e) pair)
+                                                ((compose not false?) e))
+                                       (enumerate (map get-const-expr
+                                                       param-types))))]
+                          [arg-exprs
+                          ; this map is a typecheck hack
+                          (map (λ(x) (cast x (Pairof Integer Const-Expr)))
+                               (filter (λ(pair) (match-define (cons i e) pair)
+                                                ((compose not false?) e))
+                                       (enumerate (map get-const-expr
+                                                       callsite-arg-types))))]
+                          [const-var-map
+                          ; get a mapping of const vars to their inferred
+                          ; const-exprs based on the callsite args
+                          (solve-const-exprs (map cdr param-exprs)
+                                             const-params
+                                             (map cdr arg-exprs))]
+                          [substd-param-exprs
+                          ; for each param, subst each const var mapping
+                          (map (λ(e) (foldl (λ(pair acc)
+                                              (match-define (cons var var-expr) pair)
+                                              (subst-const-expr acc var var-expr))
+                                            e
+                                            (hash->list const-var-map)))
+                               (map cdr param-exprs))]
+                          [arg-types
+                          ; Splice the substituted const exprs back into the
+                          ; original param-types
+                          (let ([arg-types param-types])
+                            (foldl
+                              (λ(pair types)
+                                (match-define (cons expr-idx (cons param-idx-uncasted _)) pair)
+                                (define param-idx (cast param-idx-uncasted Integer))
+                                (list-set types
+                                          param-idx
+                                          (repl-const-expr (list-ref types param-idx)
+                                                           (list-ref
+                                                             substd-param-exprs
+                                                             expr-idx))))
+                              param-types
+                              (enumerate param-exprs)))]
+                          ; Replace the const expr in the result type if it exists
+                          [result-type
+                          (let ([res-expr (get-const-expr res-type)])
+                            (if res-expr
+                              (repl-const-expr
+                                res-type
+                                (foldl (λ(pair acc)
+                                         (match-define (cons var var-expr) pair)
+                                         (subst-const-expr acc var var-expr))
+                                       res-expr
+                                       (hash->list const-var-map)))
+                              res-type))])
+                    |#
+
 ; takes a Type-Scope rather than just one map because
 ; types may need to be resolved and the function-scope
 ; should also be added to.
@@ -851,6 +952,7 @@
                                  (type-template-fill result-type unification-table))
                                         )])))]
     [_ accum]))
+
 
 (: add-var-def (-> Definition Type-Scope Type-Scope))
 (define (add-var-def def accum)

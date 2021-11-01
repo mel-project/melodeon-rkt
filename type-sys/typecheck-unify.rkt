@@ -8,6 +8,7 @@
          type-push
          type-unify
          type-template-fill
+         cg-template-fill
          vec-index-type
          subtype-of?)
 
@@ -157,13 +158,14 @@
 
 ;; Given a "template" containing type variables and another type without type variables, return
 ;; a mapping from type variable to type
-(: type-unify (-> Type Type (HashTable TVar Type)))
+(: type-unify (-> Type Type (Values (HashTable TVar Type)
+                                    (HashTable Symbol Integer))))
 (define (type-unify template type)
   (define template-bag (type->bag template))
   (define type-bag (type->bag type))
   ; Surprisingly easy: we just go through the bag and ask "where" are the type variables.
   ; Then, we bag-project those locations in the type and convert back to a type.
-  (: tvar-locations  (Setof (Listof (List TVar Prim-Index))))
+  (: tvar-locations (Setof (Listof (List TVar Prim-Index))))
   (define tvar-locations
     (for/set ([bag-case (Type-Bag-inner template-bag)]) : (Setof (Listof (List TVar Prim-Index)))
       (for/list ([(key value) bag-case]
@@ -172,7 +174,18 @@
                           [_ #f])) : (Listof (List TVar Prim-Index)) 
         (list (match value
                 [(PVar a) (TVar a)]) key))))
-  (pretty-print tvar-locations)
+  (: cg-locations (Setof (Listof (List Const-Expr Prim-Index))))
+  (define cg-locations
+    (for/set ([bag-case (Type-Bag-inner template-bag)]) : (Setof (Listof (List Const-Expr Prim-Index)))
+      (for/list ([(key value) bag-case]
+                 #:when (match value
+                          [(and (? const-expr? a)
+                                (not (? integer? a))) #t]
+                          [_ #f])) : (Listof (List Const-Expr Prim-Index))
+        (list (match value
+                [(? const-expr? a) a]) key))))
+  (printf "TVAR LOCATIONS: ~v\n" tvar-locations)
+  (printf "CG LOCATIONS: ~v\n" cg-locations)
   ; now we use those locations to lookup the type
   (: tvars (Listof TVar))
   (define tvars (remove-duplicates
@@ -180,28 +193,62 @@
                   (for/list ([case tvar-locations]) : (Listof (Listof TVar))
                     (for/list ([inner case]) : (Listof TVar)
                       (cast (first inner) TVar))))))
-  (pretty-print tvars)
+  (: cgvars (Listof Symbol))
+  (define cgvars (remove-duplicates
+                  (append*
+                   (for/list ([case cg-locations]) : (Listof (Listof Symbol))
+                     (append*
+                      (for/list ([inner case]) : (Listof (Listof Symbol))
+                        (const-expr->symbols (cast (first inner) Const-Expr))))))))
+  (define dummy-filled
+    (cg-template-fill
+                        (type-template-fill template (for/hash ([tvar tvars]) : (HashTable TVar Type)
+                                                       (values tvar (TAny))))
+                        (hash)))
   (unless (subtype-of? type
-                       (type-template-fill template (for/hash ([tvar tvars]) : (HashTable TVar Type)
-                                                      (values tvar (TAny)))))
+                       dummy-filled)
     (context-error "cannot unify because ~a is not a subtype of ~a with all variables replaced by Any"
                    (type->string type)
                    (type->string template)))
-  (for/hash ([tvar tvars]) : (HashTable TVar Type)
-    (values tvar
-            (bag->type
-             (type->bag
-              (for/fold ([accum : Type (TNone)])
-                        ([location-case tvar-locations])
-                (define my-locations (for/list ([k location-case]
-                                                #:when (equal? (first k) tvar)) : (Listof Prim-Index)
-                                       (cast (second k) Prim-Index)))
-                ;(pretty-print my-locations)
-                (TUnion accum
-                        (for/fold ([accum : Type (TNone)])
-                                  ([location my-locations]) : Type
-                          (TUnion accum
-                                  (bag->type (bag-project type-bag location)))))))))))
+  ;; the type table 
+  (define type-table
+    (for/hash ([tvar tvars]) : (HashTable TVar Type)
+      (values tvar
+              (bag->type
+               (type->bag
+                (for/fold ([accum : Type (TNone)])
+                          ([location-case tvar-locations])
+                  (define my-locations (for/list ([k location-case]
+                                                  #:when (equal? (first k) tvar)) : (Listof Prim-Index)
+                                         (cast (second k) Prim-Index)))
+                  (TUnion accum
+                          (for/fold ([accum : Type (TNone)])
+                                    ([location my-locations]) : Type
+                            (TUnion accum
+                                    (bag->type (bag-project type-bag location)))))))))))
+  ;; the cg table
+  (define cg-table
+    (for/fold ([accum : (HashTable Symbol Integer) (hash)])
+              ([location-case cg-locations])
+      (for/fold ([accum accum])
+                 ([(k v)
+                  (for/hash ([expression-and-location location-case]) : (HashTable Symbol Integer)
+                    (match expression-and-location
+                      [(list expr location)
+                       (cond
+                         [(symbol? expr) (values expr
+                                                 (let ([subbag (bag-project type-bag (cast location Prim-Index))])
+                                                   (match (set->list (Type-Bag-inner subbag))
+                                                     [(list one-elem) (let ([lala (hash-ref one-elem 'root #f)])
+                                                                       (cond
+                                                                         [(integer? lala) lala]
+                                                                         [else (context-error "cannot reduce const-generic parameter ~a to an integer" expr)]))]
+                                                     [_ (context-error "ambiguous const-generic parameter ~a" expr)])))]
+                         [else (context-error "no support for unifying non-trivial const-generic parameter ~a at the moment"
+                                              expr)])]))])
+        (hash-set accum k v))))
+  (values type-table cg-table))
+  
 
 ;; Applies a type-variable mapping to a template, filling in the slots
 (: type-template-fill (-> Type (HashTable TVar Type) Type))
@@ -217,5 +264,38 @@
                                   (recurse y))]
     [x x]))
 
-(type-unify (TVectorof (TVar 'a) 3)
-            (TVector (list (TNat) (TNat) (TNat))))
+;; Picks out the const-generic symbols from a const-expr
+(: const-expr->symbols (-> Const-Expr (Listof Symbol)))
+(define (const-expr->symbols cexpr)
+  (match cexpr
+    [(? symbol?) (list cexpr)]
+    [(list op x y) (append (const-expr->symbols x)
+                           (const-expr->symbols y))]
+    [x empty]))
+
+;; Applies a const-generic mapping to a template, filling in the slots
+(: cg-template-fill (-> Type (HashTable Symbol Integer) Type))
+(define (cg-template-fill type table)
+  (define recurse (λ((t : Type)) (cg-template-fill t table)))
+  ;; Helper: find-and-replace within a const-generic expression
+  (: helper (-> Const-Expr Const-Expr))
+  (define (helper cexpr)
+    (match cexpr
+      [(? symbol?) (hash-ref table cexpr)]
+      [(list op x y) (list op (helper x)
+                           (helper y))]
+      [x x]))
+  (match type
+    [(TVectorof t n) (let ([n-replaced (with-handlers ([exn:fail? (λ _ #f)]) (helper n))])
+                       (if n-replaced (TVectorof (recurse t) n-replaced)
+                           (TDynVectorof (recurse t))))]
+    [(TVector lst) (TVector (map recurse lst))]
+    [(TUnion x y) (TUnion (recurse x)
+                          (recurse y))]
+    [(TIntersect x y) (TIntersect (recurse x)
+                                  (recurse y))]
+    [x x]))
+
+
+(type-unify (TVectorof (TVar 'a) 'N)
+            (TVectorof (TNat) 3))

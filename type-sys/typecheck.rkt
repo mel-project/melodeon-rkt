@@ -790,73 +790,25 @@
                           ;(callsite-vals : (Listof $-Ast-variant)))
                    (match tf-with-params
                      [(TFunction param-types res-type)
-                      (letrec ([param-exprs
-                              ; this map is a typecheck hack
-                              (map (λ(x) (cast x (Pairof Integer Const-Expr)))
-                                   (filter (λ(pair) (match-define (cons i e) pair)
-                                                    ((compose not false?) e))
-                                           (enumerate (map get-const-expr
-                                                           param-types))))]
-                              [arg-exprs
-                              ; this map is a typecheck hack
-                              (map (λ(x) (cast x (Pairof Integer Const-Expr)))
-                                   (filter (λ(pair) (match-define (cons i e) pair)
-                                                    ((compose not false?) e))
-                                           (enumerate (map get-const-expr
-                                                           callsite-arg-types))))]
-                              [const-var-map
-                              ; get a mapping of const vars to their inferred
-                              ; const-exprs based on the callsite args
-                              (solve-const-exprs (map cdr param-exprs)
-                                                 const-params
-                                                 (map cdr arg-exprs))]
-                              [substd-param-exprs
-                              ; for each param, subst each const var mapping
-                              (map (λ(e) (foldl (λ(pair acc)
-                                                  (match-define (cons var var-expr) pair)
-                                                  (subst-const-expr acc var var-expr))
-                                                e
-                                                (hash->list const-var-map)))
-                                   (map cdr param-exprs))]
-                              [arg-types
-                              ; Splice the substituted const exprs back into the
-                              ; original param-types
-                              (let ([arg-types param-types])
-                                (foldl
-                                  (λ(pair types)
-                                    (match-define (cons expr-idx (cons param-idx-uncasted _)) pair)
-                                    (define param-idx (cast param-idx-uncasted Integer))
-                                    (list-set types
-                                              param-idx
-                                              (repl-const-expr (list-ref types param-idx)
-                                                               (list-ref
-                                                                 substd-param-exprs
-                                                                 expr-idx))))
-                                  param-types
-                                  (enumerate param-exprs)))]
-                              ; Replace the const expr in the result type if it exists
-                              [result-type
-                              (let ([res-expr (get-const-expr res-type)])
-                                (if res-expr
-                                  (repl-const-expr
-                                    res-type
-                                    (foldl (λ(pair acc)
-                                             (match-define (cons var var-expr) pair)
-                                             (subst-const-expr acc var var-expr))
-                                           res-expr
-                                           (hash->list const-var-map)))
-                                  res-type))])
-                      (define unification-table
+                      (define type-unification-table
                         (for/fold ([accum : (Immutable-HashTable TVar Type) (hash)])
-                                  ([arg-type arg-types]
+                                  ([arg-type param-types]
                                    [callsite-arg-type callsite-arg-types])
+                          (define-values (type-table cg-table) (type-unify arg-type callsite-arg-type))
                           (hash-union accum
-                                      (type-unify arg-type callsite-arg-type))))
+                                      type-table)))
+                      (define cg-unification-table
+                        (for/fold ([accum : (Immutable-HashTable Symbol Integer) (hash)])
+                                  ([arg-type param-types]
+                                   [callsite-arg-type callsite-arg-types])
+                          (define-values (type-table cg-table) (type-unify arg-type callsite-arg-type))
+                          (hash-union accum
+                                      cg-table)))
                       (TFunction (map (λ((x : Type))
-                                        (type-template-fill x unification-table))
-                                      arg-types)
-                                 (type-template-fill result-type unification-table))
-                                        )])))]
+                                        (cg-template-fill (type-template-fill x type-unification-table)
+                                                          cg-unification-table))
+                                      param-types)
+                                 (type-template-fill res-type type-unification-table))])))]
     [_ accum]))
 
 (: add-var-def (-> Definition Type-Scope Type-Scope))
@@ -876,14 +828,14 @@
   (require "../grammar/parser.rkt")
   (parameterize ([FILENAME "test.melo"])
     (time
-     ($-Ast-type
-      ($program-expr
-       (@-transform
-        (time
-         (melo-parse-port (open-input-string "
-def two_times<const N, const M>(x: {N..M}) = x + x
+     (type->string 
+      ($-Ast-type
+       ($program-expr
+        (@-transform
+         (time
+          (melo-parse-port (open-input-string "
 def laboo<const N, T>(x: [T; N]) = x ++ x
 ---
 
 laboo([1, 2, 3])
-")))))))))
+"))))))))))

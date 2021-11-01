@@ -270,7 +270,7 @@
   (parameterize ([current-context (context-of @-ast)])
     (match (dectx @-ast)
       ;; literals
-      [`(@lit-num ,num) (cons ($-Ast (TNatRange num (add1 num))
+      [`(@lit-num ,num) (cons ($-Ast (TNatRange num num)
                                      ($lit-num num))
                               tf-empty)]
       [`(@lit-vec ,vars) (define $vars (map (λ((a : @-Ast)) (car (@->$ a type-scope))) vars))
@@ -486,7 +486,15 @@
                  [_
                   (assert-type x ($type $x) (TNat))
                   (assert-type y ($type $y) (TNat))
-                  ($-Ast (TNat)
+                  ($-Ast (match op
+                           ['@+ (match (cons (type->natrange ($type $x))
+                                             (type->natrange ($type $y)))
+                                  [(cons (TNatRange x-a x-b)
+                                         (TNatRange y-a y-b))
+                                   (TNatRange (and x-a y-a (ce+ x-a y-a))
+                                              (and x-b y-b (ce+ x-b y-b)))]
+                                  [_ (TNat)])]
+                           [_ (TNat)])
                          ($bin (match op
                                  ['@bor 'or]
                                  ['@band 'and]
@@ -873,5 +881,8 @@
        (@-transform
         (time
          (melo-parse-port (open-input-string "
-ann 1 : <0..2> + ann 2 : <0..3>
+def two_times<const N, const M>(x: {N..M}) = x + x
+---
+
+two_times(2 + 2)
 ")))))))))

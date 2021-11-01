@@ -101,7 +101,7 @@
                      ;((OPEN-BRACKET <type-expr> SEMI NUM CLOSE-BRACKET) `(@type-vecof ,$2 ,$4))
                      ((OPEN-BRACKET <type-expr> SEMICOLON <const-expr> CLOSE-BRACKET)
                       `(@type-vecof ,$2 ,(normal-form $4)))
-                     ((LESS-THAN <const-expr> RANGE <const-expr> GREATER-THAN)
+                     ((OPEN-BRACE <const-expr> RANGE <const-expr> CLOSE-BRACE)
                       `(@type-natrange ,$2 ,$4))
                      ((OPEN-PAREN <type-expr> CLOSE-PAREN) `$2))
       (<type-exprs> ((<type-expr>) (list $1))
@@ -236,6 +236,6 @@
 (module+ test
   (dectx*
    (melo-parse-port (open-input-string #<<EOF
-unsafe cast env_spender_tx().outputs : <1..2>
+unsafe cast env_spender_tx().outputs : {1..2}
 EOF
                                        ))))

@@ -172,7 +172,7 @@
                           [_ #f])) : (Listof (List TVar Prim-Index)) 
         (list (match value
                 [(PVar a) (TVar a)]) key))))
-  ;(pretty-print tvar-locations)
+  (pretty-print tvar-locations)
   ; now we use those locations to lookup the type
   (: tvars (Listof TVar))
   (define tvars (remove-duplicates
@@ -180,6 +180,7 @@
                   (for/list ([case tvar-locations]) : (Listof (Listof TVar))
                     (for/list ([inner case]) : (Listof TVar)
                       (cast (first inner) TVar))))))
+  (pretty-print tvars)
   (unless (subtype-of? type
                        (type-template-fill template (for/hash ([tvar tvars]) : (HashTable TVar Type)
                                                       (values tvar (TAny)))))
@@ -216,5 +217,5 @@
                                   (recurse y))]
     [x x]))
 
-;#(type-unify (TUnion (TVar 'a) (TNat))
-;            (TUnion (TNat) (TBytes 5)))
+(type-unify (TVectorof (TVar 'a) 3)
+            (TVector (list (TNat) (TNat) (TNat))))

@@ -9,6 +9,21 @@
 
 (provide (all-defined-out))
 
+;; Cast a type to a NatRange
+(: type->natrange (-> Type (U TNat TNatRange)))
+(define (type->natrange type)
+  ; Merge each bag case
+  (for/fold ([accum : (U TNat TNatRange) (TNatRange 0 0)])
+            ([case (Type-Bag-inner (type->bag type))])
+    (match (hash-ref case 'root)
+      [(PNatRange a b) (match accum
+                         [(TNatRange 0 0) (TNatRange a b)]
+                         [(TNatRange accum-a accum-b)
+                          (TNatRange (if (re<= accum-a a) accum-a a)
+                                     (if (re<= accum-b b) b accum-b))]
+                         [x x])]
+      [(PNat) (TNat)])))
+
 ; Produce the name of a product type's
 ; accessor function for a given field
 (: accessor-name (-> Symbol Symbol Symbol))

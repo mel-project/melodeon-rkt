@@ -12,6 +12,8 @@
 
 (provide type->bag
          (struct-out Type-Bag)
+         (struct-out PNatRange)
+         (struct-out PNat)
          empty-bag
          bag-subtract
          bag-project
@@ -24,7 +26,16 @@
          bag-subtype-of?
          normal-form
          subst-const-expr
+         re<=
+         ce+
          )
+
+;; Add to const exprs
+(: ce+ (-> Const-Expr Const-Expr Const-Expr))
+(define (ce+ a b)
+  (cast (automatic-simplify `(+ ,a ,b))
+        Const-Expr))
+
 
 
 (struct PNat () #:transparent)
@@ -68,10 +79,12 @@
 (: empty-bag Type-Bag)
 (define empty-bag (Type-Bag (set)))
 
+;; Project a type bag into a particular an index.
 (: bag-project (-> Type-Bag Prim-Index Type-Bag))
 (define (bag-project bag pidx)
   (Type-Bag
    (for/set ([bag-case (Type-Bag-inner bag)]) : (Setof Bag-Case)
+     ;; for each bag-case, we project that bag case
      (for/fold ([accum (ann (hash) (HashTable Prim-Index Prim-Type))])
                ([(key val) bag-case]) : (HashTable Prim-Index Prim-Type)
        (with-handlers ([exn:fail? (λ _ accum)])
@@ -109,6 +122,8 @@
                  (remove-duplicates
                   (for/list ([idx (cast (hash-ref case `(len ,inner)) Integer)]) : (Listof Prim-Type)
                     (hash-ref case `(ref ,inner ,idx)))))
+               (displayln "ALLREF")
+               (displayln types)
                (if (= 1 (length types)) (car types) #f))]
             [_ #f])]))
 
@@ -128,7 +143,6 @@
   (for/fold ([accum c1])
             ([(k v) c2])
     (case-set accum k v)))
-
 
 (: pidx-project (-> Prim-Index Prim-Index Prim-Index))
 (define (pidx-project pidx new-root)
@@ -196,9 +210,10 @@
 ;; Bag-based subtype function
 (: bag-subtype-of? (-> Type-Bag Type-Bag Boolean))
 (define (bag-subtype-of? u t)
-  ; every case in t must be a superset of all the cases in u
-  (for/and ([t-case (Type-Bag-inner t)]) : Boolean
-    (for/or ([u-case (Type-Bag-inner u)]) : Boolean
+  ; some case in t must be a superset of all the cases in u
+  (for/or ([t-case (Type-Bag-inner t)]) : Boolean
+    (for/and ([u-case (Type-Bag-inner u)]) : Boolean
+      (printf "u-case ~v, t-case ~v\n" u-case t-case)
       (for/and ([(t-key t-val) t-case]) : Boolean
         (let ([inner (case-ref u-case t-key)])
           (and inner
@@ -232,7 +247,7 @@
           (integer? b))
      (<= a b)]
     ;; conservatively fail. maybe one day we'll do some cool arithmetic to prove ordering on two cexprs, but not this day.
-    [else #f]))
+    [else (equal? a b)]))
 
 (: set-union* (All (a) (-> (Setof (Setof a)) (Setof a))))
 (define (set-union* sets)
@@ -312,6 +327,7 @@
   (match (hash-ref case pidx #f)
     [#f (TAny)]
     [(PVar t) (TVar t)]
+    [(PNatRange a b) (TNatRange a b)]
     [(PNat) (TNat)]
     [(PVec)
      (or

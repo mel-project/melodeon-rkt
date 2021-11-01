@@ -265,6 +265,27 @@
     [`(@def-var ,n) n]
     [_ #f]))
 
+(: subst-const-expr-in-type (-> Type Symbol Const-Expr Type))
+(define (subst-const-expr-in-type t var sub-e)
+  (match (cons t sub-e)
+     ; TODO not checking whether types match it
+    [(TVectorof it e)
+     (TVectorof it (subst-const-expr e var sub-e))]
+    [(TVector l)
+     (TVector (map (λ(t) (subst-const-expr-in-type t var sub-e)) l))]
+    [(TBytes e)
+     (TBytes (subst-const-expr e e sub-e))]
+    [_ t]))
+
+; Replace types containing a const expression with the given
+; symbol with the new constant expression in place.
+(: repl-const-generics (-> $-Ast Symbol Const-Expr $-Ast))
+(define (repl-const-generics $ast cvar expr)
+  ($ast-map (λ(ast) ($-Ast (subst-const-expr-in-type ($-Ast-type ast) cvar expr)
+                           ($-Ast-node $ast)))
+            $ast))
+
+
 ; Find a definition by its name in a list
 (: find-def-by-name (-> Symbol (Listof Definition) (Option Definition)))
 (define (find-def-by-name name defs)

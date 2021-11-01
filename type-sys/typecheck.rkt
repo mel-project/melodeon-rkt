@@ -803,10 +803,8 @@
 (define (const-generic->concrete gen-def app ts)
   ; TODO check that definition and ast fns match
   (match gen-def
-    ;[`(@def-generic-fun ,def-name ,gen-vars ,_ ,args ,ret-type ,body)
     [($fndef def-name binds body)
       (match ($-Ast-node app)
-        ;[`(@apply ,name ,args)
         [($apply name args)
           (letrec ([arg-types (map $-Ast-type args)]
                    [unified ((hash-ref (Type-Scope-funs ts) name) arg-types)]
@@ -814,22 +812,13 @@
                                        #t
                                        (cons (TFunction-result-type unified)
                                              (TFunction-arg-types unified)))])
-            (printf "unified\n~a\n" unified)
             (if is-concrete
               ; Produce a new definition from the unified type sig
-              #|
-              `(@def-generic-fun
-                 ,def-name
-                 ,gen-vars
-                 ,(list)
-                 ,(TFunction-arg-types unified)
-                 ,(TFunction-result-type unified)
-                 ,body)
-              |#
               ($fndef def-name
                       (zip (map car binds)
                            (TFunction-arg-types unified))
-                      body)
+                      ; TODO
+                      (repl-const-generics body 'N 3))
               #f))]
         [_ (context-error "Internal error: expected an apply ast node but
                           got ~a" app)])]))

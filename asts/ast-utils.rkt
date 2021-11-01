@@ -1,5 +1,6 @@
 #lang typed/racket
 (require "raw-ast.rkt"
+         "typed-ast.rkt"
          "../type-sys/types.rkt"
          compatibility/defmacro)
 ;(require racket/hash)
@@ -13,6 +14,7 @@
          ast-fold-def
          zip
          ast-map
+         $ast-map
          @ast-recurse
          @ast-parents
          @def-parents
@@ -336,3 +338,38 @@
 ;(@ast-unshadowed-symbols '(@let (x (@let (y (@lit-num 2)) (@var y))) (@var x)))
 ;(@demo '(@let (x (@let (y (@lit-num 2)) (@var y))) (@var y))
 ;       (set))
+
+; Fold over an $-Ast, recursing on inner nodes
+;(: $ast-map (All (A) (-> (-> $-Ast A) $-Ast A)))
+(: $ast-map (-> (-> $-Ast $-Ast) $-Ast $-Ast))
+(define ($ast-map f ast)
+  ($-Ast ($-Ast-type ast)
+  (match ($-Ast-node ast)
+     [($lit-num val) ($lit-num val)]
+     [($lit-bytes val) ($lit-bytes val)]
+     [($lit-string val) ($lit-string val)]
+     [($var val) ($var val)]
+     [($extern val) ($extern val)]
+     [($let var expr body)
+      ($let var (f expr) (f body))]
+     [($bin op l r) ($bin op (f l) (f r))]
+     [($eq l r) ($eq (f l) (f r))]
+     [($append l r) ($append (f l) (f r))]
+     [($cons l r) ($cons (f l) (f r))]
+     [($push l r) ($push (f l) (f r))]
+     [($init-vec val size) ($init-vec (f val) size)]
+     [($lit-vec l) ($lit-vec (map f l))]
+     [($apply name args) ($apply name (map f args))]
+     [($is expr type) ($is (f expr) type)]
+     [($loop count body) ($loop count (f body))]
+     [($fold expr var acc-var ini-val l)
+      ($fold (f expr) var acc-var (f ini-val) (f l))]
+     [($for expr var vec-expr)
+      ($for (f expr) var (f vec-expr))]
+     [($block l) ($block (map f l))]
+     [($extern-call name args)
+      ($extern-call name (map f args))]
+     [($index data ref) ($index (f data) (f ref))]
+     [($range from to) ($range (f from) (f to))]
+     [($slice data from to) ($slice (f data) (f from) (f to))]
+     [($if p t fls) ($if (f p) (f t) (f fls))])))

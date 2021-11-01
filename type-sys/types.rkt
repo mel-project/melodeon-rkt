@@ -111,7 +111,7 @@
                                   "]")]
     [(TVectorof t e) (string-append "["
                                     (type->string t)
-                                    " * "
+                                    " ; "
                                     (const-expr->string e)
                                     "]")]
     [(TDynVectorof t) (format "[~a *]" (type->string t))]

@@ -882,7 +882,8 @@
         (time
          (melo-parse-port (open-input-string "
 def two_times<const N, const M>(x: {N..M}) = x + x
+def laboo<const N, T>(x: [T; N]) = x ++ x
 ---
 
-two_times(2 + 2)
+laboo([1, 2, 3])
 ")))))))))

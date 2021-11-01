@@ -173,8 +173,10 @@
                            (type->string ret-type)
                            (type->string ($-Ast-type $body))))
           (set! $definitions (cons ($fndef name
-                                           (map (λ((x : (List Symbol Type-Expr)))
-                                                  (list (first x)
+                                           (map (λ((x : (List Symbol
+                                                                Type-Expr))) :
+                                                  (Pairof Symbol Type)
+                                                  (cons (first x)
                                                         (resolve-type (second x)
                                                                       type-scope)))
                                                 args-with-types)
@@ -198,9 +200,13 @@
         (match-define (cons $body _) (@->$ body type-scope))
         (set! $vardefs (cons ($vardef name $body) $vardefs))]
        [_ (void)]))
-     ($program $definitions
-               $vardefs
-               (car (@->$ body type-scope)))]))
+     (let ([$body (car (@->$ body type-scope))])
+       (printf "concrete const-generic functions\n")
+       ; monomorphize const-generic function defs
+       (pretty-print (monomorphize-const-gen-fns $definitions body type-scope))
+       ($program $definitions
+                 $vardefs
+                 $body))]))
 
 ; When given a @def-struct, generates a list of @def-fun's
 ; to access every field of the struct.
@@ -762,54 +768,71 @@
 ; this will need to be run on each new definition
 ; produced as well.
 (: monomorphize-const-gen-fns
-   (-> (Listof Definition) @-Ast Type-Scope (Setof Definition)))
+   ;(-> (Listof Definition) @-Ast Type-Scope (Setof Definition)))
+   (-> (Listof $fndef) @-Ast Type-Scope (Setof $fndef)))
 (define (monomorphize-const-gen-fns defs ast ts)
-  ((inst @ast-recurse (Setof Definition))
+  ((inst @ast-recurse (Setof $fndef))
     (λ(ast $ N)
-      (match ast
-        [`(@apply ,name ,args)
-          (let ([def (find-def-by-name name defs)])
+      (define $ast (car (@->$ ast ts)))
+      (match ($-Ast-node $ast)
+        [($apply name args)
+          (let ([def (find-$def-by-name name defs)])
+            (printf "found def ~a\n" name)
             (if def
-              (let ([concrete-def (const-generic->concrete def ast ts)]
+              (let ([concrete-def (const-generic->concrete def $ast ts)]
                    [args-set
-                    (for/fold ([accum : (Setof Definition) (set)])
-                              ([counter (length (ann args (Listof @-Ast)))])
+                    (for/fold ([accum : (Setof $fndef) (set)])
+                              ([counter (length (ann args (Listof $-Ast)))])
                       (set-union accum ($ counter)))])
+                (printf "concrete def? ~a\n" concrete-def)
                 (if concrete-def
                   (set-union (set concrete-def) args-set)
                   args-set))
               (context-error "Missing a function definition for ~a during
                              monomorphization" name)))]
-           [_ (for/fold ([accum : (Setof Definition) (set)])
-                        ([counter N])
-                (set-union accum ($ counter)))]))
+        [_ (for/fold ([accum : (Setof $fndef) (set)])
+                     ([counter N])
+             (set-union accum ($ counter)))]))
     ast))
 
 ; Takes a @def-generic-fun definition and an @apply ast node
 ; and returns a @def-fun definition where the const-generic types are
 ; replaced with types inferred by the application; or nothing if inference
 ; is not possible.
-(: const-generic->concrete (-> Definition @-Ast Type-Scope (Option Definition)))
+(: const-generic->concrete (-> $fndef $-Ast Type-Scope (Option $fndef)))
 (define (const-generic->concrete gen-def app ts)
   ; TODO check that definition and ast fns match
   (match gen-def
-    [`(@def-generic-fun ,gen-vars ,_ ,args ,ret-type ,body)
-      (match app
-        [`(@apply ,name ,args)
-          (letrec ([unified ((hash-ref (Type-Scope-funs ts) name) args)]
-                   [is-concrete (foldl (λ(t acc) (and (has-const-expr t) acc))
-                                       #f
-                                       (append (TFunction-arg-types unified)
-                                               (TFunction-result-type unified)))])
+    ;[`(@def-generic-fun ,def-name ,gen-vars ,_ ,args ,ret-type ,body)
+    [($fndef def-name binds body)
+      (match ($-Ast-node app)
+        ;[`(@apply ,name ,args)
+        [($apply name args)
+          (letrec ([arg-types (map $-Ast-type args)]
+                   [unified ((hash-ref (Type-Scope-funs ts) name) arg-types)]
+                   [is-concrete (foldl (λ(t acc) (and (has-concrete-const-expr? t) acc))
+                                       #t
+                                       (cons (TFunction-result-type unified)
+                                             (TFunction-arg-types unified)))])
+            (printf "unified\n~a\n" unified)
             (if is-concrete
               ; Produce a new definition from the unified type sig
+              #|
               `(@def-generic-fun
+                 ,def-name
                  ,gen-vars
                  ,(list)
                  ,(TFunction-arg-types unified)
                  ,(TFunction-result-type unified)
                  ,body)
-              #f))])]))
+              |#
+              ($fndef def-name
+                      (zip (map car binds)
+                           (TFunction-arg-types unified))
+                      body)
+              #f))]
+        [_ (context-error "Internal error: expected an apply ast node but
+                          got ~a" app)])]))
 
 
 

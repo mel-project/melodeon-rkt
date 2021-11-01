@@ -75,6 +75,18 @@
     [#f #f]
     [_ #t]))
 
+(: has-concrete-const-expr? (-> Type Boolean))
+(define (has-concrete-const-expr? t)
+  (let ([expr (get-const-expr t)])
+    (if expr
+      (concrete-const-expr? expr)
+      #f)))
+
+(: concrete-const-expr? (-> Const-Expr Boolean))
+(define (concrete-const-expr? expr)
+  (printf "checking ~a\n" (normal-form expr))
+  (number? (normal-form expr)))
+
 ; Replace a constant expression in a type with another
 (: repl-const-expr (-> Type Const-Expr Type))
 (define (repl-const-expr t new-e)
@@ -259,4 +271,12 @@
   (with-handlers ([exn:fail? (λ _ #f)])
     (car (filter (λ (def)
                    (equal? (def->name def) name))
+                 defs))))
+
+; Find a definition by its name in a list
+(: find-$def-by-name (-> Symbol (Listof $fndef) (Option $fndef)))
+(define (find-$def-by-name name defs)
+  (with-handlers ([exn:fail? (λ _ #f)])
+    (car (filter (λ ((def : $fndef))
+                   (equal? ($fndef-name def) name))
                  defs))))

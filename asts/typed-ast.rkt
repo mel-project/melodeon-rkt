@@ -70,7 +70,7 @@
 ; Function definition
 (struct $fndef
   ([name : Symbol]
-   [binds : (Listof (List Symbol Type))]
+   [binds : (Listof (Pair Symbol Type))]
    [body : $-Ast])
   #:transparent)
 

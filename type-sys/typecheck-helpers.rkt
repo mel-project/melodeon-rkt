@@ -84,7 +84,6 @@
 
 (: concrete-const-expr? (-> Const-Expr Boolean))
 (define (concrete-const-expr? expr)
-  (printf "checking ~a\n" (normal-form expr))
   (number? (normal-form expr)))
 
 ; Replace a constant expression in a type with another
@@ -267,14 +266,14 @@
 
 (: subst-const-expr-in-type (-> Type Symbol Const-Expr Type))
 (define (subst-const-expr-in-type t var sub-e)
-  (match (cons t sub-e)
+  (match t
      ; TODO not checking whether types match it
     [(TVectorof it e)
      (TVectorof it (subst-const-expr e var sub-e))]
     [(TVector l)
-     (TVector (map (λ(t) (subst-const-expr-in-type t var sub-e)) l))]
+     (TVector (map (λ((t : Type)) (subst-const-expr-in-type t var sub-e)) l))]
     [(TBytes e)
-     (TBytes (subst-const-expr e e sub-e))]
+     (TBytes (subst-const-expr e var sub-e))]
     [_ t]))
 
 ; Replace types containing a const expression with the given
@@ -282,7 +281,7 @@
 (: repl-const-generics (-> $-Ast Symbol Const-Expr $-Ast))
 (define (repl-const-generics $ast cvar expr)
   ($ast-map (λ(ast) ($-Ast (subst-const-expr-in-type ($-Ast-type ast) cvar expr)
-                           ($-Ast-node $ast)))
+                           ($-Ast-node ast)))
             $ast))
 
 

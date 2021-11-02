@@ -340,10 +340,9 @@
 ;       (set))
 
 ; Fold over an $-Ast, recursing on inner nodes
-;(: $ast-map (All (A) (-> (-> $-Ast A) $-Ast A)))
 (: $ast-map (-> (-> $-Ast $-Ast) $-Ast $-Ast))
 (define ($ast-map f ast)
-  ($-Ast ($-Ast-type ast)
+  (f ($-Ast ($-Ast-type ast)
   (match ($-Ast-node ast)
      [($lit-num val) ($lit-num val)]
      [($lit-bytes val) ($lit-bytes val)]
@@ -372,4 +371,4 @@
      [($index data ref) ($index (f data) (f ref))]
      [($range from to) ($range (f from) (f to))]
      [($slice data from to) ($slice (f data) (f from) (f to))]
-     [($if p t fls) ($if (f p) (f t) (f fls))])))
+     [($if p t fls) ($if (f p) (f t) (f fls))]))))

@@ -777,14 +777,12 @@
       (match ($-Ast-node $ast)
         [($apply name args)
           (let ([def (find-$def-by-name name defs)])
-            (printf "found def ~a\n" name)
             (if def
               (let ([concrete-def (const-generic->concrete def $ast ts)]
                    [args-set
                     (for/fold ([accum : (Setof $fndef) (set)])
                               ([counter (length (ann args (Listof $-Ast)))])
                       (set-union accum ($ counter)))])
-                (printf "concrete def? ~a\n" concrete-def)
                 (if concrete-def
                   (set-union (set concrete-def) args-set)
                   args-set))

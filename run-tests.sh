@@ -6,12 +6,13 @@ raco make -v grammar/*-test.rkt
 for file in *-test.rkt type-sys/*-test.rkt grammar/*-test.rkt
 do
 
-if [ "$(racket "$file" >&1)" ]; then
-  echo "Encountered an error in $file"
+racket "$file" >&1
+#if [ "$(racket "$file" >&1)" ]; then
+  #echo "Encountered an error in $file"
   #exit 1
-else
-  echo "No error"
-fi
+#else
+#  echo "No error"
+#fi
 
 done
 echo "Done testing"

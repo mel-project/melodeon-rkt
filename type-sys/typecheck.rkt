@@ -200,11 +200,11 @@
         (match-define (cons $body _) (@->$ body type-scope))
         (set! $vardefs (cons ($vardef name $body) $vardefs))]
        [_ (void)]))
-     (let ([$body (car (@->$ body type-scope))])
-       (printf "concrete const-generic functions\n")
-       ; monomorphize const-generic function defs
-       (pretty-print (monomorphize-const-gen-fns $definitions body type-scope))
-       ($program $definitions
+     (let ([$body (car (@->$ body type-scope))]
+           ; monomorphize const-generic function defs
+           [concrete-defs
+            (monomorphize-const-gen-fns $definitions body type-scope)])
+       ($program (append $definitions (set->list concrete-defs))
                  $vardefs
                  $body))]))
 

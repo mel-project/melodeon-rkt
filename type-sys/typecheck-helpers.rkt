@@ -52,7 +52,7 @@
 (define (const-generic? def)
   (match def
     [`(@def-generic-fun ,_ ,_ ,const-vars ,_ ,_ ,_)
-      (> 0 (length const-vars))]
+      (> (length const-vars) 0)]
     [_ #f]))
 
 ; Get all function definitions which have constant generic parameters

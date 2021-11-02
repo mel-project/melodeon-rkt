@@ -149,6 +149,8 @@
      (define definitions (definitions-sort
                            (append initial-defs accessor-fn-defs)))
      (define type-scope (definitions->scope definitions))
+     (define const-gen-fn-names (map def->name (filter const-generic? definitions)))
+     (pretty-print const-gen-fn-names)
 
      ; Monomorphize const-generic function definitions
 
@@ -202,9 +204,11 @@
        [_ (void)]))
      (let ([$body (car (@->$ body type-scope))]
            ; monomorphize const-generic function defs
-           [concrete-defs
-            (monomorphize-const-gen-fns $definitions body type-scope)])
-       ($program (append $definitions (set->list concrete-defs))
+           [monomorphized-defs
+            (monomorphize-const-gen-fns $definitions body type-scope)]
+           [concrete-$defs
+            (filter (λ((def : $fndef)) (not (member ($fndef-name def) const-gen-fn-names))) $definitions)])
+       ($program (append concrete-$defs (set->list monomorphized-defs))
                  $vardefs
                  $body))]))
 

@@ -201,8 +201,9 @@
 (: lookup-fun (-> Type-Scope Symbol TGenFunction))
 (define (lookup-fun ts var-name)
   (or (hash-ref (Type-Scope-funs ts) var-name #f)
-      (context-error "undefined function ~v"
-                     (symbol->string var-name))))
+      (context-error "undefined function ~v in ~v"
+                     (symbol->string var-name)
+                     ts)))
 
 ;; Resolves a type or throws an error
 (: resolve-type (-> Type-Expr Type-Scope Type))
@@ -240,21 +241,27 @@
     [else (TUnion t1 t2)]))
 
 ; Extract the name of a definition
+(: def->name (-> Definition (Option Symbol)))
 (define (def->name def)
   (match def
     [`(@def-struct ,n ,_) n]
     [`(@def-alias ,n ,_) n]
     [`(@def-fun ,n ,_ ,_ ,_) n]
     [`(@def-generic-fun ,n ,_ ,_ ,_ ,_ ,_) n]
-    [`(@provide ,n) n]
-    [`(@require ,s) (string->symbol (cast s String))]
+    ;[`(@provide ,n) n]
+    ;[`(@require ,s) (string->symbol (cast s String))]
     [`(@def-var ,n) n]
     [_ #f]))
 
 ; Find a definition by its name in a list
-(: find-def-by-name (-> Symbol (Listof Definition) (Option Definition)))
-(define (find-def-by-name name defs)
-  (with-handlers ([exn:fail? (λ _ #f)])
-    (car (filter (λ (def)
-                   (equal? (def->name def) name))
-                 defs))))
+(: find-defs-by-name (-> Symbol (Listof Definition) (Listof Definition)))
+(define (find-defs-by-name name defs)
+  (filter (λ ((def : Definition))
+            (let ([def-name (def->name def)])
+              (and def-name 
+                   (or (equal? def-name name)
+                       (string-prefix? (symbol->string def-name)
+                                       (string-append (symbol->string name) "-")
+                                       )))
+              ))
+          defs))

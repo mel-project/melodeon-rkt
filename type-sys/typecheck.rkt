@@ -24,11 +24,9 @@
   (define parents-map (make-hasheq))
   (for ([def definitions])
     (hash-set! parents-map def
-               (cast
-                (filter (λ (x) x)
-                        (map (λ(name) (find-def-by-name name definitions))
-                             (set->list (@def-parents def))))
-                (Listof Definition))))
+               (append*
+                (map (λ(name) (find-defs-by-name name definitions))
+                     (set->list (@def-parents def))))))
   ;; go through the whole thing
   (: result (Listof Definition))
   (define result '())
@@ -37,6 +35,7 @@
   (: emit (-> Definition Void))
   (define (emit def)
     (define parents (hash-ref parents-map def (λ () '())))
+    (printf "~a had ~a parents : ~a\n" (def->name def) (length parents) (map def->name parents))
     (unless (set-member? seen def)
       (set! seen (set-add seen def))
       (unless (set-member? seen def)
@@ -147,6 +146,7 @@
                       (filter struct-def? initial-defs))))
      (define definitions (definitions-sort
                            (append initial-defs accessor-fn-defs)))
+     (pretty-print (dectx* definitions))
      (define type-scope (definitions->scope definitions))
 
      ; Stupid, mutation-based approach
@@ -195,7 +195,6 @@
           (match-define (cons $body _) (@->$ body type-scope))
           (set! $vardefs (cons ($vardef name $body) $vardefs))]
          [_ (void)]))
-     (pretty-print $definitions)
      ($program $definitions
                $vardefs
                (car (@->$ body type-scope)))]))
@@ -683,7 +682,7 @@
           (cons ($-Ast result
                        ($apply fun $args))
                 tf-empty)]
-         [_ (error '@-ast->type "[~a] undefined function ~a"
+         [_ (error '@-ast->type "[~a] WEIRDLY undefined function ~a"
                    (context->string (get-context @-ast)) fun)])]
       [`(@is ,expr ,type)
        (cons
@@ -771,9 +770,10 @@
                 ,return-type
                 ,body)
      ;; A "noop" generic type
+     (define t (make-fn-type accum binds name return-type body))
      (bind-fun accum
                name
-               (λ _ (make-fn-type accum binds name return-type body)))]
+               (λ _ t))]
     [`(@def-generic-fun ,name
                         ,generic-params
                         ,const-params

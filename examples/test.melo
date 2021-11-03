@@ -6,6 +6,7 @@ def self_propagate() =
 		first_output[0] == env_self_hash())
 		
 - - -
+self_propagate()
 
-self_propagate() &&
-(unsafe cast env_spender_tx().data : %[1])[0] == (unsafe cast env_parent_data() : %[1])[0]
+#self_propagate() &&
+#(unsafe cast env_spender_tx().data : %[1])[0] == (unsafe cast env_parent_data() : %[1])[0]

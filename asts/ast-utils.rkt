@@ -283,6 +283,12 @@
    (λ (ast $ N)
      (match ast
        [`(@var ,(? symbol? x)) (set x)]
+       [`(@instantiate ,type-name
+                       ,args)
+        (set-union (set type-name)
+                   (for/fold ([accum : (Setof Symbol) (set)])
+                             ([counter (length args)])
+                     (set-union accum ($ counter))))]
        [`(@apply ,(? symbol? fun-name) ,body) (set-union (set fun-name)
                                                          (for/fold ([accum : (Setof Symbol) (set)])
                                                                    ([counter (length body)])

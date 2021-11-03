@@ -3,6 +3,9 @@
 
 ;; Base types 
 (struct TNat () #:transparent)
+(struct TNatRange ((start : (Option Const-Expr))
+                   (end : (Option Const-Expr)))
+  #:transparent)
 (struct TAny () #:transparent)
 
 ;; Constant expressions on generics
@@ -63,6 +66,7 @@
 
 ;; Type
 (define-type Type (U TNat
+                     TNatRange
                      TAny
                      TTagged
                      TDynVectorof
@@ -117,5 +121,6 @@
                               (type->string l)
                               (type->string r))]
     [(TBytes n) (format "%[~a]" n)]
-    [(TDynBytes) "%[]"]))
+    [(TDynBytes) "%[]"]
+    [(TNatRange a b) (format "<~a..~a>" a b)]))
 

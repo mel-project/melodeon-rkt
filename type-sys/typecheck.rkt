@@ -145,7 +145,6 @@
      (define accessor-fn-defs
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
-
      (define definitions (definitions-sort
                            (append initial-defs accessor-fn-defs)))
      (define type-scope (definitions->scope definitions))
@@ -179,23 +178,24 @@
                                            $body)
                                    $definitions))))
      (for ([definition definitions])
-     (match definition
-       [`(@def-fun ,name
-                   ,args-with-types
-                   ,return-type
-                   ,body)
-         (snippet)]
-       [`(@def-generic-fun ,name
-                           ,_
-                           ,const-params
-                           ,args-with-types
-                           ,return-type
-                           ,body)
-         (snippet)]
-       [`(@def-var ,name ,body)
-        (match-define (cons $body _) (@->$ body type-scope))
-        (set! $vardefs (cons ($vardef name $body) $vardefs))]
-       [_ (void)]))
+       (match definition
+         [`(@def-fun ,name
+                     ,args-with-types
+                     ,return-type
+                     ,body)
+          (snippet)]
+         [`(@def-generic-fun ,name
+                             ,_
+                             ,const-params
+                             ,args-with-types
+                             ,return-type
+                             ,body)
+          (snippet)]
+         [`(@def-var ,name ,body)
+          (match-define (cons $body _) (@->$ body type-scope))
+          (set! $vardefs (cons ($vardef name $body) $vardefs))]
+         [_ (void)]))
+     (pretty-print $definitions)
      ($program $definitions
                $vardefs
                (car (@->$ body type-scope)))]))
@@ -683,7 +683,6 @@
           (cons ($-Ast result
                        ($apply fun $args))
                 tf-empty)]
-
          [_ (error '@-ast->type "[~a] undefined function ~a"
                    (context->string (get-context @-ast)) fun)])]
       [`(@is ,expr ,type)

@@ -131,6 +131,7 @@
      '-
      '*
      '/))
+(define $-Binop? (make-predicate $-Binop))
 
 ; binop
 (struct $bin

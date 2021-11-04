@@ -16,8 +16,10 @@
          ast-map
          $ast-map
          @ast-recurse
+         $ast-recurse
          @ast-parents
          @def-parents
+         $def-parents
          (struct-out return))
 
 
@@ -279,6 +281,53 @@
                        (append cvars tvars (map car params))))]
     [_ (set)]))
 
+(: $def-parents (-> $fndef (Setof Symbol)))
+(define ($def-parents def)
+  (match-define ($fndef name binds body) def)
+  (set-union (for/fold ([accum : (Setof Symbol) (set)])
+                       ([pair : (Pair Symbol Type) binds])
+               (set-union accum (type-parents (cdr pair))))
+             (foldl (λ(param acc) (set-remove acc param))
+                    ($ast-parents body)
+                    (map car binds))))
+
+(: $ast-parents (-> $-Ast (Setof Symbol)))
+(define ($ast-parents ast)
+  ((inst $ast-recurse (Setof Symbol))
+   (λ (ast $ N)
+     (match ast
+       [($var x) (set x)]
+       [($apply fun-name args)
+        (set-union (set fun-name)
+         (for/fold ([accum : (Setof Symbol) (set)])
+                   ([counter (length args)])
+           (set-union accum ($ counter))))]
+       [($let var _ _)
+        (set-remove (set-union ($ 0) ($ 1)) var)]
+       [_ (for/fold ([accum : (Setof Symbol) (set)])
+                    ([counter N])
+            (set-union accum ($ counter)))]))
+   ast))
+
+(: type-parents (-> Type (Setof Symbol)))
+(define (type-parents t)
+  (match t
+    [(TVar x) (set x)]
+    [(TTagged tag l)
+     (foldl (λ(fieldt acc) (set-union acc (type-parents fieldt)))
+            ; TODO should tag be added here?
+            (ann (set) (Setof Symbol))
+            l)]
+    [(TVector ts)
+     (foldl (λ(fieldt acc) (set-union acc (type-parents fieldt)))
+            (ann (set) (Setof Symbol))
+            ts)]
+    [(TVectorof innert _) (type-parents innert)]
+    [(TDynVectorof innert) (type-parents innert)]
+    [(TUnion x y) (set-union (type-parents x) (type-parents y))]
+    [(TIntersect x y) (set-union (type-parents x) (type-parents y))]
+    [_ (set)]))
+
 (: @ast-parents (-> @-Ast (Setof Symbol)))
 (define (@ast-parents ast)
   ((inst @ast-recurse (Setof Symbol))
@@ -372,3 +421,52 @@
      [($range from to) ($range (f from) (f to))]
      [($slice data from to) ($slice (f data) (f from) (f to))]
      [($if p t fls) ($if (f p) (f t) (f fls))]))))
+
+;; A general-purpose ast transformer. Takes in a function with three arguments: an ast node, a function that, given a 1-index number n, returns the nth subexpression processed through the same function, and an integer which counts the number of subexpressions.
+;; The ast-recombine function may be useful when transforming an ast into an ast.
+(: $ast-recurse (All (a) (-> (-> $-Ast (-> Integer a) Nonnegative-Integer a) $-Ast a)))
+(define ($ast-recurse fun ast)
+  (: devec (All (b) (-> (Vectorof (-> b)) (-> Integer b))))
+  (define (devec vec)
+    (λ(n) ((vector-ref vec n))))
+  (: recurse (-> $-Ast a))
+  (define (recurse ast)
+    ($ast-recurse fun ast))
+
+  (define-macro (% . rst)
+    `(devec (vector . ,(map (λ(elem) `(memoize-thunk (λ() (recurse ,elem)))) rst))))
+  ; Same thing a % but on a list
+  (define-macro (%-vec v)
+    `(devec (list->vector
+      (map (λ(elem) (memoize-thunk (λ() (recurse elem))))
+           ,v))))
+
+  (match ast
+    ; trivials
+    [($lit-num _) (fun ast (%) 0)]
+    [($lit-bytes _) (fun ast (%) 0)]
+    [($var _) (fun ast (%) 0)]
+    [($extern _) (fun ast (%) 0)]
+    [($range _ _) (fun ast (%) 0)]
+    ; others
+    [($let var val expr) (fun ast (% val expr) 2)]
+    [($bin _ l r) (fun ast (% l r) 2)]
+    [($index e1 e2) (fun ast (% e1 e2) 2)]
+    [($init-vec e _) (fun ast (% e) 1)]
+    [($program _ _ e) (fun ast (% e) 1)]
+    [($is e _) (fun ast (% e) 1)]
+    [($loop _ e) (fun ast (% e) 1)]
+    [($slice a b c) (fun ast (% a b c) 3)]
+    [($if a b c) (fun ast (% a b c) 3)]
+    [($for a _ b) (fun ast (% a b) 2)]
+    [($fold expr _ _ i l)
+      (fun ast (% expr i l) 3)]
+    [($block v)
+      (fun ast (%-vec v) (length v))]
+    [($lit-vec v)
+      (fun ast (%-vec v) (length v))]
+    [($apply _ v)
+     (fun ast (%-vec v) (length v))]
+    [($extern-call _ v)
+     (fun ast (%-vec v) (length v))]
+    ))

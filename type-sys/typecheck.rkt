@@ -14,6 +14,39 @@
 (provide @-transform)
 
 
+;; Sorts all the definitions in a $program
+(: $fndefs-sort
+   (-> (Listof $fndef)
+       (Listof $fndef)))
+(define ($fndefs-sort definitions)
+  ;; define a parent hashtable
+  (: parents-map (HashTable $fndef (Listof $fndef)))
+  (define parents-map (make-hasheq))
+  (for ([def definitions])
+    (hash-set! parents-map def
+               (cast
+                (filter (λ (x) x)
+                        (map (λ(name) (find-$def-by-name name definitions))
+                             (set->list ($def-parents def))))
+                (Listof $fndef))))
+  ;; go through the whole thing
+  (: result (Listof $fndef))
+  (define result '())
+  (: seen (Setof $fndef))
+  (define seen (seteq))
+  (: emit (-> $fndef Void))
+  (define (emit def)
+    (define parents (hash-ref parents-map def (λ () '())))
+    (unless (set-member? seen def)
+      (set! seen (set-add seen def))
+      (unless (set-member? seen def)
+        (error "Wtf?"))
+      (for-each emit parents)
+      (set! result (cons def result))))
+  (for ([def definitions])
+    (emit def))
+  (reverse result))
+
 ;; Sorts all the definitions in a @program
 (: definitions-sort
    (-> (Listof Definition)

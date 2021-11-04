@@ -9,6 +9,21 @@
 
 (provide (all-defined-out))
 
+;; Cast a type to a NatRange
+(: type->natrange (-> Type (U TNat TNatRange)))
+(define (type->natrange type)
+  ; Merge each bag case
+  (for/fold ([accum : (U TNat TNatRange) (TNatRange 0 0)])
+            ([case (Type-Bag-inner (type->bag type))])
+    (match (hash-ref case 'root)
+      [(PNatRange a b) (match accum
+                         [(TNatRange 0 0) (TNatRange a b)]
+                         [(TNatRange accum-a accum-b)
+                          (TNatRange (if (re<= accum-a a) accum-a a)
+                                     (if (re<= accum-b b) b accum-b))]
+                         [x x])]
+      [(PNat) (TNat)])))
+
 ; Produce the name of a product type's
 ; accessor function for a given field
 (: accessor-name (-> Symbol Symbol Symbol))
@@ -47,6 +62,10 @@
   (for/list ([x l]
              [y (in-naturals)])
     (cons y x)))
+
+(: compose (All (A B C) (-> (-> A B) (-> B C) (-> A C))))
+(define (compose f g)
+  (λ(x) (g (f x))))
 
 (: const-generic? (-> Definition Boolean))
 (define (const-generic? def)
@@ -215,8 +234,9 @@
 (: lookup-fun (-> Type-Scope Symbol TGenFunction))
 (define (lookup-fun ts var-name)
   (or (hash-ref (Type-Scope-funs ts) var-name #f)
-      (context-error "undefined function ~v"
-                     (symbol->string var-name))))
+      (context-error "undefined function ~v in ~v"
+                     (symbol->string var-name)
+                     ts)))
 
 ;; Resolves a type or throws an error
 (: resolve-type (-> Type-Expr Type-Scope Type))
@@ -254,14 +274,15 @@
     [else (TUnion t1 t2)]))
 
 ; Extract the name of a definition
+(: def->name (-> Definition (Option Symbol)))
 (define (def->name def)
   (match def
     [`(@def-struct ,n ,_) n]
     [`(@def-alias ,n ,_) n]
     [`(@def-fun ,n ,_ ,_ ,_) n]
     [`(@def-generic-fun ,n ,_ ,_ ,_ ,_ ,_) n]
-    [`(@provide ,n) n]
-    [`(@require ,s) (string->symbol (cast s String))]
+    ;[`(@provide ,n) n]
+    ;[`(@require ,s) (string->symbol (cast s String))]
     [`(@def-var ,n) n]
     [_ #f]))
 
@@ -290,7 +311,7 @@
 (: find-def-by-name (-> Symbol (Listof Definition) (Option Definition)))
 (define (find-def-by-name name defs)
   (with-handlers ([exn:fail? (λ _ #f)])
-    (car (filter (λ (def)
+    (car (filter (λ ((def : Definition))
                    (equal? (def->name def) name))
                  defs))))
 
@@ -301,3 +322,15 @@
     (car (filter (λ ((def : $fndef))
                    (equal? ($fndef-name def) name))
                  defs))))
+
+(: find-defs-by-name (-> Symbol (Listof Definition) (Listof Definition)))
+(define (find-defs-by-name name defs)
+  (filter (λ ((def : Definition))
+            (let ([def-name (def->name def)])
+              (and def-name 
+                   (or (equal? def-name name)
+                       (string-prefix? (symbol->string def-name)
+                                       (string-append (symbol->string name) "-")
+                                       )))
+              ))
+          defs))

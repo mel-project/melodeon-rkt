@@ -57,11 +57,9 @@
   (define parents-map (make-hasheq))
   (for ([def definitions])
     (hash-set! parents-map def
-               (cast
-                (filter (λ (x) x)
-                        (map (λ(name) (find-def-by-name name definitions))
-                             (set->list (@def-parents def))))
-                (Listof Definition))))
+               (append*
+                (map (λ(name) (find-defs-by-name name definitions))
+                     (set->list (@def-parents def))))))
   ;; go through the whole thing
   (: result (Listof Definition))
   (define result '())
@@ -178,12 +176,10 @@
      (define accessor-fn-defs
        (flatten1 (map generate-accessors
                       (filter struct-def? initial-defs))))
-
      (define definitions (definitions-sort
                            (append initial-defs accessor-fn-defs)))
      (define type-scope (definitions->scope definitions))
      (define const-gen-fn-names (map def->name (filter const-generic? definitions)))
-     (pretty-print const-gen-fn-names)
 
      ; Monomorphize const-generic function definitions
 
@@ -315,7 +311,7 @@
   (parameterize ([current-context (context-of @-ast)])
     (match (dectx @-ast)
       ;; literals
-      [`(@lit-num ,num) (cons ($-Ast (TNatRange num (add1 num))
+      [`(@lit-num ,num) (cons ($-Ast (TNatRange num num)
                                      ($lit-num num))
                               tf-empty)]
       [`(@lit-vec ,vars) (define $vars (map (λ((a : @-Ast)) (car (@->$ a type-scope))) vars))
@@ -532,7 +528,15 @@
                  [_
                   (assert-type x ($type $x) (TNat))
                   (assert-type y ($type $y) (TNat))
-                  ($-Ast (TNat)
+                  ($-Ast (match op
+                           ['@+ (match (cons (type->natrange ($type $x))
+                                             (type->natrange ($type $y)))
+                                  [(cons (TNatRange x-a x-b)
+                                         (TNatRange y-a y-b))
+                                   (TNatRange (and x-a y-a (ce+ x-a y-a))
+                                              (and x-b y-b (ce+ x-b y-b)))]
+                                  [_ (TNat)])]
+                           [_ (TNat)])
                          ($bin (match op
                                  ['@bor 'or]
                                  ['@band 'and]
@@ -721,8 +725,7 @@
           (cons ($-Ast result
                        ($apply fun $args))
                 tf-empty)]
-
-         [_ (error '@-ast->type "[~a] undefined function ~a"
+         [_ (error '@-ast->type "[~a] WEIRDLY undefined function ~a"
                    (context->string (get-context @-ast)) fun)])]
       [`(@is ,expr ,type)
        (cons
@@ -845,14 +848,23 @@
                    [is-concrete (foldl (λ(t acc) (and (has-concrete-const-expr? t) acc))
                                        #t
                                        (cons (TFunction-result-type unified)
-                                             (TFunction-arg-types unified)))])
+                                             (TFunction-arg-types unified)))]
+                   [cg-table
+                    (for/fold ([accum : (Immutable-HashTable Symbol Integer) (hash)])
+                              ([param-type (map cdr binds)]
+                               [arg-type arg-types])
+                      (define-values (type-table cg-table) (type-unify param-type arg-type))
+                      (hash-union accum cg-table))])
             (if is-concrete
               ; Produce a new definition from the unified type sig
               ($fndef def-name
                       (zip (map car binds)
                            (TFunction-arg-types unified))
-                      ; TODO
-                      (repl-const-generics body 'N 3))
+                      (foldl (λ(pair body)
+                               (match-define (cons sym val) pair)
+                               (repl-const-generics body sym val))
+                             body
+                             (hash->list cg-table)))
               #f))]
         [_ (context-error "Internal error: expected an apply ast node but
                           got ~a" app)])]))
@@ -940,9 +952,10 @@
                 ,return-type
                 ,body)
      ;; A "noop" generic type
+     (define t (make-fn-type accum binds name return-type body))
      (bind-fun accum
                name
-               (λ _ (make-fn-type accum binds name return-type body)))]
+               (λ _ t))]
     [`(@def-generic-fun ,name
                         ,generic-params
                         ,const-params
@@ -958,73 +971,25 @@
                           ;(callsite-vals : (Listof $-Ast-variant)))
                    (match tf-with-params
                      [(TFunction param-types res-type)
-                      (letrec ([param-exprs
-                              ; this map is a typecheck hack
-                              (map (λ(x) (cast x (Pairof Integer Const-Expr)))
-                                   (filter (λ(pair) (match-define (cons i e) pair)
-                                                    ((compose not false?) e))
-                                           (enumerate (map get-const-expr
-                                                           param-types))))]
-                              [arg-exprs
-                              ; this map is a typecheck hack
-                              (map (λ(x) (cast x (Pairof Integer Const-Expr)))
-                                   (filter (λ(pair) (match-define (cons i e) pair)
-                                                    ((compose not false?) e))
-                                           (enumerate (map get-const-expr
-                                                           callsite-arg-types))))]
-                              [const-var-map
-                              ; get a mapping of const vars to their inferred
-                              ; const-exprs based on the callsite args
-                              (solve-const-exprs (map cdr param-exprs)
-                                                 const-params
-                                                 (map cdr arg-exprs))]
-                              [substd-param-exprs
-                              ; for each param, subst each const var mapping
-                              (map (λ(e) (foldl (λ(pair acc)
-                                                  (match-define (cons var var-expr) pair)
-                                                  (subst-const-expr acc var var-expr))
-                                                e
-                                                (hash->list const-var-map)))
-                                   (map cdr param-exprs))]
-                              [arg-types
-                              ; Splice the substituted const exprs back into the
-                              ; original param-types
-                              (let ([arg-types param-types])
-                                (foldl
-                                  (λ(pair types)
-                                    (match-define (cons expr-idx (cons param-idx-uncasted _)) pair)
-                                    (define param-idx (cast param-idx-uncasted Integer))
-                                    (list-set types
-                                              param-idx
-                                              (repl-const-expr (list-ref types param-idx)
-                                                               (list-ref
-                                                                 substd-param-exprs
-                                                                 expr-idx))))
-                                  param-types
-                                  (enumerate param-exprs)))]
-                              ; Replace the const expr in the result type if it exists
-                              [result-type
-                              (let ([res-expr (get-const-expr res-type)])
-                                (if res-expr
-                                  (repl-const-expr
-                                    res-type
-                                    (foldl (λ(pair acc)
-                                             (match-define (cons var var-expr) pair)
-                                             (subst-const-expr acc var var-expr))
-                                           res-expr
-                                           (hash->list const-var-map)))
-                                  res-type))])
-                      (define unification-table
+                      (define type-unification-table
                         (for/fold ([accum : (Immutable-HashTable TVar Type) (hash)])
-                                  ([arg-type arg-types]
+                                  ([arg-type param-types]
                                    [callsite-arg-type callsite-arg-types])
+                          (define-values (type-table cg-table) (type-unify arg-type callsite-arg-type))
                           (hash-union accum
-                                      (type-unify arg-type callsite-arg-type))))
+                                      type-table)))
+                      (define cg-unification-table
+                        (for/fold ([accum : (Immutable-HashTable Symbol Integer) (hash)])
+                                  ([arg-type param-types]
+                                   [callsite-arg-type callsite-arg-types])
+                          (define-values (type-table cg-table) (type-unify arg-type callsite-arg-type))
+                          (hash-union accum
+                                      cg-table)))
                       (TFunction (map (λ((x : Type))
-                                        (type-template-fill x unification-table))
-                                      arg-types)
-                                 (type-template-fill result-type unification-table))
-                                        )])))]
+                                        (cg-template-fill (type-template-fill x type-unification-table)
+                                                          cg-unification-table))
+                                      param-types)
+                                 (type-template-fill res-type type-unification-table))])))]
     [_ accum]))
 
 
@@ -1045,10 +1010,14 @@
   (require "../grammar/parser.rkt")
   (parameterize ([FILENAME "test.melo"])
     (time
-     ($-Ast-type
-      ($program-expr
-       (@-transform
-        (time
-         (melo-parse-port (open-input-string "
-ann 1 : <0..2> + ann 2 : <0..3>
-")))))))))
+     (type->string 
+      ($-Ast-type
+       ($program-expr
+        (@-transform
+         (time
+          (melo-parse-port (open-input-string "
+def laboo<const N, T>(x: [T; N]) = x ++ x
+---
+
+laboo([1, 2, 3])
+"))))))))))

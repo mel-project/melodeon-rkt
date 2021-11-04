@@ -43,7 +43,7 @@
   (define ast (demodularize partial-ast
                             (input-file)
                             filename->ast))
-  ;(pretty-write (dectx* ast))
+  (pretty-write (dectx* ast))
   (eprintf "generating $-Ast...\n")
   (define res (@-transform ast))
   ;(pretty-write res)

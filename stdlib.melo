@@ -40,7 +40,7 @@ alias Hash = %[32]
 struct Transaction {
 	kind: Nat,
 	inputs: [RawCoinID;],
-	outputs: [RawCoinData ;],
+	outputs: [RawCoinData;],
 	fee: Nat,
 	scripts: [%[];],
 	data: %[],

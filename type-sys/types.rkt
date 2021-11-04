@@ -17,6 +17,7 @@
      Integer))
 
 (define const-expr? (make-predicate Const-Expr))
+
 ;(const-expr? '(+ n 2))
 ;(const-expr? '(* (+ x 1) (- x 1)))
 
@@ -110,7 +111,7 @@
                                   "]")]
     [(TVectorof t e) (string-append "["
                                     (type->string t)
-                                    " * "
+                                    " ; "
                                     (const-expr->string e)
                                     "]")]
     [(TDynVectorof t) (format "[~a *]" (type->string t))]
@@ -122,5 +123,5 @@
                               (type->string r))]
     [(TBytes n) (format "%[~a]" n)]
     [(TDynBytes) "%[]"]
-    [(TNatRange a b) (format "<~a..~a>" a b)]))
+    [(TNatRange a b) (format "{~a..~a}" a b)]))
 

@@ -195,8 +195,6 @@
                                             `(len ,idx) (length types))))])
                ([type types]
                 [ctr (in-naturals)]) : Type-Bag
-       ;(pretty-print accum)
-       ;(pretty-print (type->bag/raw type `(ref ,idx ,ctr)))
        (bag-product accum (type->bag/raw type `(ref ,idx ,ctr))))]
     ; union: just union them all
     [(TUnion t u) (bag-union (type->bag/raw t idx)
@@ -211,7 +209,6 @@
   ; some case in t must be a superset of all the cases in u
   (for/or ([t-case (Type-Bag-inner t)]) : Boolean
     (for/and ([u-case (Type-Bag-inner u)]) : Boolean
-      ;(printf "u-case ~v, t-case ~v\n" u-case t-case)
       (for/and ([(t-key t-val) t-case]) : Boolean
         (let ([inner (case-ref u-case t-key)])
           (and inner
@@ -220,7 +217,6 @@
 ;; Most primitive subtyping relation
 (: prim-subtype-of? (-> Prim-Type Prim-Type Boolean))
 (define (prim-subtype-of? u t)
-  ;(printf "subtyping ~v to ~v\n" u t)
   (match (cons u t)
     [(cons (PNatRange #f #f) _) (prim-subtype-of? (PNat) t)]
     [(cons _ (PNatRange #f #f)) (prim-subtype-of? u (PNat))]
@@ -237,7 +233,6 @@
             (Option Const-Expr)
             Boolean))
 (define (re<= a b)
-  ;(printf "comparing ~v to ~v\n" a b)
   (cond
     [(not b) #t]
     [(not a) (not b)]

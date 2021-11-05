@@ -184,8 +184,6 @@
                           [_ #f])) : (Listof (List Const-Expr Prim-Index))
         (list (match value
                 [(? const-expr? a) a]) key))))
-  (printf "TVAR LOCATIONS: ~v\n" tvar-locations)
-  (printf "CG LOCATIONS: ~v\n" cg-locations)
   ; now we use those locations to lookup the type
   (: tvars (Listof TVar))
   (define tvars (remove-duplicates

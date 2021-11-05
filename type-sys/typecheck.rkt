@@ -161,7 +161,6 @@
   (define recf : Const-Expr (normal-form rec))
   ; Because constants come first in canonical form,
   ; we know the constant is the first element in an add
-  ;(printf "m is ~s" m)
   (match recf
     [`(+ ,k ,n) (normal-form `(* ,k ,m))]
     [_ (context-error "Only addition supported in recurrence relations right now")]))
@@ -367,7 +366,7 @@
                                        (type->string ($-Ast-type arg))
                                        (type->string param-type))))
 
-                    ($-Ast type ;(TVector (cons (TNat) types))
+                    ($-Ast type
                            ($lit-vec (cons
                                       ($-Ast
                                        (TNat)

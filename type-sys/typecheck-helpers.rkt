@@ -41,11 +41,12 @@
 
 
 ; Slice a TVector/of melodeon type
-(: type-slice (-> Type Integer Integer Type))
+(: type-slice (-> Type Const-Expr Const-Expr Type))
 (define (type-slice type from to)
   (match type
-    [(TVector l) (TVector (slice l from to))]
-    [(TVectorof it n) (TVectorof it (- to from))]))
+    ;[(TVector l) (TVector (slice l from to))]
+    [(TVector l) (TVectorof (tvector-inner-type type) (normal-form `(- ,to ,from)))]
+    [(TVectorof it n) (TVectorof it (normal-form `(- ,to ,from)))]))
 
 ; Slice a list
 (: slice (All (T) (-> (Listof T) Integer Integer (Listof T))))

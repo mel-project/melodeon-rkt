@@ -159,7 +159,7 @@
 ;; Given a "template" containing type variables and another type without type variables, return
 ;; a mapping from type variable to type
 (: type-unify (-> Type Type (Values (HashTable TVar Type)
-                                    (HashTable Symbol Integer))))
+                                    (HashTable Symbol Const-Expr))))
 (define (type-unify template type)
   (define template-bag (type->bag template))
   (define type-bag (type->bag type))
@@ -226,11 +226,12 @@
                                     (bag->type (bag-project type-bag location)))))))))))
   ;; the cg table
   (define cg-table
-    (for/fold ([accum : (HashTable Symbol Integer) (hash)])
+    (for/fold ([accum : (HashTable Symbol Const-Expr) (hash)])
               ([location-case cg-locations])
       (for/fold ([accum accum])
                  ([(k v)
-                  (for/hash ([expression-and-location location-case]) : (HashTable Symbol Integer)
+                  (for/hash ([expression-and-location location-case]) :
+                    (HashTable Symbol Const-Expr)
                     (match expression-and-location
                       [(list expr location)
                        (cond
@@ -239,7 +240,7 @@
                                                    (match (set->list (Type-Bag-inner subbag))
                                                      [(list one-elem) (let ([lala (hash-ref one-elem 'root #f)])
                                                                        (cond
-                                                                         [(integer? lala) lala]
+                                                                         [(const-expr? lala) (normal-form lala)]
                                                                          [else (context-error "cannot reduce const-generic parameter ~a to an integer" expr)]))]
                                                      [_ (context-error "ambiguous const-generic parameter ~a" expr)])))]
                          [else (context-error "no support for unifying non-trivial const-generic parameter ~a at the moment"
@@ -272,17 +273,17 @@
     [x empty]))
 
 ;; Applies a const-generic mapping to a template, filling in the slots
-(: cg-template-fill (-> Type (HashTable Symbol Integer) Type))
+(: cg-template-fill (-> Type (HashTable Symbol Const-Expr) Type))
 (define (cg-template-fill type table)
   (define recurse (λ((t : Type)) (cg-template-fill t table)))
   ;; Helper: find-and-replace within a const-generic expression
   (: helper (-> Const-Expr Const-Expr))
   (define (helper cexpr)
-    (match cexpr
+    (normal-form (match cexpr
       [(? symbol?) (hash-ref table cexpr)]
       [(list op x y) (list op (helper x)
                            (helper y))]
-      [x x]))
+      [x x])))
   (match type
     [(TVectorof t n) (let ([n-replaced (with-handlers ([exn:fail? (λ _ #f)]) (helper n))])
                        (if n-replaced (TVectorof (recurse t) n-replaced)

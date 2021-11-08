@@ -61,6 +61,7 @@
 ;(algebraic-expand '(+ N 1))
 ;(algebraic-expand '(= (+ 1 x) (* (+ x 1) (- x 1))))
 ;(automatic-simplify '(* (+ x 1) (- x 1)))
+;(algebraic-expand '(+ -1 (+ 1 N)))
 ;(algebraic-expand (substitute '(* (+ x 1) (- x 1)) 'x 3))
 
 (define-type Prim-Type (U PNat PNatRange PVec PVar Const-Expr PBytes PTagged PNatRange))

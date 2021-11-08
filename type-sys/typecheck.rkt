@@ -686,6 +686,12 @@
        |#
        (match-define (cons $val _) (@->$ val type-scope))
        #|
+       (define inner-type
+         (match ($type $val)
+           [(TVectorof it _) it]
+           [(TVector _) (tvector-inner-type ($type $val))]))
+       |#
+       #|
        (let ([to (match (dectx to-expr)
                    [`(@var ,name) ($-Ast (TNat) ($var name))]
                    [`(@lit-num ,x) ($-Ast (TNat) ($lit-num x))]
@@ -702,7 +708,8 @@
          ; vector
          (cons
           ; TODO wrong type
-          ($-Ast (TNatRange from-expr to-expr)
+          ($-Ast ;(TNatRange from-expr to-expr)
+                 (type-slice ($type $val) from-expr to-expr)
                  ($slice $val from-expr to-expr))
           tf-empty)]
       [`(@apply ,fun ,args)
@@ -852,7 +859,7 @@
                                        (cons (TFunction-result-type unified)
                                              (TFunction-arg-types unified)))]
                    [cg-table
-                    (for/fold ([accum : (Immutable-HashTable Symbol Integer) (hash)])
+                    (for/fold ([accum : (Immutable-HashTable Symbol Const-Expr) (hash)])
                               ([param-type (map cdr binds)]
                                [arg-type arg-types])
                       (define-values (type-table cg-table) (type-unify param-type arg-type))
@@ -981,7 +988,7 @@
                           (hash-union accum
                                       type-table)))
                       (define cg-unification-table
-                        (for/fold ([accum : (Immutable-HashTable Symbol Integer) (hash)])
+                        (for/fold ([accum : (Immutable-HashTable Symbol Const-Expr) (hash)])
                                   ([arg-type param-types]
                                    [callsite-arg-type callsite-arg-types])
                           (define-values (type-table cg-table) (type-unify arg-type callsite-arg-type))

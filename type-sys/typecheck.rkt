@@ -685,6 +685,7 @@
        (define from (to-idx from-expr))
        |#
        (match-define (cons $val _) (@->$ val type-scope))
+       #|
        (let ([to (match (dectx to-expr)
                    [`(@var ,name) ($-Ast (TNat) ($var name))]
                    [`(@lit-num ,x) ($-Ast (TNat) ($lit-num x))]
@@ -696,13 +697,14 @@
                      [`(@lit-num ,x) ($-Ast (TNat) ($lit-num x))]
                      [other (context-error "slice index must be a literal or
                                             variable, got an ~a" other)])])
+         |#
          ; TODO restrict type to just the slice, not the union of the whole
          ; vector
          (cons
           ; TODO wrong type
-          ($-Ast ($type $val)
-                 ($slice $val from to))
-          tf-empty))]
+          ($-Ast (TNatRange from-expr to-expr)
+                 ($slice $val from-expr to-expr))
+          tf-empty)]
       [`(@apply ,fun ,args)
        (define $args
          (map (λ((a : @-Ast)) (car (@->$ a type-scope))) args))

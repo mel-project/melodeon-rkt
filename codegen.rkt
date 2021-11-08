@@ -71,8 +71,10 @@
                                [(TVector _) 'v-slice]
                                [(TBytes _) 'b-slice])
                             ,(generate-mil-expr vec)
-                            ,(generate-mil-expr from)
-                            ,(generate-mil-expr to))]
+                            ,from
+                            ,to)]
+                            ;,(generate-mil-expr from)
+                            ;,(generate-mil-expr to))]
     ; Generate a vector of numbers from..to
     [($range $from $to)
      (match-define ($-Ast _ ($lit-num from)) $from)

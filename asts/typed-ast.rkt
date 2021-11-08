@@ -96,8 +96,8 @@
 
 (struct $slice
   ([data : $-Ast]
-   [from : $-Ast]
-   [to : $-Ast])
+   [from : Const-Expr]
+   [to : Const-Expr])
   #:transparent)
 
 (struct $range

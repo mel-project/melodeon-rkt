@@ -186,7 +186,7 @@
                     ;; vector indexing
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> CLOSE-BRACKET) (pos-lift 1 4 `(@index ,$1 ,$3)))
                     ;; vector slice
-                    ((<apply-expr> OPEN-BRACKET <terminal-expr> RANGE <terminal-expr> CLOSE-BRACKET)
+                    ((<apply-expr> OPEN-BRACKET <const-expr> RANGE <const-expr> CLOSE-BRACKET)
                      (pos-lift 1 4 `(@slice ,$1 ,$3 ,$5)))
                     ;; vector update
                     ((<apply-expr> OPEN-BRACKET <terminal-expr> FAT-ARROW <terminal-expr> CLOSE-BRACKET)

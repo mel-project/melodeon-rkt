@@ -243,7 +243,8 @@
     [`(@ann ,e ,_) (fun ast (% e) 1)]
     [`(@is ,e ,_) (fun ast (% e) 1)]
     [`(@loop ,_ ,e) (fun ast (% e) 1)]
-    [`(@slice ,a ,b ,c) (fun ast (% a b c) 3)]
+    ;[`(@slice ,a ,b ,c) (fun ast (% a b c) 3)]
+    [`(@slice ,a ,_ ,_) (fun ast (% a) 1)]
     [`(@update ,a ,b ,c) (fun ast (% a b c) 3)]
     [`(@if ,a ,b ,c) (fun ast (% a b c) 3)]
     [`(@for ,a ,_ ,b) (fun ast (% a b) 2)]
@@ -425,7 +426,8 @@
       ($extern-call name (map f args))]
      [($index data ref) ($index (f data) (f ref))]
      [($range from to) ($range (f from) (f to))]
-     [($slice data from to) ($slice (f data) (f from) (f to))]
+     ;[($slice data from to) ($slice (f data) (f from) (f to))]
+     [($slice data from to) ($slice (f data) from to)]
      [($if p t fls) ($if (f p) (f t) (f fls))]))))
 
 ;; A general-purpose ast transformer. Takes in a function with three arguments: an ast node, a function that, given a 1-index number n, returns the nth subexpression processed through the same function, and an integer which counts the number of subexpressions.

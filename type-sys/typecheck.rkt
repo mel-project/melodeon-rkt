@@ -699,6 +699,7 @@
          ; TODO restrict type to just the slice, not the union of the whole
          ; vector
          (cons
+          ; TODO wrong type
           ($-Ast ($type $val)
                  ($slice $val from to))
           tf-empty))]
@@ -988,7 +989,8 @@
                                         (cg-template-fill (type-template-fill x type-unification-table)
                                                           cg-unification-table))
                                       param-types)
-                                 (type-template-fill res-type type-unification-table))])))]
+                                 (cg-template-fill (type-template-fill res-type type-unification-table)
+                                                   cg-unification-table))])))]
     [_ accum]))
 
 

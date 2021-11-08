@@ -82,6 +82,7 @@
                   (() empty))
       (<const-expr> ;((<const-expr> * <const-expr>) `(* ,$1 ,$3))
                     ((<const-expr> + <const-expr-2>) `(+ ,$1 ,$3))
+                    ((<const-expr> - <const-expr-2>) `(- ,$1 ,$3))
                     ((<const-expr-2>) $1))
       (<const-expr-2>
                     ((NUM) $1)
